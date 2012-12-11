@@ -365,6 +365,28 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
      and b with a trivial one.
      
      As stated before, this must be done in a separate step.
+     
+     
+     
+     
+     
+     
+     **************************************************************************
+     **************************************************************************
+     
+     
+     FIXME!!! The last vertex (in the upper most corner is being Dirichlet'ed!)
+     Also, forcing with a hack that it's not dirichlet'ed, doesnt't help much,
+     boundary conditions are still weirdly imposed at the corner
+     
+     
+     **************************************************************************
+     **************************************************************************
+     
+     
+     
+     
+     
      */
 
   coord_t dirichlet;
@@ -383,7 +405,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
           if (boundaryVisited.count (ii) > 0)
             continue;
-            //cout << "Dirichlet'ing node: " << ii << "\n";
+          cout << "Dirichlet'ing node: " << ii << " at " << is->geometry().center() << "\n";
           boundaryVisited.insert(ii);
           A[ii] = 0.0;
           A[ii][ii] = I;
