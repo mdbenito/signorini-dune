@@ -94,7 +94,7 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling!!
     
-    testShapes<ctype, dim, Q1ShapeFunctionSet>();
+      //testShapes<ctype, dim, Q1ShapeFunctionSet>();
     
     cout << "-----------------------------------\n";
     cout << "Number of unknowns: " << grid.size(dim) << "\n";
