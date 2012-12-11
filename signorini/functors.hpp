@@ -78,9 +78,9 @@ public:
   {
     coord_t ret;
 
-    if (x[1] > 0.90)
+    if (x[1] > 0.50 && x[0] > 0  && ((x[0]==1 && x[1]==1) || x[0] < 1))
       ret <<= (1.9231*x[0] - 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
-    else if (x[0] > 0.90)
+    else if (x[0] > 0.50 && x[1] < 1 && x[1] > 0)
       ret <<= (6.7308*x[1] - 5.7692)*1.0e7, (1.9231 - 3.8462*x[1])*1.0e7;
 
     /*
@@ -102,7 +102,8 @@ public:
   
   inline bool isSupported (const FieldVector<ctype, dim>& x) const
   {
-    return (x[0] > 0.90 || x[1] > 0.90 ); // Temporary. FIXME
+    return (x[1] > 0.50 && x[0] > 0 && x[0] < 1) ||
+           (x[0] > 0.50 && x[1] < 1 && x[1] > 0); // Temporary. FIXME
   }
 };
 
