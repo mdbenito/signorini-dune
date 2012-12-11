@@ -81,9 +81,10 @@ private:
   CoordVector u;  //!< Solution
   
   std::vector<std::set<int> > adjacencyPattern;
+  int quadratureOrder;
   
 public:
-  SignoriniFEPenalty (const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g);
+  SignoriniFEPenalty (const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g, int _quadratureOrder = 4);
   
   void determineAdjacencyPattern ();
   void initialize ();
@@ -105,8 +106,9 @@ public:
 
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::SignoriniFEPenalty
-(const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g)
-: gv (_gv), a (_a), f (_f), p (_p), g(_g)
+(const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g,
+ int _quadratureOrder)
+: gv (_gv), a (_a), f (_f), p (_p), g(_g), quadratureOrder(_quadratureOrder)
 {
   I = 0.0;
   for (int i=0; i < dim; ++i)
@@ -269,11 +271,11 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
     
     int vnum = ref.size (dim);   // Number of vertices
     
-      // get a quadrature rule of order two for the geometry type, then
+      // get a quadrature rule of order four for the geometry type, then
       // compute transformed gradients, then
       // gain global indices of vertices i and j and update associated matrix entry
     
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
+    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, quadratureOrder)) {
       block_t jacInvTra = ig.jacobianInverseTransposed (x.position ());
       coord_t grad1, grad2;
 
@@ -297,9 +299,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
       }
     }
 
-      //// Integrand of the RHS (using a quadrature rule of order three)
+      //// Integrand of the RHS (using a quadrature rule of order four)
     
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 3))
+    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, quadratureOrder))
       for (int i = 0 ; i < vnum; ++i)
         b[iset.subIndex (*it, i, dim)] += f (it->geometry ().global (x.position ())) *
                                           basis[i].evaluateFunction (x.position ()) *
@@ -332,7 +334,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
               //cout << "Neumann'ing node: " << ii << "\n";
             boundaryVisited.insert (ii);
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (igt, 3)) {
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (igt, quadratureOrder)) {
               b[ii] += p (ig.global (x.position ())) *
                        basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
                        x.weight () *
