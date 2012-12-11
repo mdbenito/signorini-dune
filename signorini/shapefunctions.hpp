@@ -19,7 +19,9 @@ class LinearShapeFunction
   typedef FieldVector<ctype, dim> coord_t;
   
 public:
-  enum { D = dim };
+  const GeometryType::BasicType basicType = GeometryType::simplex;
+  
+  enum { N = dim };
   
   LinearShapeFunction () : coeff0(0.0), coeff1(0.0) {}
   
@@ -178,6 +180,7 @@ class Q1ShapeFunctionSet
   typedef FieldVector<ctype, dim> coord_t;
 
 public:
+  const GeometryType::BasicType basicType = GeometryType::cube;
   enum { N = 1 << dim};
   
   typedef MLinearShapeFunction<ctype, dim> ShapeFunction;
@@ -204,7 +207,7 @@ private:
   Q1ShapeFunctionSet (const Q1ShapeFunctionSet& other) { }
   Q1ShapeFunctionSet ()
   {
-    cout << "Initialiting Q1ShapeFunctionSet of size " << N << "\n";
+      //cout << "Initialiting Q1ShapeFunctionSet of size " << N << "\n";
     for (unsigned long i=0; i < N; ++i)  // overkill type
       f[i] = new ShapeFunction (i);
       //FIXME!

@@ -8,6 +8,8 @@
 #include <cmath>
 #include "shapefunctions.hpp"
 
+using std::cout;
+
 template<class K, int R, int C>
 FieldMatrix<K, R, C> operator* (const FieldMatrix<K, R, C>& m, const K& d)
 {
@@ -75,29 +77,29 @@ long double computeError (const std::vector<T>& uu, const std::vector<T>& vv)
   return r / n;
 }
 
-  // TODO: generalize this for arbitrary shapeSets
-template <class ctype, int dim>
+template <class ctype, int dim, template <class, int> class ShapeSet>
 bool testShapes()
 {
-  std::cout << "Testing shapes for dimension " << dim << ":\n";
-  const Q1ShapeFunctionSet<ctype,dim>& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
-  
-  const GenericReferenceElement<ctype, dim>& cube =
-        GenericReferenceElements<ctype, dim>::cube ();
-  
+  const auto& basis = ShapeSet<ctype, dim>::instance ();
+  GeometryType gt (basis.basicType, dim);
+  const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
   FieldVector<ctype, dim> x;
+  
+  cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
+  cout << "Testing vertices:\n";
   for (int i=0; i < basis.N; ++i) {
-    for (int v = 0; v < cube.size(dim); ++v) {
-        x = cube.position (v, dim);
-        std::cout << "Basis[" << i << "](" << x << ") = "
-                  << basis[i].evaluateFunction (x) << "\n";
+    for (int v = 0; v < element.size (dim); ++v) {
+        x = element.position (v, dim);
+        cout << "   Basis[" << i << "](" << x << ") = "
+             << basis[i].evaluateFunction (x) << "\n";
     }
   }
   
+  cout << "Testing quadrature of order two:\n";
   for (int i=0; i < basis.N; ++i) {
-    for (auto& x : QuadratureRules<ctype, dim>::rule (GeometryType::cube, 2)) {
-        std::cout << "Basis[" << i << "](" << x.position() << ") = "
-                  << basis[i].evaluateFunction (x.position()) << "\n";
+    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
+        cout << "   Basis[" << i << "](" << x.position() << ") = "
+             << basis[i].evaluateFunction (x.position()) << "\n";
     }
   }
 
