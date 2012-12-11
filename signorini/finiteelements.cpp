@@ -297,9 +297,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
       }
     }
 
-      //// Integrand of the RHS (using a quadrature rule of order two)
+      //// Integrand of the RHS (using a quadrature rule of order three)
     
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2))
+    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 3))
       for (int i = 0 ; i < vnum; ++i)
         b[iset.subIndex (*it, i, dim)] += f (it->geometry ().global (x.position ())) *
                                           basis[i].evaluateFunction (x.position ()) *
@@ -332,7 +332,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
               //cout << "Neumann'ing node: " << ii << "\n";
             boundaryVisited.insert (ii);
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (igt, 2)) {
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (igt, 3)) {
               b[ii] += p (ig.global (x.position ())) *
                        basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
                        x.weight () *
