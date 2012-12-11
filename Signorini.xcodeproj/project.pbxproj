@@ -1,0 +1,270 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		498DE65C163AC44500D62D92 /* finiteelements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DE65A163AC44500D62D92 /* finiteelements.cpp */; };
+		49C47D101632FF8B00D38056 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 49C47D0F1632FF8B00D38056 /* main.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		49C47D091632FF8B00D38056 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		491132E11674009F009F1A5C /* utils.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = utils.hpp; sourceTree = "<group>"; };
+		498DE65A163AC44500D62D92 /* finiteelements.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = finiteelements.cpp; sourceTree = "<group>"; };
+		498DE65B163AC44500D62D92 /* shapefunctions.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = shapefunctions.hpp; sourceTree = "<group>"; };
+		49C47D0B1632FF8B00D38056 /* Signorini */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Signorini; sourceTree = BUILT_PRODUCTS_DIR; };
+		49C47D0F1632FF8B00D38056 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		49C47D1A1633007400D38056 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		49C47D2E16343A2000D38056 /* functors.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = functors.hpp; sourceTree = "<group>"; };
+		49C47D2F16343B1D00D38056 /* integration.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = integration.hpp; sourceTree = "<group>"; };
+		49C47D3016343F4B00D38056 /* traverse.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = traverse.hpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		49C47D081632FF8B00D38056 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		49C47D001632FF8B00D38056 = {
+			isa = PBXGroup;
+			children = (
+				49C47D0E1632FF8B00D38056 /* Signorini */,
+				49C47D0C1632FF8B00D38056 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		49C47D0C1632FF8B00D38056 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				49C47D0B1632FF8B00D38056 /* Signorini */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		49C47D0E1632FF8B00D38056 /* Signorini */ = {
+			isa = PBXGroup;
+			children = (
+				49C47D1A1633007400D38056 /* config.h */,
+				498DE65A163AC44500D62D92 /* finiteelements.cpp */,
+				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
+				49C47D2F16343B1D00D38056 /* integration.hpp */,
+				49C47D2E16343A2000D38056 /* functors.hpp */,
+				491132E11674009F009F1A5C /* utils.hpp */,
+				49C47D0F1632FF8B00D38056 /* main.cpp */,
+				49C47D3016343F4B00D38056 /* traverse.hpp */,
+			);
+			name = Signorini;
+			path = signorini;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		49C47D0A1632FF8B00D38056 /* Signorini */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49C47D151632FF8B00D38056 /* Build configuration list for PBXNativeTarget "Signorini" */;
+			buildPhases = (
+				49C47D071632FF8B00D38056 /* Sources */,
+				49C47D081632FF8B00D38056 /* Frameworks */,
+				49C47D091632FF8B00D38056 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Signorini;
+			productName = signorini;
+			productReference = 49C47D0B1632FF8B00D38056 /* Signorini */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		49C47D021632FF8B00D38056 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0450;
+				ORGANIZATIONNAME = 8027;
+			};
+			buildConfigurationList = 49C47D051632FF8B00D38056 /* Build configuration list for PBXProject "Signorini" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 49C47D001632FF8B00D38056;
+			productRefGroup = 49C47D0C1632FF8B00D38056 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				49C47D0A1632FF8B00D38056 /* Signorini */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		49C47D071632FF8B00D38056 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49C47D101632FF8B00D38056 /* main.cpp in Sources */,
+				498DE65C163AC44500D62D92 /* finiteelements.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		49C47D131632FF8B00D38056 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		49C47D141632FF8B00D38056 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		49C47D161632FF8B00D38056 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_UNROLL_LOOPS = YES;
+				GCC_VERSION = "";
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
+				LLVM_LTO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-lm",
+					"-lmpi",
+					"-lmpi_cxx",
+					"-ldunecommon",
+					"-ldunegrid",
+					"-ldunepdelab",
+					"-ldunegeometry",
+					"-ldunealbertagrid_2d",
+					"-lalberta_2d",
+					"-lalberta_utilities",
+				);
+				PRODUCT_NAME = Signorini;
+				SDKROOT = macosx10.7;
+			};
+			name = Debug;
+		};
+		49C47D171632FF8B00D38056 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_UNROLL_LOOPS = YES;
+				GCC_VERSION = "";
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
+				LLVM_LTO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-lm",
+					"-lmpi",
+					"-lmpi_cxx",
+					"-ldunecommon",
+					"-ldunegrid",
+					"-ldunepdelab",
+					"-ldunegeometry",
+					"-ldunealbertagrid_2d",
+					"-lalberta_2d",
+					"-lalberta_utilities",
+				);
+				PRODUCT_NAME = Signorini;
+				SDKROOT = macosx10.7;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		49C47D051632FF8B00D38056 /* Build configuration list for PBXProject "Signorini" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49C47D131632FF8B00D38056 /* Debug */,
+				49C47D141632FF8B00D38056 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		49C47D151632FF8B00D38056 /* Build configuration list for PBXNativeTarget "Signorini" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49C47D161632FF8B00D38056 /* Debug */,
+				49C47D171632FF8B00D38056 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 49C47D021632FF8B00D38056 /* Project object */;
+}
