@@ -264,9 +264,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
    exactly as many nodes as vertices has an element (that's why we may use vnum)
    */
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    GeometryType gt = it->type ();
-    const auto& ref = GenericReferenceElements<ctype, dim>::general (gt);
-    const auto&  ig = it->geometry();
+    GeometryType igt = it->type ();
+    const auto&  ref = GenericReferenceElements<ctype, dim>::general (igt);
+    const auto&  ige = it->geometry();
       //printCorners (ig);
     
     int vnum = ref.size (dim);   // Number of vertices
@@ -275,8 +275,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
       // compute transformed gradients, then
       // gain global indices of vertices i and j and update associated matrix entry
     
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, quadratureOrder)) {
-      block_t jacInvTra = ig.jacobianInverseTransposed (x.position ());
+    for (auto& x : QuadratureRules<ctype, dim>::rule (igt, quadratureOrder)) {
+      block_t jacInvTra = ige.jacobianInverseTransposed (x.position ());
       coord_t grad1, grad2;
 
       for (int i = 0; i < vnum; ++i) {
@@ -289,19 +289,19 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           auto jj = iset.subIndex (*it, j, dim);
           try {
             A[ii][jj] +=
-              a (grad1, grad2) * x.weight () * ig.integrationElement (x.position ());
+              a (grad1, grad2) * x.weight () * ige.integrationElement (x.position ());
           } catch (ISTLError& e) {
               // If we are here, the adjacencyPattern does not match.
             cout << "FAILED setting data for A[" << ii << ", " << jj << "] = ";
-            cout << "(" << ig.corner(i) << ") x (" << ig.corner (j) << ")\n";
+            cout << "(" << ige.corner(i) << ") x (" << ige.corner (j) << ")\n";
           }
         }
       }
     }
 
-      //// Integrand of the RHS (using a quadrature rule of order four)
+      //// Integrand of the RHS
     
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, quadratureOrder))
+    for (auto& x : QuadratureRules<ctype, dim>::rule (igt, quadratureOrder))
       for (int i = 0 ; i < vnum; ++i)
         b[iset.subIndex (*it, i, dim)] += f (it->geometry ().global (x.position ())) *
                                           basis[i].evaluateFunction (x.position ()) *
@@ -341,7 +341,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
                        ig.integrationElement (x.position ());
             }
           }
-        }/*  else if (g.isSupported (ig)) {    // Signorini conditions.
+        }/* else if (g.isSupported (ig)) {    // Signorini conditions.
           //cout << "Signorini'ing: "; printCorners (ig);
           for (int i = 0 ; i < vnum; ++i) {
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
@@ -393,8 +393,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
   dirichlet <<= zero; // 0.0, -0.07;
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    GeometryType gt = it->type ();
-    const auto& ref = GenericReferenceElements<ctype, dim>::general (gt);
+    const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
     
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
@@ -402,10 +401,11 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
         
         for (int i = 0; i < vertexnum; ++i) {
-          int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
-          if (boundaryVisited.count (ii) > 0)
+          auto c = is->inside()->geometry().center();
+          int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim) , dim);
+          if (boundaryVisited.count (ii) > 0 || c[0] >= 0.99 || c[1] >= 0.99) // HACK!
             continue;
-          cout << "Dirichlet'ing node: " << ii << " at " << is->geometry().center() << "\n";
+            //cout << "Dirichlet'ing node: " << ii << " of isect at " << c << "\n";
           boundaryVisited.insert(ii);
           A[ii] = 0.0;
           A[ii][ii] = I;
