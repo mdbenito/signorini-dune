@@ -21,7 +21,7 @@
 
 /*! Kronecker's delta. */
 template <typename T>
-inline int kron (const T& i, const T& j)
+inline double kron (const T& i, const T& j)
 {
   return (i==j) ? 1.0 : 0.0;
 }
