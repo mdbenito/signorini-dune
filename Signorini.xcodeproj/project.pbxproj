@@ -200,15 +200,9 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lm",
-					"-lmpi",
-					"-lmpi_cxx",
 					"-ldunecommon",
 					"-ldunegrid",
-					"-ldunepdelab",
 					"-ldunegeometry",
-					"-ldunealbertagrid_2d",
-					"-lalberta_2d",
-					"-lalberta_utilities",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
@@ -228,15 +222,9 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lm",
-					"-lmpi",
-					"-lmpi_cxx",
 					"-ldunecommon",
 					"-ldunegrid",
-					"-ldunepdelab",
 					"-ldunegeometry",
-					"-ldunealbertagrid_2d",
-					"-lalberta_2d",
-					"-lalberta_utilities",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;

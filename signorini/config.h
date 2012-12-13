@@ -119,7 +119,7 @@
 
 /* This is only true if alberta-library was found by configure _and_ if the
    application uses the ALBERTA_CPPFLAGS */
-#define HAVE_ALBERTA ENABLE_ALBERTA
+  //#define HAVE_ALBERTA ENABLE_ALBERTA
 
 /* Was AlgLib for DUNE found and ALGLIB_CPPFLAGS used? */
 /* #undef HAVE_ALGLIB */
