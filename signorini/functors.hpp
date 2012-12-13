@@ -74,7 +74,7 @@ class Tractions {
   typedef FieldVector<ctype, dim> coord_t;
 
 public:
-  inline coord_t operator() (const FieldVector<ctype, dim>& x) const
+  inline coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
 
@@ -94,13 +94,13 @@ public:
   bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
   {
     for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner(i)))
+      if (! isSupported (geo.corner (i)))
         return false;
 
     return true;
   }
   
-  inline bool isSupported (const FieldVector<ctype, dim>& x) const
+  inline bool isSupported (const coord_t& x) const
   {
     return (x[1] > 0.50 && x[0] > 0 && x[0] < 1) ||
            (x[0] > 0.50 && x[1] < 1 && x[1] > 0); // Temporary. FIXME
@@ -108,7 +108,12 @@ public:
 };
 
 
-  // A boundary scalar functor. Implements isSupported()
+/*! A boundary scalar functor.
+ 
+ - Expects global coordinates for evaluation.
+ - Implements isSupported()
+ 
+ */
 template <typename ctype, int dim>
 class NormalGap {  
   typedef FieldVector<ctype, dim> coord_t;
@@ -129,7 +134,7 @@ public:
     return true;
   }
   
-  inline bool isSupported (const FieldVector<ctype, dim>& x) const
+  inline bool isSupported (const coord_t& x) const
   {
     return (x[1] < 0.1); // Temporary. FIXME
   }
