@@ -1,10 +1,30 @@
+/******************************************************************************
+ * functors.cpp                                                               *
+ *                                                                            *
+ * Collection of functors needed for a specific problem.                      *
+ * Functors expect global coordinates for evaluation. They implement a method *
+ * isSupported() accepting Dune::Geometry as argument and another a coord_t   *
+ *                                                                            *
+ * TODO:                                                                      *
+ *   - Use data associated to a grid to define the support of any functor.    *
+ *   - Tests                                                                  *
+ *   - For fun: use policies in a Functor template class to specify how the   *
+ *     support is defined (grid or manually), whether coordinates are local   *
+ *     or global, ...)                                                        *
+ *                                                                            *
+ ******************************************************************************/
 #ifndef FUNCTORS_HPP
 #define FUNCTORS_HPP
 
 #include <dune/common/fvector.hh>
 #include <dune/common/fassign.hh>
 
-#define KRON(i,j) ((i==j) ? 1.0 : 0.0)
+/*! Kronecker's delta. */
+template <typename T>
+inline int kron (const T& i, const T& j)
+{
+  return (i==j) ? 1.0 : 0.0;
+}
 
 /*! Compute the action of the Hooke tensor on two vectors.
  
@@ -20,8 +40,7 @@ class HookeTensor {
   tensor_t a;
 
 public:
-  
-  
+
   /*! Compute Lamé coefficients from Young's modulus and Poisson's ratio
    and initialize the coefficients of the tensor.
    */
@@ -34,8 +53,8 @@ public:
       for (int j = 0; j < dim; ++j)
         for (int k = 0; k < dim; ++k)
           for (int l = 0; l < dim; ++l) {
-            a[i][j][k][l] = lambda * KRON(i, j) * KRON(k, l) +
-                            mu * (KRON(i,k)*KRON(j,l) + KRON(i,l)*KRON(j,k));
+            a[i][j][k][l] = lambda * kron(i, j) * kron(k, l) +
+                            mu * (kron(i,k)*kron(j,l) + kron(i,l)*kron(j,k));
           }
       //printmatrix(std::cout, a, "Hooke Tensor", "row", 12, 10);
   }
@@ -77,17 +96,22 @@ public:
   inline coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-
+/* Tests: the commented lines are as in the paper by Figueiredo & Viaño.
     if (x[1] > 0.98 && x[0] > 0)
         //ret <<= (1.9231*x[0] - 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
       ret <<= (-1.9231*x[0] + 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
     else if (x[0] > 0.98)
         //ret <<= (6.7308*x[1] - 5.7692)*1.0e7, (1.9231 - 3.8462*x[1])*1.0e7;
-      ret <<= (-1.9231*x[1] + 3.8462)*1.0e7, (1.9231 - 13.462*x[1])*1.0e7;
+      ret <<= (-1.9231*x[1] + 3.8462)*1.0e7, (-13.462*x[1] + 2.8846)*1.0e7;
     else
       ret <<= zero;
-
-    /*
+*/
+    if (x[0] >= 1-x[1])
+      ret <<= (-1.9231*x[1] + 3.8462)*1.0e7, (-13.462*x[1] + 2.8846)*1.0e7;
+    else
+      ret <<=  zero;
+    
+    /* The values in Hüber&Wohlmuth2005
     if (isSupported(x)) ret <<= (0.5-x[0])*30, 6.5;  // 2D
     else                ret <<= zero;
      */
@@ -106,17 +130,12 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[1] > 0.98 && x[0] > 0) || (x[0] > 0.98); // Temporary. FIXME
+    return (x[0] > 1 - x[1]);  // TEMPORARY
   }
 };
 
 
-/*! A boundary scalar functor.
- 
- - Expects global coordinates for evaluation.
- - Implements isSupported()
- 
- */
+/*! A boundary scalar functor. */
 template <typename ctype, int dim>
 class NormalGap {  
   typedef FieldVector<ctype, dim> coord_t;
@@ -124,22 +143,25 @@ class NormalGap {
 public:
   inline ctype operator() (const coord_t& x) const
   {
-    return isSupported(x) ? 0.05 : 0;  // Temporary. FIXME
+    return isSupported(x) ? 0.005 : 0;  // Temporary. FIXME
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
   bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
   {
     for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner(i)))
+      if (! isSupported (geo.corner(i))) {
+          //cout << "Not supported at " << geo.corner(i) << "\n";
         return false;
+      }
+    
     
     return true;
   }
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[1] < 0.1); // Temporary. FIXME
+    return (x[1] < 0.01 && x[0] != 0); // Temporary. FIXME
   }
 };
 

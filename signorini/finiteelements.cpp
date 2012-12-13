@@ -28,6 +28,9 @@
 using namespace Dune;
 using std::cout;
 
+template <class C, int D> Q1ShapeFunctionSet<C,D>*
+Q1ShapeFunctionSet<C,D>::_instance = 0;
+
 /*! SignoriniFEPenalty for the Signorini problem using a penalty method.
 
  Implements an iterative scheme for the approximate computation of the solutions
@@ -99,7 +102,7 @@ public:
     std::vector<ctype> ret;
     for (auto& p : u)
       for (auto& c : p)
-        ret.push_back (c);  // HACK, TEST
+        ret.push_back (c);
     return ret;
   }
 };
@@ -234,29 +237,25 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
  We traverse all faces of all elements with the intersection iterator gv.ibegin()...
  Boundary conditions must be so set, that the Neumann and Signorini boundaries have
  no vertices in common. For every Neumann face we compute the contributions
- to the system and tag all the vertices as visited. Finally we set all untagged
- vertices as being of Dirichlet kind.
+ to the system.
  
- We must do the latter in a separate loop through all boundary faces, because of the
- destructive way in which we impose the Dirichlet condition: even if we did allow
- overriding of Dirichlet nodes by the other kinds, we'd have empty rows in the stiffness
- matrix.
- 
- FIXME: the method with the std::set (which find()s a key in log time) is probably
- awfully inefficient.
+ Last we apply Dirichlet conditions in a separate loop through all boundary faces, 
+ because of the destructive way in which we impose the Dirichlet condition: even 
+ if we did allow overriding of Dirichlet nodes by the other kinds, we'd have
+ empty rows in the stiffness matrix.
  */
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
 {
   cout << "Gathering gremlins... ";
-  std::set<int> boundaryVisited;
+  std::set<int> boundaryVisited;         // just for debugging
   const auto&  iset = gv.indexSet ();
   const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
   
     //cout << "*** Traversing codim 0 leaves:" << endl;
   
   /*
-   We compute the stiffness matrix in an intuitive way: for each entry A_ij one
+   We compute the stiffness matrix in an unintuitive way: for each entry A_ij one
    must integrate (a function of) the gradients on all the domain, but instead
    of traversing the whole grid for every entry, we traverse once and compute the
    contribution of each of the basis functions on each element to their corresponding
@@ -271,9 +270,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
     
     int vnum = ref.size (dim);   // Number of vertices
     
-      // get a quadrature rule of order four for the geometry type, then
-      // compute transformed gradients, then
-      // gain global indices of vertices i and j and update associated matrix entry
+      // Get a quadrature rule for the geometry type, then compute transformed
+      // gradients, obtain global indices of vertices i and j and update the
+      // associated matrix entry.
     
     for (auto& x : QuadratureRules<ctype, dim>::rule (igt, quadratureOrder)) {
       block_t jacInvTra = ige.jacobianInverseTransposed (x.position ());
@@ -365,28 +364,6 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
      and b with a trivial one.
      
      As stated before, this must be done in a separate step.
-     
-     
-     
-     
-     
-     
-     **************************************************************************
-     **************************************************************************
-     
-     
-     FIXME!!! The last vertex (in the upper most corner is being Dirichlet'ed!)
-     Also, forcing with a hack that it's not dirichlet'ed, doesnt't help much,
-     boundary conditions are still weirdly imposed at the corner
-     
-     
-     **************************************************************************
-     **************************************************************************
-     
-     
-     
-     
-     
      */
 
   coord_t dirichlet;
@@ -401,11 +378,13 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
         
         for (int i = 0; i < vertexnum; ++i) {
-          auto c = is->inside()->geometry().center();
-          int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim) , dim);
-          if (boundaryVisited.count (ii) > 0 || c[0] >= 0.99 || c[1] >= 0.99) // HACK!
+          auto rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
+          auto v = it->template subEntity<dim> (rsub)->geometry().center();
+          int ii = iset.subIndex (*it, rsub , dim);
+            // TEMP: Must be consistent with the other conditions! (i.e. this sucks)
+          if (v[0] != 0) //(v[0] > 1-v[1]) //(boundaryVisited.count (ii) > 0)
             continue;
-            //cout << "Dirichlet'ing node: " << ii << " of isect at " << c << "\n";
+          cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
           boundaryVisited.insert(ii);
           A[ii] = 0.0;
           A[ii][ii] = I;
@@ -421,7 +400,15 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
 
 /*! Assemble the penalty matrix and rhs vector.
  
-
+ At each quadrature point, check whether for the previous solution
+ 
+    u_{t-1}*n-g 
+ 
+ was positive and add 
+ 
+    u_t*n-g
+ 
+ only in that case
  */
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
@@ -433,7 +420,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
   P   = 0.0;
   r   = 0.0;
   
-    //cout << "Penalizing nodes: ";
+  cout << "Penalizing nodes: ";
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType gt = it->type ();
     const auto& ref = GenericReferenceElements<ctype, dim>::general (gt);
@@ -446,19 +433,17 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
                 
         if (g.isSupported (ig)) {  // Possible contact zone.
           const auto&  igt = is->type ();
-          const auto& rule = QuadratureRules<ctype, dim-1>::rule (igt, 2);
+          const auto& rule = QuadratureRules<ctype, dim-1>::rule (igt, 4);
           block_t  penalty (0.0);
 
           for (int i = 0 ; i < vnum; ++i) {
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
             
-              // At each quadrature point, check whether for the previous solution
-              // u_{t-1}*n-g was positive and add u_t*n-g only in that case
             for (auto& x : rule) {
               coord_t n = is->unitOuterNormal (x.position ());
                 // FIXME! Shouldn't I try to interpolate the solution to evaluate it in the quadrature point?
               if (n * u[ii] - g (ig.global (x.position())) > 0) {
-                  //cout << " " << ii;
+                cout << " " << ii;
                 r[ii] += n *
                          basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
                          g (ig.global (x.position ())) *
@@ -488,7 +473,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
       }
     }
   }
-    //cout << ".\n";
+  cout << ".\n";
 }
 
 

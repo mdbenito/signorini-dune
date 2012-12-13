@@ -12,12 +12,11 @@
  
  newPoints = vtk.vtkPoints()
  for i in range(0, pdi.GetNumberOfPoints()):
- coord = pdi.GetPoint(i)
- x, y, z = coord[:3]
- x = x + solX.GetValue(i)/5
- y = y + solY.GetValue(i)/5
-
- newPoints.InsertPoint(i, x, y, z)
+   coord = pdi.GetPoint(i)
+   x, y, z = coord[:3]
+   x = x + solX.GetValue(i)/5
+   y = y + solY.GetValue(i)/5
+   newPoints.InsertPoint(i, x, y, z)
  
  pdo.SetPoints(newPoints)
  
@@ -88,26 +87,14 @@ int main (int argc, char** argv)
   
   const GV& gv = grid.leafView();
   
-  SignoriniFEPenalty<GV, Hooke, VolumeForces, BoundaryForces, Gap> p1 (gv, a, f, p, g);
+  SignoriniFEPenalty<GV, Hooke, VolumeForces, BoundaryForces, Gap> p1 (gv, a, f, p, g, 4);
   
     //// Solution
   
   try {   // Pokemon Exception Handling!!
     
       //testShapes<ctype, dim, Q1ShapeFunctionSet>();
-    /*
-    for (double x=0; x <= 1.0; x+=0.01) {
-      coord_t point;
-      point <<= x, 0.99;
-      cout << "X-Test (" << x << ", " << 0.99 << "): " << p(point) << "\n";
-    }
-    for (double y=0; y <= 1.0; y+=0.01) {
-      coord_t point;
-      point <<= 0.99, y;
-      cout << "Y-Test (" << 0.99 << ", " << y << "): " << p(point) << "\n";
-    }
-    exit(2);
-    */
+
     cout << "-----------------------------------\n";
     cout << "Number of unknowns: " << grid.size(dim) << "\n";
 
@@ -116,11 +103,13 @@ int main (int argc, char** argv)
     p1.assembleMain();
       //printmatrix(std::cout, p1.A, "Stiffness matrix","");
   
-    int     step = 0;
-    double   eps = 1.0e-3;
-    double error = 1.0;
+    int         step = 0;
+    double       eps = 1.0e-3;
+    double tolerance = 1.0e-5;
+    double     error = 1.0;
     
-    while (step++ < 10 && error > 1.0e-3) {
+      //while (step++ < 10 && (error > tolerance || (error <= tolerance && step < 5))) {
+    while (step++ < 10 && error > tolerance) {
       auto previous = p1.solutionAsVector();
       
       cout << "Assembling data for iteration " << step << "... ";

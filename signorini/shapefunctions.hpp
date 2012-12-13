@@ -227,8 +227,4 @@ private:
   }
 };
 
-template <class C, int D> Q1ShapeFunctionSet<C,D>*
-Q1ShapeFunctionSet<C,D>::_instance = 0;
-
-
 #endif  //SHAPEFUNCTIONS_HPP
