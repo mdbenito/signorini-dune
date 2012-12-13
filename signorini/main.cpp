@@ -95,7 +95,19 @@ int main (int argc, char** argv)
   try {   // Pokemon Exception Handling!!
     
       //testShapes<ctype, dim, Q1ShapeFunctionSet>();
-    
+    /*
+    for (double x=0; x <= 1.0; x+=0.01) {
+      coord_t point;
+      point <<= x, 0.99;
+      cout << "X-Test (" << x << ", " << 0.99 << "): " << p(point) << "\n";
+    }
+    for (double y=0; y <= 1.0; y+=0.01) {
+      coord_t point;
+      point <<= 0.99, y;
+      cout << "Y-Test (" << 0.99 << ", " << y << "): " << p(point) << "\n";
+    }
+    exit(2);
+    */
     cout << "-----------------------------------\n";
     cout << "Number of unknowns: " << grid.size(dim) << "\n";
 
