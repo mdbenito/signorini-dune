@@ -211,7 +211,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
   P.endindices ();
   
   A = 0.0;
+  P = 0.0;
   b = 0.0;
+  r = 0.0;
   u = 0.0;
   
   cout << "ok.\n";
@@ -279,7 +281,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           auto jj = iset.subIndex (*it, j, dim);
           try {
             A[ii][jj] +=
-              a (grad1, grad2) * x.weight () * geo.integrationElement (x.position ());
+              a (grad2, grad1) * x.weight () * geo.integrationElement (x.position ());
           } catch (ISTLError& e) {       // The adjacencyPattern does not match.
             cout << "FAILED setting data for A[" << ii << ", " << jj << "] = "
                  << "(" << geo.corner(i) << ") x (" << geo.corner (j) << ")\n";
@@ -332,7 +334,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
                        bgeo.integrationElement (x.position ());
             }
           }
-        } else if (g.isSupported (bgeo)) {    // Signorini conditions.
+        }
+        /*else if (g.isSupported (bgeo)) {    // Signorini conditions.
           //cout << "Signorini'ing: "; printCorners (ig);
           for (int i = 0 ; i < bvnum; ++i) {
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
@@ -345,7 +348,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
               boundaryVisited.insert (jj);
             }
           }
-        }
+        }*/
       }
     }
   }
@@ -373,14 +376,14 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           auto rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
           auto v = it->template subEntity<dim> (rsub)->geometry().center();
           int ii = iset.subIndex (*it, rsub , dim);
-            // FIXME! Must be consistent with the other conditions! (i.e. this sucks)
-          if (v[0] > 1-v[1]) //(boundaryVisited.count (ii) > 0)
-            continue;
-            //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
-          boundaryVisited.insert(ii);
-          A[ii] = 0.0;
-          A[ii][ii] = I;
-          b[ii] = dirichlet;
+          
+          if (boundaryVisited.count (ii) == 0) {
+              //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+            boundaryVisited.insert(ii);
+            A[ii] = 0.0;
+            A[ii][ii] = I;
+            b[ii] = dirichlet;
+          }
         }
       }
     }
@@ -413,7 +416,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
   r   = 0.0;
   
   unsigned int cnt = 0;
-  cout << "\n   Penalizing nodes... ";
+  cout << "\n   Punishing creatures... ";
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType gt = it->type ();
     const auto& ref = GenericReferenceElements<ctype, dim>::general (gt);
@@ -426,7 +429,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
                 
         if (g.isSupported (ig)) {  // Possible contact zone.
           const auto&  igt = is->type ();
-          const auto& rule = QuadratureRules<ctype, dim-1>::rule (igt, 4);
+          const auto& rule = QuadratureRules<ctype, dim-1>::rule (igt, 2*(dim-1));
           block_t  penalty (0.0);
 
           for (int i = 0 ; i < vnum; ++i) {
@@ -458,6 +461,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
                     P[ii][jj] += penalty;
                   }
                 }
+              } else {
+                cout << "\nNot penalizing. n= " << n << ", u[" << ii << "]= "
+                     << u[ii] << ", g= " << g(global) << ", result= " << n * u[ii] - g (global);
               }
             }
           }
@@ -484,8 +490,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::solve ()
 {
-  BlockMatrix B = A;//  B += P;      // Add penalties
-  CoordVector c = b;//  c += r;      // Add penalties
+  BlockMatrix B = A;  B += P;      // Add penalties
+  CoordVector c = b;  c += r;      // Add penalties
 
   /*
   cout << "Writing sparse matrix to /tmp/stiff\n";

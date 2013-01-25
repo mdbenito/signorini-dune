@@ -19,6 +19,8 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fassign.hh>
 
+#include "utils.hpp"
+
 /*! Kronecker's delta. */
 template <typename T>
 inline double kron (const T& i, const T& j)
@@ -82,8 +84,8 @@ public:
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-    ret <<= 9.6154e7, -4.8077e7;   // Values from [FV05, p.36]
-    return ret;
+    ret[0] = 9.6154; ret[1] = -4.8077;   // Values from [FV05, p.36]
+    return ret*1.0e7;
   }
 };
 
@@ -99,18 +101,22 @@ public:
 
       // Values from [FV05, p.36]
     
-    if (x[1] == 1.0)
-      ret <<= (1.9231*x[0] - 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
-    else if (x[0] == 1.0)
-      ret <<= (6.7308*x[1] - 5.7692)*1.0e7, (1.9231 - 3.8462*x[1])*1.0e7;
-    else
-      ret <<= zero;
+    if (x[1] == 1.0) {
+      ret[0] =  1.9231*x[0] - 3.8462;
+      ret[1] = -13.462*x[0] + 2.8846;
+    } else if (x[0] == 1.0) {
+      ret[0] = 6.7308*x[1] - 5.7692;
+      ret[1] = 1.9231 - 3.8462*x[1];
+    } else {
+        ret <<= zero;
+    }
+    
+    return ret*1.0e7;
     
     /* The values in Hüber&Wohlmuth2005
     if (isSupported(x)) ret <<= (0.5-x[0])*30, 6.5;  // 2D
     else                ret <<= zero;
      */
-    return ret;
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
