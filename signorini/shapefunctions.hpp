@@ -191,13 +191,25 @@ public:
     return *_instance;
   }
 
+  inline const ShapeFunction& operator[] (int i) const
+  {
+    if (i < 0 || i >= N)
+      DUNE_THROW (Exception, "Index out of bounds for shape function.");
+    
+    return *(f[i]);
+  }
+  
+private:
+  static Q1ShapeFunctionSet* _instance;
+  ShapeFunction* f[N];
+  
   /*! Convert from DUNE vertex indices in the reference element to our encoding.
    
    This provides the mapping between vertex numbers in DUNE:
    
    http://www.dune-project.org/doc/doxygen/dune-geometry-html/group___geometry_generic_reference_elements.html
    
-   and our system which assigns to the vertex with coordinates (1,1,0), i.e. 
+   and our system which assigns to the vertex with coordinates (1,1,0), i.e.
    number 3 in DUNE the index 6 = 110b. We basically do a poor man's bit order
    reversal (lsb->msb) of dim bits.
    */
@@ -214,27 +226,13 @@ public:
     return msb_i;
   }
   
-  inline const ShapeFunction& operator[] (int i) const
-  {
-    if (i < 0 || i >= N)
-      DUNE_THROW (Exception, "Index out of bounds for shape function.");
-    
-    return *(f[mapDuneIndex(i)]);
-  }
-  
-private:
-  static Q1ShapeFunctionSet* _instance;
-  ShapeFunction* f[N];
-  
   Q1ShapeFunctionSet & operator = (const Q1ShapeFunctionSet &);
   Q1ShapeFunctionSet (const Q1ShapeFunctionSet& other) { }
   Q1ShapeFunctionSet ()
   {
-      //cout << "Initialiting Q1ShapeFunctionSet of size " << N << "\n";
-    for (unsigned long i=0; i < N; ++i)  // overkill type
-      f[i] = new ShapeFunction (i);
-      //FIXME!
-      //atexit (&Q1ShapeFunctionSet::atExit);
+    for (int i=0; i < N; ++i)
+      f[i] = new ShapeFunction (mapDuneIndex (i));
+    //atexit (&Q1ShapeFunctionSet::atExit);   //FIXME!
   }
 
   ~Q1ShapeFunctionSet ()
