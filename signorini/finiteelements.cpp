@@ -235,7 +235,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
 {
-  cout << "Gathering gremlins... ";
+  cout << "Feeding gremlins... ";
   std::set<int> boundaryVisited;         // just for debugging
   const auto&  iset = gv.indexSet ();
   const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
@@ -386,7 +386,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
     }
   }
 
-  cout << " Done. Total nodes constrained: " << boundaryVisited.size() << ".\n";
+  cout << " Done. Total lifes constrained: " << boundaryVisited.size() << ".\n";
 }
 
 
