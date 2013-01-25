@@ -2,6 +2,7 @@
 #define SHAPEFUNCTIONS_HPP
 
 #include <iostream>
+//#include <bitset>
 #include <dune/common/fvector.hh>
 #include <dune/geometry/referenceelements.hh>
 
@@ -168,8 +169,6 @@ private:
   unsigned long mask;  //!< Would break for dim > ulong bitsize
 };
 
-
-
 /*! Q1ShapeFunctionSet
  
  Singleton collection of LinearShapeFunction for Q1 elements.
@@ -191,12 +190,36 @@ public:
       _instance = new Q1ShapeFunctionSet();
     return *_instance;
   }
+
+  /*! Convert from DUNE vertex indices in the reference element to our encoding.
+   
+   This provides the mapping between vertex numbers in DUNE:
+   
+   http://www.dune-project.org/doc/doxygen/dune-geometry-html/group___geometry_generic_reference_elements.html
+   
+   and our system which assigns to the vertex with coordinates (1,1,0), i.e. 
+   number 3 in DUNE the index 6 = 110b. We basically do a poor man's bit order
+   reversal (lsb->msb) of dim bits.
+   */
+  inline unsigned int mapDuneIndex (int i)
+  {
+    unsigned int msb_i = 0;
+    i = i & 0xFFFF;
+    for (int b = 0; b < dim; ++b)
+      msb_i |= ((i>>b)&1)<<(dim-1-b);
+    
+      //std::bitset<8> lsb(i);
+      //std::bitset<8> msb(msb_i);
+      //std::cout << "i= " << lsb << ",\t\tmsb_i= " << msb << "(" << (int)msb_i << ")\n";
+    return msb_i;
+  }
   
   inline const ShapeFunction& operator[] (int i) const
   {
     if (i < 0 || i >= N)
       DUNE_THROW (Exception, "Index out of bounds for shape function.");
-    return *(f[i]);
+    
+    return *(f[mapDuneIndex(i)]);
   }
   
 private:
