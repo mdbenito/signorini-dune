@@ -82,7 +82,7 @@ public:
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-    ret <<= 9.6154e7, -4.8077e7;   // 2D
+    ret <<= 9.6154e7, -4.8077e7;   // Values from [FV05, p.36]
     return ret;
   }
 };
@@ -96,20 +96,15 @@ public:
   inline coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-/* Tests: the commented lines are as in the paper by Figueiredo & Viaño.
-    if (x[1] > 0.98 && x[0] > 0)
-        //ret <<= (1.9231*x[0] - 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
-      ret <<= (-1.9231*x[0] + 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
-    else if (x[0] > 0.98)
-        //ret <<= (6.7308*x[1] - 5.7692)*1.0e7, (1.9231 - 3.8462*x[1])*1.0e7;
-      ret <<= (-1.9231*x[1] + 3.8462)*1.0e7, (-13.462*x[1] + 2.8846)*1.0e7;
+
+      // Values from [FV05, p.36]
+    
+    if (x[1] == 1.0)
+      ret <<= (1.9231*x[0] - 3.8462)*1.0e7, (-13.462*x[0] + 2.8846)*1.0e7;
+    else if (x[0] == 1.0)
+      ret <<= (6.7308*x[1] - 5.7692)*1.0e7, (1.9231 - 3.8462*x[1])*1.0e7;
     else
       ret <<= zero;
-*/
-    if (x[0] >= 1-x[1])
-      ret <<= (-1.9231*x[1] + 3.8462)*1.0e7, (-13.462*x[1] + 2.8846)*1.0e7;
-    else
-      ret <<=  zero;
     
     /* The values in Hüber&Wohlmuth2005
     if (isSupported(x)) ret <<= (0.5-x[0])*30, 6.5;  // 2D
@@ -143,7 +138,7 @@ class NormalGap {
 public:
   inline ctype operator() (const coord_t& x) const
   {
-    return isSupported(x) ? 0.005 : 0;  // Temporary. FIXME
+    return isSupported (x) ? 0.005 : 0;  // Temporary. FIXME
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -161,7 +156,7 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[1] < 0.01 && x[0] != 0); // Temporary. FIXME
+    return (x[1] == 0 && x[0] > 0); // Temporary. FIXME
   }
 };
 

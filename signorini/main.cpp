@@ -1,7 +1,10 @@
 /******************************************************************************
  * main.cpp                                                                   *
+ ******************************************************************************/
+
+/*
+ Here is a Python script for visualization of displacements in ParaView:
  
- Python script for visualization of displacements in ParaView:
  from paraview import vtk
  
  pdi  = self.GetInput()
@@ -12,21 +15,21 @@
  
  newPoints = vtk.vtkPoints()
  for i in range(0, pdi.GetNumberOfPoints()):
-   coord = pdi.GetPoint(i)
-   x, y, z = coord[:3]
-   x = x + solX.GetValue(i)/5
-   y = y + solY.GetValue(i)/5
-   newPoints.InsertPoint(i, x, y, z)
+ coord = pdi.GetPoint(i)
+ x, y, z = coord[:3]
+ x = x + solX.GetValue(i)/5
+ y = y + solY.GetValue(i)/5
+ newPoints.InsertPoint(i, x, y, z)
  
  pdo.SetPoints(newPoints)
- 
- ******************************************************************************/
+
+ */
 
   // Dune includes
 #include "config.h"                    // file constructed by ./configure script
 #include <dune/grid/sgrid.hh>
-#include <dune/common/mpihelper.hh>    // include mpi helper class
-#include <dune/common/exceptions.hh>   // We use exceptions
+#include <dune/common/mpihelper.hh>
+#include <dune/common/exceptions.hh>
 #include <dune/grid/io/file/vtk/vtkwriter.hh>
 #include <dune/grid/io/file/gmshreader.hh>
   //#include <dune/grid/alugrid.hh>
@@ -80,10 +83,10 @@ int main (int argc, char** argv)
   typedef NormalGap<ctype, dim>             Gap;
   typedef HookeTensor<ctype, dim>         Hooke;
   
-  Hooke a (5e9, 0.3);  // E = 5x10^9 Pa, nu = 0,3 (rock material)
-  VolumeForces f;
+  Hooke          a (5e9, 0.3);  // E = 5x10^9 Pa, nu = 0,3 (cf. [FV05, p.35])
+  VolumeForces   f;
   BoundaryForces p;
-  Gap g;
+  Gap            g;
   
   const GV& gv = grid.leafView();
   
@@ -96,7 +99,7 @@ int main (int argc, char** argv)
       //testShapes<ctype, dim, Q1ShapeFunctionSet>();
 
     cout << "-----------------------------------\n";
-    cout << "Number of unknowns: " << grid.size(dim) << "\n";
+    cout << "Gremlin population: " << grid.size(dim) << "\n";
 
     p1.initialize();
 
@@ -104,7 +107,7 @@ int main (int argc, char** argv)
       //printmatrix(std::cout, p1.A, "Stiffness matrix","");
   
     int         step = 0;
-    double       eps = 1.0e-3;
+    double       eps = 1.0e-3 / 5.0e9;  // See [KO88, p.140]
     double tolerance = 1.0e-5;
     double     error = 1.0;
     

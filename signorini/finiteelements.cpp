@@ -126,54 +126,42 @@ SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::SignoriniFEPenalty
  
  NOTE: the previous version in dunetests was traversing faces of each element,
  using the intersection iterator, then storing V⨯V in the adjacency list, where
- V = {vertices of the face}. This is clearly a subset of
+ V = {vertices of the face}. For triangular elements this is ok, but for
+ cuadrilateral ones this method results clearly in a subset of
  
    U = {(x,y): x,y ∈ V={vertices of the element}}
  
- but assemble() inserts values in the stiffnes matrix A for every (x,y) ∈ U,
- which here (Signorini, vector valued functions), but not there (Poisson, scalar
- valued) causes exceptions to be thrown...
- 
- WTF??
- */
+ so here we traverse all vertices of each leaf of codim 0 instead.
+  */
 template<class TGV, class THT, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::determineAdjacencyPattern ()
 {
-  cout << "Following adjacency intuitions... ";
+  cout << "Imbuing Q1 adjacency intuitions... ";
   const auto& set = gv.indexSet ();
   const auto    N = gv.size (dim);
   
   adjacencyPattern.resize (N);
-  
-  unsigned int cnt = 0;
+
+    //unsigned int cnt = 0;
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type ());
     
-    int vnum = ref.size(dim);
-    for (int i = 0; i < vnum; ++i)
-      for (int j = 0; j < vnum; ++j, ++cnt)
-        adjacencyPattern[set.subIndex (*it, i, dim)].insert (set.subIndex (*it, j, dim));
-
-    /* This worked with 1-dim block matrices in the stiffness matrix and the laplace operator...
-       Why??? And what have I overlooked?
-     
-     Instead we traverse all vertices above.
-     
-      // traverse all intersections (codim-1 entities) of the current element and
-      // store all pairs of vertices in adjacencyPattern
-    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      int vertexsize = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < vertexsize; ++i) {
-        int ii = set.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
-        for (int j = 0; j < vertexsize; ++j) {
-          int jj = set.subIndex (*it, ref.subEntity (is->indexInInside (), 1, j, dim), dim);
-          adjacencyPattern[ii].insert (jj);
-        }
+    int vnum = ref.size (dim);
+    for (int i = 0; i < vnum; ++i) {
+      for (int j = 0; j < vnum; ++j) {
+          // The check is only used to correctly update cnt, but then
+          // it's stupid to use a std::set...
+        auto& cur = adjacencyPattern[set.subIndex (*it, i, dim)];
+          //if (cur.find (set.subIndex (*it, j, dim)) == cur.end()) {
+          //++cnt;
+          cur.insert (set.subIndex (*it, j, dim));
+          //}
       }
-    }*/
+    }
   }
 
-  cout << " Performed " << cnt << " insertions.\n";
+  cout << " ok.\n";
+    //cout << " Performed " << cnt << " insertions.\n";
 }
 
 
@@ -235,7 +223,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
  BOUNDARY CONDITIONS:
  
  We traverse all faces of all elements with the intersection iterator gv.ibegin()...
- Boundary conditions must be so set, that the Neumann and Signorini boundaries have
+ Boundary conditions must be set so that the Neumann and Signorini boundaries have
  no vertices in common. For every Neumann face we compute the contributions
  to the system.
  
@@ -256,26 +244,29 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
   
   /*
    We compute the stiffness matrix in an unintuitive way: for each entry A_ij one
-   must integrate (a function of) the gradients on all the domain, but instead
-   of traversing the whole grid for every entry, we traverse once and compute the
-   contribution of each of the basis functions on each element to their corresponding
-   matrix entry. This in turn uses the fact that we use P1 or Q1 elements with
-   exactly as many nodes as vertices has an element (that's why we may use vnum)
+   must integrate (a function of) the gradients on all the domain (or rather on
+   its very localized supports), but instead of traversing the whole grid for
+   every entry, we traverse once and compute the contribution of each of the
+   basis functions on each element to their corresponding matrix entry. This in 
+   turn uses the fact that we use P1 or Q1 elements with exactly as many nodes 
+   as vertices has an element (that's why we may use vnum)
+   
+   For each leaf we get a quadrature rule for the geometry type, then compute
+   transformed gradients, obtain global indices of vertices i and j and update
+   the associated matrix entry and right-hand side.
    */
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    GeometryType igt = it->type ();
-    const auto&  ref = GenericReferenceElements<ctype, dim>::general (igt);
-    const auto&  ige = it->geometry();
-      //printCorners (ig);
+    GeometryType typ = it->type ();
+    const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
+    const auto&  geo = it->geometry();
+    const int   vnum = ref.size (dim);
+
+    //printCorners (geo);
+
+      /// Stiffness matrix
     
-    int vnum = ref.size (dim);   // Number of vertices
-    
-      // Get a quadrature rule for the geometry type, then compute transformed
-      // gradients, obtain global indices of vertices i and j and update the
-      // associated matrix entry.
-    
-    for (auto& x : QuadratureRules<ctype, dim>::rule (igt, quadratureOrder)) {
-      block_t jacInvTra = ige.jacobianInverseTransposed (x.position ());
+    for (auto& x : QuadratureRules<ctype, dim>::rule (typ, quadratureOrder)) {
+      block_t jacInvTra = geo.jacobianInverseTransposed (x.position ());
       coord_t grad1, grad2;
 
       for (int i = 0; i < vnum; ++i) {
@@ -288,32 +279,31 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
           auto jj = iset.subIndex (*it, j, dim);
           try {
             A[ii][jj] +=
-              a (grad1, grad2) * x.weight () * ige.integrationElement (x.position ());
-          } catch (ISTLError& e) {
-              // If we are here, the adjacencyPattern does not match.
-            cout << "FAILED setting data for A[" << ii << ", " << jj << "] = ";
-            cout << "(" << ige.corner(i) << ") x (" << ige.corner (j) << ")\n";
+              a (grad1, grad2) * x.weight () * geo.integrationElement (x.position ());
+          } catch (ISTLError& e) {       // The adjacencyPattern does not match.
+            cout << "FAILED setting data for A[" << ii << ", " << jj << "] = "
+                 << "(" << geo.corner(i) << ") x (" << geo.corner (j) << ")\n";
           }
         }
       }
-    }
-
-      //// Integrand of the RHS
-    
-    for (auto& x : QuadratureRules<ctype, dim>::rule (igt, quadratureOrder))
+        //// Integrand of the RHS
+      
       for (int i = 0 ; i < vnum; ++i)
-        b[iset.subIndex (*it, i, dim)] += f (it->geometry ().global (x.position ())) *
-                                          basis[i].evaluateFunction (x.position ()) *
-                                          x.weight () *
-                                          it->geometry ().integrationElement (x.position ());
+        b[iset.subIndex (*it, i, dim)] +=
+              f (it->geometry ().global (x.position ())) *
+              basis[i].evaluateFunction (x.position ()) *
+              x.weight () *
+              it->geometry ().integrationElement (x.position ());
+      
+    }
 
       //// Boundary conditions. See the discussion in the comments to the method
       
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
-        const int  vnum = ref.size (is->indexInInside (), 1, dim);  // Number of vertices
-        const auto& ig  = is->geometry ();
-        const auto& igt = is->type ();
+        const int  bvnum = ref.size (is->indexInInside (), 1, dim);
+        const auto& bgeo = is->geometry ();
+        const auto& btyp = is->type ();
         
         /* Wouldn't it be nice to have lambdas?
          
@@ -327,33 +317,35 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
         }
          */
         
-        if (p.isSupported (ig)) {            // Neumann conditions.
-          //cout << "Neumann'ing: "; printCorners (ig);
-          for (int i = 0 ; i < vnum; ++i) {
-            int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
-              //cout << "Neumann'ing node: " << ii << "\n";
+        if (p.isSupported (bgeo)) {            // Neumann conditions.
+          //cout << "Neumann'ing: "; printCorners (igeo);
+          for (int i = 0 ; i < bvnum; ++i) {
+            int rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int   ii = iset.subIndex (*it, rsub, dim);
+              //auto   v = it->template subEntity<dim> (rsub)->geometry().center();
+              //cout << "Neumann'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert (ii);
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (igt, quadratureOrder)) {
-              b[ii] += p (ig.global (x.position ())) *
-                       basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (btyp, quadratureOrder)) {
+              b[ii] += p (bgeo.global (x.position ())) *
+                       basis[i].evaluateFunction (it->geometry().local (bgeo.global (x.position ()))) *
                        x.weight () *
-                       ig.integrationElement (x.position ());
+                       bgeo.integrationElement (x.position ());
             }
           }
-        }/* else if (g.isSupported (ig)) {    // Signorini conditions.
+        } else if (g.isSupported (bgeo)) {    // Signorini conditions.
           //cout << "Signorini'ing: "; printCorners (ig);
-          for (int i = 0 ; i < vnum; ++i) {
+          for (int i = 0 ; i < bvnum; ++i) {
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
               //cout << "Signorini'ing node: " << ii << "\n";
             boundaryVisited.insert (ii);
             
-            for (int j = 0; j < vnum; ++j) {
+            for (int j = 0; j < bvnum; ++j) {
               int jj = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, j, dim), dim);
                 //cout << "Signorini'ing node: " << jj << "\n";
               boundaryVisited.insert (jj);
             }
           }
-        }*/
+        }
       }
     }
   }
@@ -374,17 +366,17 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
     
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
-        const int vertexnum = ref.size (is->indexInInside (), 1, dim);
+        const int bvnum = ref.size (is->indexInInside (), 1, dim);
           //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
         
-        for (int i = 0; i < vertexnum; ++i) {
+        for (int i = 0; i < bvnum; ++i) {
           auto rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
           auto v = it->template subEntity<dim> (rsub)->geometry().center();
           int ii = iset.subIndex (*it, rsub , dim);
-            // TEMP: Must be consistent with the other conditions! (i.e. this sucks)
-          if (v[0] != 0) //(v[0] > 1-v[1]) //(boundaryVisited.count (ii) > 0)
+            // FIXME! Must be consistent with the other conditions! (i.e. this sucks)
+          if (v[0] > 1-v[1]) //(boundaryVisited.count (ii) > 0)
             continue;
-          cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+            //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
           boundaryVisited.insert(ii);
           A[ii] = 0.0;
           A[ii][ii] = I;
@@ -420,7 +412,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
   P   = 0.0;
   r   = 0.0;
   
-  cout << "Penalizing nodes: ";
+  unsigned int cnt = 0;
+  cout << "\n   Penalizing nodes... ";
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType gt = it->type ();
     const auto& ref = GenericReferenceElements<ctype, dim>::general (gt);
@@ -440,28 +433,27 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
             int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
             
             for (auto& x : rule) {
-              coord_t n = is->unitOuterNormal (x.position ());
-                // FIXME! Shouldn't I try to interpolate the solution to evaluate it in the quadrature point?
-              if (n * u[ii] - g (ig.global (x.position())) > 0) {
-                cout << " " << ii;
-                r[ii] += n *
-                         basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
-                         g (ig.global (x.position ())) *
-                         x.weight() *
-                         ig.integrationElement (x.position ()) *
-                         eps;
+              coord_t n   = is->unitOuterNormal (x.position ());
+              auto global = ig.global (x.position());
+              auto local  = it->geometry().local (global);
+
+                // FIXME! Shouldn't I try to interpolate the solution to evaluate
+                // it in the quadrature point?
+
+              if (n * u[ii] - g (global) > 0) {
+                  //cout << " " << ii;
+                ++cnt;
+                r[ii] += n * basis[i].evaluateFunction (local) * g (global) *
+                         x.weight() * ig.integrationElement (x.position ()) * eps;
+                         
                 for (int j = 0; j < vnum; ++j) {
                   int jj = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, j, dim), dim);
                   for (int k = 0; k < dim; ++k) {
                     for (int l = 0; l < dim; ++l) {
-                      
-                      penalty[k][l] = n[k] *
-                      basis[i].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
-                      n[l] *
-                      basis[j].evaluateFunction (it->geometry().local (ig.global (x.position ()))) *
-                      x.weight() *
-                      ig.integrationElement (x.position ()) *
-                      eps;
+                      penalty[k][l] = n[k] * basis[i].evaluateFunction (local) *
+                                      n[l] * basis[j].evaluateFunction (local) *
+                                      x.weight() * eps *
+                                      ig.integrationElement (x.position ());
                     }
                     P[ii][jj] += penalty;
                   }
@@ -473,7 +465,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
       }
     }
   }
-  cout << ".\n";
+  
+  cout << cnt << " penalizations at quadrature points... ";
 }
 
 
