@@ -141,6 +141,7 @@ int main (int argc, char** argv)
       bench.start ("Postprocessing");
       post.check (p1.solution());
       error = post.computeError (p1.solution ());
+      post.computeVonMises();
       cout << "\t\tNew solution diverged by: " << error << "\n";
       cout << "\t\tOutputting... ";
       post.writeVTKFile ("/tmp/SignoriniFEM", step);

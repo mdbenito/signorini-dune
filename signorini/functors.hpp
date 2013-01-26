@@ -181,7 +181,7 @@ public:
   inline ctype operator() (const coord_t& x) const
   {
       // Careful! remember that it must be g(x) > 0
-    return isSupported (x) ? sin (x[0]*M_PI) / 200.0 : 0;
+    return isSupported (x) ? abs (sin (x[0]*6*M_PI)) / 200.0 : 0;
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>

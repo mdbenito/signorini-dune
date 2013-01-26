@@ -42,7 +42,7 @@ public:
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef     BlockVector<coord_t> CoordVector;
         // FIXME: not the right type!!!!
-  typedef      BlockVector<FieldVector<ctype,1> > ScalarVector;
+  typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
   
 private:
   const TGV& gv;  //!< Grid view
@@ -129,8 +129,10 @@ void PostProcessor<TGV, TET, TSS>::computeVonMises ()
   if (vm != NULL) delete vm;
   
   vm = new ScalarVector (gv.size (dim), gv.size (dim));
-  vm = 0.0;
 
+  for (auto& p : *vm)
+    p = FieldVector<ctype,1>(0.0);
+  
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
@@ -138,14 +140,14 @@ void PostProcessor<TGV, TET, TSS>::computeVonMises ()
     
     for (int i = 0; i < vnum; ++i) {
       auto ii = iset.subIndex (*it, i, dim);
-      auto iipos = ref.subEntity (i, dim)->position();
+      auto iipos = ref.position (i, dim);
 
-      block_t s = a.stress (u[ii], basis[i].evaluateGradient (iipos));
+      block_t s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
       double  r = trace(s);      
       r = r*r - 1.5*(r*r - trace (s.rightmultiplyany (s)));
       r = std::sqrt (r);
       
-      vm[ii] += r;
+      (*vm)[ii] += r;
     }
   }
 }

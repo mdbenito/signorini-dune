@@ -27,7 +27,7 @@ FieldMatrix<K, R, C> operator* (const FieldMatrix<K, R, C>& m, const K& d)
 }
 
 template<class K, int R, int C>
-FieldMatrix<K, R, C> trace (const FieldMatrix<K, R, C>& m)
+K trace (const FieldMatrix<K, R, C>& m)
 {
   K ret(0);
   for (int i=0; i < R; ++i)
