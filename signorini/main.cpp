@@ -112,11 +112,11 @@ int main (int argc, char** argv)
     double     error = 1.0;
     
       //while (step++ < 10 && (error > tolerance || (error <= tolerance && step < 5))) {
-    while (step++ < 6) { // && error > tolerance) {
+    while (step++ < 10) {// && error > tolerance) {
       auto previous = p1.solutionAsVector();
       
       cout << "Assembling data for iteration " << step << "... ";
-        //p1.assemblePenalties (eps);
+      p1.assemblePenalties (eps);
         //printmatrix(std::cout, p1.P, "Penalty matrix","");
       
       cout << "Done.\n" << "Solving... "; std::flush(cout);  // Yuk!
