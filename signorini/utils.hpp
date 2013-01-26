@@ -5,7 +5,12 @@
 #ifndef SIGNORINI_UTILS_HPP
 #define SIGNORINI_UTILS_HPP
 
+#include "config.h"
+#include <dune/geometry/quadraturerules.hh>
+
+#include <iostream>
 #include <cmath>
+
 #include "shapefunctions.hpp"
 
 using std::cout;
@@ -18,6 +23,16 @@ FieldMatrix<K, R, C> operator* (const FieldMatrix<K, R, C>& m, const K& d)
     for (int j=0; j < C; ++j)
       ret[i][j] = m[i][j] * d;
   
+  return ret;
+}
+
+template<class K, int R, int C>
+FieldMatrix<K, R, C> trace (const FieldMatrix<K, R, C>& m)
+{
+  K ret(0);
+  for (int i=0; i < R; ++i)
+    ret += m[i][i];
+
   return ret;
 }
 
@@ -60,21 +75,6 @@ void writeVectorToFile (const VectorType& vector,
   outs << "\n";
   
   outs.close();
-}
-
-template <class T>
-long double computeError (const std::vector<T>& uu, const std::vector<T>& vv)
-{
-  long double r = 0.0;
-  long double n = 0.0;
-  auto u = uu.begin();
-  auto v = vv.begin();
-  
-  for (; u != uu.end() && v != vv.end(); ++u, ++v) {
-    r += std::abs (*u - *v);
-    n += std::abs (*u);
-  }
-  return r / n;
 }
 
 template <class ctype, int dim, template <class, int> class ShapeSet>

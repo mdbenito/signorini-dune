@@ -46,12 +46,12 @@ Q1ShapeFunctionSet<C,D>::_instance = 0;
  
  Template type names:
     TGV: TGridView
-    THT: THookeTensor
+    TET: TElasticityTensor
     TFF: TForcesFunctor
     TTF: TTractionsFunctor
     TGF: TGapFunctor
  */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
+template<class TGV, class TET, class TFT, class TTT, class TGT>
 class SignoriniFEPenalty
 {
 public:
@@ -64,9 +64,9 @@ public:
   typedef     BlockVector<coord_t> CoordVector;
   
 private:
-  const TGV& gv;
+  const TGV& gv;  //!< Grid view
   
-  const THT& a;   //!< Hooke Tensor
+  const TET& a;   //!< Elasticity tensor
   const TFT& f;   //!< Volume forces
   const TTT& p;   //!< Boundary forces
   const TGT& g;   //!< Normal gap function (scalar)
@@ -87,7 +87,7 @@ private:
   int quadratureOrder;
   
 public:
-  SignoriniFEPenalty (const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g, int _quadratureOrder = 4);
+  SignoriniFEPenalty (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g, int _quadratureOrder = 4);
   
   void determineAdjacencyPattern ();
   void initialize ();
@@ -98,30 +98,11 @@ public:
   void solve ();
   
   const CoordVector& solution() const { return u; }
-  std::vector<ctype> solutionAsVector() const {
-    std::vector<ctype> ret;
-    for (auto& p : u)
-      for (auto& c : p)
-        ret.push_back (c);
-    return ret;
-  }
-  
-  void check () {
-    bool ok = true;
-    for (const auto& it : u)
-      for (int i = 0; i < dim; ++i)
-        ok = ok && (it[i] != NAN);
-    
-    if (!ok) {
-      cout << "*** NaN! *** \n" << "\tWhat a calamity, I choose to quit.\n";
-      exit (1);
-    }
-  }
 };
 
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::SignoriniFEPenalty
-(const TGV& _gv,  const THT& _a, const TFT& _f, const TTT& _p, const TGT& _g,
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::SignoriniFEPenalty
+(const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g,
  int _quadratureOrder)
 : gv (_gv), a (_a), f (_f), p (_p), g(_g), quadratureOrder(_quadratureOrder)
 {
@@ -145,10 +126,10 @@ SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::SignoriniFEPenalty
  
  so here we traverse all vertices of each leaf of codim 0 instead.
   */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::determineAdjacencyPattern ()
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::determineAdjacencyPattern ()
 {
-  cout << "Imbuing Q1 adjacency intuitions... ";
+  cout << "Imbuing with Q1 adjacency intuitions... ";
   const auto& set = gv.indexSet ();
   const auto    N = gv.size (dim);
   
@@ -186,8 +167,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::determineAdjacencyPattern ()
  The value N + 2*gv.size (dim-1) causes an exception to be thrown:
    "Specified number of nonzeros ... not sufficient for calculated nonzeros ..."
  */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
 {
   determineAdjacencyPattern();
   
@@ -246,13 +227,15 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::initialize ()
  if we did allow overriding of Dirichlet nodes by the other kinds, we'd have
  empty rows in the stiffness matrix.
  */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
 {
   cout << "Feeding gremlins... ";
-  std::set<int> boundaryVisited;         // just for debugging
-  const auto&  iset = gv.indexSet ();
+
+  std::set<int> boundaryVisited;
+
   const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
+  const auto&  iset = gv.indexSet ();
   
     //cout << "*** Traversing codim 0 leaves:" << endl;
   
@@ -403,8 +386,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
  
  only in that case
  */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
 {
   const auto&  iset = gv.indexSet ();
   const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
@@ -414,9 +397,9 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
   r   = 0.0;
   
     // Stuff just for display:
-  unsigned int cnt = 0; unsigned int pen = 0; const int div = gv.size (dim) / 20;
+  unsigned int cnt = 0; unsigned int pen = 0; const int div = gv.size (dim) / 10;
 
-  cout << "\tCoercing creatures...";
+  cout << "\tCoercing innocents...";
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
@@ -424,18 +407,18 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
     
       // Iterate through all intersections
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      cout << ((cnt%div == 0) ? "." : "");
+      cout << ((++cnt%div == 0) ? "." : "");
       if (is->boundary ()) {
         const auto& igeo  = is->geometry ();
                 
         if (g.isSupported (igeo)) {  // Possible contact zone.
           const auto& ityp = is->type ();
           const auto& rule = QuadratureRules<ctype, dim-1>::rule (ityp, 2*(dim-1));
-          const auto& iref = GenericReferenceElements<ctype, dim-1>::general (ityp);
+            //const auto& iref = GenericReferenceElements<ctype, dim-1>::general (ityp);
           
           block_t penalty (0.0);
 
-          for (int i = 0 ; i < vnum; ++i, ++cnt) {
+          for (int i = 0 ; i < vnum; ++i) {
             int   rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
             int     ii = iset.subIndex (*it, rsub, dim);
             auto iipos = is->inside()->template subEntity<dim>(rsub)->geometry().center();
@@ -488,8 +471,8 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
  verbose   The verbosity level. (0,1,2)
  
  */
-template<class TGV, class THT, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::solve ()
+template<class TGV, class TET, class TFT, class TTT, class TGT>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::solve ()
 {
   BlockMatrix B = A;  B += P;      // Add penalties
   CoordVector c = b;  c += r;      // Add penalties

@@ -30,8 +30,8 @@ inline double kron (const T& i, const T& j)
 
 /*! Compute the action of the Hooke tensor on two vectors.
  
- This models a hyperelastic, isotropic and homogeneous material via Young's
- modulus and Poisson's ratio.
+ This models a hyperelastic, isotropic and homogeneous material with Young's
+ modulus and Poisson's ratio specified in the constructor.
  */
 template <typename ctype, int dim>
 class HookeTensor {
@@ -63,7 +63,7 @@ public:
   
   block_t operator() (const coord_t& f, const coord_t& g) const
   {
-    block_t r(0.0);
+    block_t r (0.0);
     
     for (int i = 0; i < dim; ++i)
       for (int j = 0; j < dim; ++j)
@@ -72,6 +72,27 @@ public:
             r[i][k] += a[i][j][k][l] * f[l] * g[j];
     
     return r;
+  }
+  
+  /* Yes, we could return a vector here because the stress tensor
+   is symmetric.
+   
+   In order to approximate ∂u_k/∂x_l we use that u a linear combination of the
+   basis functions:
+   
+      u = u^a * phi^a  ==> ∂u_k/∂x_l = u^a_k * ∂phi^a/∂x_l
+   */
+  block_t stress (const coord_t& u, const coord_t& phi) const
+  {
+    block_t s (0.0);
+    
+    for (int i = 0; i < dim; ++i)
+      for (int j = 0; j < dim; ++j)
+        for (int k = 0; k < dim; ++k)
+          for (int l = 0; l < dim; ++l)
+            s[k][l] += a[i][j][k][l] * u[k] * phi[l];
+
+    return s;
   }
 };
 
@@ -84,8 +105,13 @@ public:
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-    ret[0] = 9.6154; ret[1] = -4.8077;   // Values from [FV05, p.36]
-    return ret*1.0e7;
+    
+      // Values from [FV05, p.36]
+      //ret[0] = 9.6154; ret[1] = -4.8077;
+      //return ret * 1.0e7;
+    
+    ret[0] = 0; ret[1] = -10;
+    return ret * 1.0e8;
   }
 };
 
@@ -100,7 +126,7 @@ public:
     coord_t ret;
 
       // Values from [FV05, p.36]
-    
+    /*
     if (x[1] == 1.0) {
       ret[0] =  1.9231*x[0] - 3.8462;
       ret[1] = -13.462*x[0] + 2.8846;
@@ -112,13 +138,20 @@ public:
     }
     
     return ret*1.0e7;
+    */
     
     /* The values in Hüber&Wohlmuth2005
     if (isSupported(x)) ret <<= (0.5-x[0])*30, 6.5;  // 2D
     else                ret <<= zero;
+     
+    return ret;
      */
+    
+      // upper and lower tractions
+    ret[0] = -2; ret[1] = -12;
+    return ret * 1.0e7;
   }
-  
+
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
   bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
   {
@@ -131,7 +164,9 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[0] > 1 - x[1]);  // TEMPORARY
+      //return (x[0] > 1 - x[1]);  // For the values from [FV05, p.36]
+      //return x[0] > 0 && x[0] < 1;   // For the upper and lower tractions
+    return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
   }
 };
 
@@ -142,9 +177,11 @@ class NormalGap {
   typedef FieldVector<ctype, dim> coord_t;
 
 public:
+
   inline ctype operator() (const coord_t& x) const
   {
-    return isSupported (x) ? 0.005 : 0;  // Temporary. FIXME
+      // Careful! remember that it must be g(x) > 0
+    return isSupported (x) ? sin (x[0]*M_PI) / 200.0 : 0;
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -155,14 +192,13 @@ public:
           //cout << "Not supported at " << geo.corner(i) << "\n";
         return false;
       }
-    
-    
+
     return true;
   }
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[1] == 0 && x[0] > 0); // Temporary. FIXME
+    return (x[1] == 0 && x[0] > 0 && x[0] < 1);
   }
 };
 
