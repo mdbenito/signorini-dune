@@ -105,6 +105,18 @@ public:
         ret.push_back (c);
     return ret;
   }
+  
+  void check () {
+    bool ok = true;
+    for (const auto& it : u)
+      for (int i = 0; i < dim; ++i)
+        ok = ok && (it[i] != NAN);
+    
+    if (!ok) {
+      cout << "*** NaN! *** \n" << "\tWhat a calamity, I choose to quit.\n";
+      exit (1);
+    }
+  }
 };
 
 template<class TGV, class THT, class TFT, class TTT, class TGT>
@@ -385,7 +397,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assembleMain ()
  
     u_{t-1}*n-g 
  
- was positive and add 
+ was positive at the node we are considering and add
  
     u_t*n-g
  
@@ -404,7 +416,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
     // Stuff just for display:
   unsigned int cnt = 0; unsigned int pen = 0; const int div = gv.size (dim) / 20;
 
-  cout << "\n   Coercing creatures...";
+  cout << "\tCoercing creatures...";
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
@@ -461,7 +473,7 @@ void SignoriniFEPenalty<TGV, THT, TFT, TTT, TGT>::assemblePenalties (double eps)
     }
   }
   
-  cout << " (" << pen << " puny beings punished) ";
+  cout << " (" << pen << " nodes constrained)\n";
 }
 
 

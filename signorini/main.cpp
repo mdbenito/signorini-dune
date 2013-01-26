@@ -38,13 +38,14 @@
 #include "functors.hpp"
 #include "integration.hpp"
 #include "finiteelements.cpp"
+#include "benchmark.hpp"
 
-#include <ctime>
 #include <sstream>
 
 int main (int argc, char** argv)
 {
   static const int dim = 2;
+  Benchmark bench;
 
     //// Grid creation (SGrid, test)
 
@@ -111,39 +112,29 @@ int main (int argc, char** argv)
     double tolerance = 1.0e-5;
     double     error = 1.0;
     
+    bench.start ("Resolution");
       //while (step++ < 10 && (error > tolerance || (error <= tolerance && step < 5))) {
     while (step++ < 10) {// && error > tolerance) {
+      bench.start ("Iteration");
       auto previous = p1.solutionAsVector();
       
-      cout << "Assembling data for iteration " << step << "... ";
-      p1.assemblePenalties (eps);
+      cout << "Iteration " << step << ":\n";
+      
+        bench.start ("Penalty matrix assembly");
+        p1.assemblePenalties (eps);
         //printmatrix(std::cout, p1.P, "Penalty matrix","");
-      
-      cout << "Done.\n" << "Solving... "; std::flush(cout);  // Yuk!
-      clock_t t = std::clock();
+        bench.stop ("Penalty matrix assembly");
+
+      bench.start ("System resolution");
       p1.solve();
-
-      bool ok = true;
-      for (const auto& it : p1.solution())
-        for (int i = 0; i < dim; ++i)
-          ok = ok && (it[i] != NAN);
+      p1.check();
+      bench.stop ("System resolution");
       
-      if (!ok) {
-        cout << "NaN!\n" << "What a calamity, I choose to quit.\n";
-        exit (1);
-      }
-
-        // poor man's benchmarking
-      double lapse = (1.0*std::clock() - 1.0*t)/(1.0*CLOCKS_PER_SEC);
-      
-      auto oldPrecision = cout.precision();
-      cout << " done in " << std::setprecision(3) << lapse << " seconds.\n";
-      cout.precision(oldPrecision);
-      
+      bench.start ("Postprocessing");
       error = computeError (p1.solutionAsVector(), previous);
-      cout << "New solution diverged by: " << error << "\n";
-
-      cout << "Outputting... ";
+      cout << "\t\tNew solution diverged by: " << error << "\n";
+      
+      cout << "\t\tOutputting... ";
       std::ostringstream oss;
       oss << "/tmp/SignoriniFEM" << dim << "d-"
           << std::setfill('0') << std::setw(3) << step;
@@ -151,8 +142,11 @@ int main (int argc, char** argv)
       vtkwriter.addVertexData (p1.solutionAsVector(), "u", dim);
       vtkwriter.write (oss.str(), VTKOptions::binaryappended);
       cout << "Done.\n";
+      bench.stop ("Postprocessing");
+      
+      bench.stop ("Iteration");
     }
-    
+    bench.stop ("Resolution");
     return 0;
   } catch (MatrixBlockError& e) {
     cout << "DEAD! " << e.what() << "\n";// << p1.A[e.r][e.c] << "\n";
