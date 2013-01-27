@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <cmath>
+#include <string>
+#include <fstream>
 
 #include "shapefunctions.hpp"
 
@@ -104,6 +106,21 @@ bool testShapes()
   }
 
   return true;
+}
+
+
+  ////// Shitty, wasteful, slow string manipulation:
+
+
+std::string operator+ (const std::string& a, const std::string& b);
+
+  // Use with integers, etc.
+template <class T>
+std::string operator+ (const std::string& a, T b)
+{
+  std::ostringstream oss;
+  oss << a << b;
+  return oss.str();
 }
 
 

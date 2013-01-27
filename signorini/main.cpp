@@ -41,13 +41,19 @@ pdo.SetPoints(newPoints)
 #include "benchmark.hpp"
 #include "postprocessor.cpp"
 
-#include <sstream>
+#include <string>
+using std::string;
 
 int main (int argc, char** argv)
 {
-  static const int dim = 2;
+  const int          dim = 2;
+  const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
+  const double        nu = 0.3;         // Poisson's ratio         [FV05, p.35]
+  const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
+  const double tolerance = 1.0e-5;      // For the iterative penalty method
+  const int     maxsteps = 10;
 
-    //// Grid creation (SGrid, test)
+    //// Grid setup (SGrid, test)
 
   typedef SGrid<dim, dim>          grid_t;
   typedef grid_t::ctype             ctype;
@@ -85,7 +91,7 @@ int main (int argc, char** argv)
   typedef HookeTensor<ctype, dim>           Hooke;
   typedef Q1ShapeFunctionSet<ctype, dim> ShapeSet;
   
-  Hooke          a (5e9, 0.3);  // E = 5x10^9 Pa, nu = 0,3 (cf. [FV05, p.35])
+  Hooke          a (E, nu);
   VolumeForces   f;
   BoundaryForces p;
   Gap            g;
@@ -95,62 +101,44 @@ int main (int argc, char** argv)
   
   SignoriniFEPenalty<GV, Hooke, VolumeForces, BoundaryForces, Gap> p1 (gv, a, f, p, g, 4);
   
-    //// 
+    //// Misc.
   
-  Benchmark bench;
   PostProcessor<GV, Hooke, ShapeSet> post (gv, a);
+    //testShapes<ctype, dim, Q1ShapeFunctionSet>();
   
     //// Solution
   
   try {   // Pokemon Exception Handling!!
-    
-      //testShapes<ctype, dim, Q1ShapeFunctionSet>();
 
     cout << "Gremlin population: " << grid.size(dim) << "\n";
 
-    bench.start ("Initialization");
+    bench().start ("Initialization", false);
     p1.initialize();
     p1.assembleMain();
-    bench.stop ("Initialization");
-    
-      //printmatrix(std::cout, p1.A, "Stiffness matrix","");
+    bench().stop ("Initialization");
   
-    int         step = 0;
-    double       eps = 1.0e-3 / 5.0e9;  // See [KO88, p.140]
-    double tolerance = 1.0e-5;
-    double     error = 1.0;
-    
-    bench.start ("Resolution");
-    while (step++ < 10 && (error > tolerance || (error <= tolerance && step < 3))) {
-        //while (step++ < 10 && error > tolerance) {
-      bench.start ("Iteration");
+    bench().start ("Resolution", false);
+    int     step = 0;
+    double error = 1.0;
+      // HACK: don't stop in the first iteration
+    while (step++ < maxsteps && (error > tolerance || (error <= tolerance && step < 3))) {
+      bench().start (string("Iteration ") + step);
       
-      cout << "Iteration " << step << ":\n";
-
-      if (1) {
-        bench.start ("Penalty matrix assembly");
-        p1.assemblePenalties (eps);
-        //printmatrix(std::cout, p1.P, "Penalty matrix","");
-        bench.stop ("Penalty matrix assembly");
-      }
-      
-      bench.start ("System resolution");
+      p1.assemblePenalties (eps);
       p1.solve();
-      bench.stop ("System resolution");
-      
-      bench.start ("Postprocessing");
+
+      bench().start ("Postprocessing", false);
       post.check (p1.solution());
       error = post.computeError (p1.solution ());
       post.computeVonMises();
-      cout << "\t\tNew solution diverged by: " << error << "\n";
-      cout << "\t\tOutputting... ";
-      post.writeVTKFile ("/tmp/SignoriniFEM", step);
-      cout << "Done.\n";
-      bench.stop ("Postprocessing");
+      bench().report ("Postprocessing", string ("New solution diverged by: ") + error);
+      string f = post.writeVTKFile ("/tmp/SignoriniFEM", step);
+      bench().report ("Postprocessing", "Output written to " + f);
+      bench().stop ("Postprocessing");
       
-      bench.stop ("Iteration");
+      bench().stop (string("Iteration ") + step);
     }
-    bench.stop ("Resolution");
+    bench().stop ("Resolution");
     return 0;
   } catch (MatrixBlockError& e) {
     cout << "DEAD! " << e.what() << "\n";// << p1.A[e.r][e.c] << "\n";

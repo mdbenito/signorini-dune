@@ -1,3 +1,7 @@
+/******************************************************************************
+ * shapefunctions.hpp                                                         *
+ ******************************************************************************/
+
 #ifndef SHAPEFUNCTIONS_HPP
 #define SHAPEFUNCTIONS_HPP
 
@@ -248,4 +252,4 @@ private:
   }
 };
 
-#endif  //SHAPEFUNCTIONS_HPP
+#endif  // defined (SHAPEFUNCTIONS_HPP)

@@ -17,9 +17,9 @@
 
 #include "shapefunctions.hpp"
 #include "utils.hpp"
+#include "benchmark.hpp"
 
 using namespace Dune;
-using std::cout;
 
 /*! 
  
@@ -58,7 +58,7 @@ public:
   double computeError (const CoordVector& v);
   void computeVonMises ();
   
-  void writeVTKFile (std::string base, int step) const;
+  std::string writeVTKFile (std::string base, int step) const;
   void check (const CoordVector& v) const;
   
 protected:
@@ -123,6 +123,7 @@ double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
 template<class TGV, class TET, class TSS>
 void PostProcessor<TGV, TET, TSS>::computeVonMises ()
 {
+  bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
   const auto&  iset = gv.indexSet ();
 
@@ -150,10 +151,12 @@ void PostProcessor<TGV, TET, TSS>::computeVonMises ()
       (*vm)[ii] += r;
     }
   }
+  
+  bench().report ("Postprocessing", "\tok");
 }
 
 template<class TGV, class TET, class TSS>
-void PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int step) const
+std::string PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int step) const
 {
   std::ostringstream oss;
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
@@ -161,6 +164,8 @@ void PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int step) con
   if (u != NULL)  vtkwriter.addVertexData (asVector (u), "u", dim);
   if (vm != NULL) vtkwriter.addVertexData (asVector (vm), "vm", 1);
   vtkwriter.write (oss.str(), VTKOptions::binaryappended);
+  
+  return oss.str();
 }
 
 // FIXME: lots of copying! Choose some memory policy and fix this.
@@ -183,7 +188,7 @@ void PostProcessor<TGV, TET, TSS>::check (const CoordVector& v) const {
       ok = ok && (it[i] != NAN);
   
   if (!ok) {
-    cout << "*** NaN! *** \n" << "\tWhat a calamity, I choose to quit.\n";
+    std::cout << "*** NaN! *** \n" << "\tWhat a calamity, I choose to quit.\n";
     exit (1);
   }
 }

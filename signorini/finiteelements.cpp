@@ -3,6 +3,7 @@
  ******************************************************************************/
 
 #include "config.h"
+#include <string>
 #include <iostream>
 #include <vector>
 #include <set>
@@ -24,9 +25,10 @@
 #include "shapefunctions.hpp"
 #include "traverse.hpp"
 #include "utils.hpp"
+#include "benchmark.hpp"
 
 using namespace Dune;
-using std::cout;
+using std::string;
 
 template <class C, int D> Q1ShapeFunctionSet<C,D>*
 Q1ShapeFunctionSet<C,D>::_instance = 0;
@@ -129,7 +131,7 @@ SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::SignoriniFEPenalty
 template<class TGV, class TET, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::determineAdjacencyPattern ()
 {
-  cout << "Imbuing with Q1 adjacency intuitions... ";
+  bench().report ("Initialization", "Imbuing with Q1 adjacency intuitions...", false);
   const auto& set = gv.indexSet ();
   const auto    N = gv.size (dim);
   
@@ -153,7 +155,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::determineAdjacencyPattern ()
     }
   }
 
-  cout << " ok.\n";
+  bench().report ("Initialization", "\tdone.");
     //cout << " Performed " << cnt << " insertions.\n";
 }
 
@@ -172,7 +174,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
 {
   determineAdjacencyPattern();
   
-  cout << "Randomizing inverse flow generator... ";
+  bench().report ("Initialization", "Randomizing inverse flow generator...", false);
   
   const int N = gv.size (dim);
   
@@ -209,7 +211,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
   r = 0.0;
   u = 0.0;
   
-  cout << "ok.\n";
+  bench().report ("Initialization", "\tok.");
 }
 
 
@@ -230,7 +232,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
 template<class TGV, class TET, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
 {
-  cout << "Feeding gremlins... ";
+  bench().report ("Initialization", "Feeding gremlins...", false);
 
   std::set<int> boundaryVisited;
 
@@ -370,7 +372,10 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
     }
   }
 
-  cout << " Done. Total lifes constrained: " << boundaryVisited.size() << ".\n";
+  //printmatrix (cout, A, "Stiffness matrix","");
+
+  bench().report ("Initialization",
+                  string ("\tdone. Lifes constrained: ") + boundaryVisited.size());
 }
 
 
@@ -397,9 +402,10 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
   r   = 0.0;
   
     // Stuff just for display:
-  unsigned int cnt = 0; unsigned int pen = 0; const int div = gv.size (dim) / 10;
-
-  cout << "\tCoercing innocents...";
+  unsigned int pen = 0;
+    //unsigned int cnt = 0; const int div = gv.size (dim) / 10;
+  bench().start ("Penalty matrix assembly", false);
+  bench().report ("Penalty matrix assembly", "Coercing innocents...", false);
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
@@ -407,7 +413,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
     
       // Iterate through all intersections
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      cout << ((++cnt%div == 0) ? "." : "");
+        //cout << ((++cnt%div == 0) ? "." : "");
       if (is->boundary ()) {
         const auto& igeo  = is->geometry ();
                 
@@ -456,7 +462,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
     }
   }
   
-  cout << " (" << pen << " nodes constrained)\n";
+  bench().report ("Penalty matrix assembly",
+                  string (string ("\t(") + pen).append(" nodes constrained)"));
+  bench().stop ("Penalty matrix assembly");
 }
 
 
@@ -474,6 +482,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
 template<class TGV, class TET, class TFT, class TTT, class TGT>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::solve ()
 {
+  bench().start ("System resolution", false);
+
   BlockMatrix B = A;  B += P;      // Add penalties
   CoordVector c = b;  c += r;      // Add penalties
 
@@ -483,13 +493,15 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::solve ()
 
   cout << "Writing rhs vector to /tmp/rhs\n";
   writeVectorToFile (c, "/tmp/rhs");
+   
+  printmatrix (cout, P, "Penalty matrix","");
   */
   
   InverseOperatorResult stats;                                      // statistics of the solver
   MatrixAdapter<BlockMatrix, CoordVector, CoordVector> op (B);      // make linear operator with A+P
   
   SeqILUn<BlockMatrix, CoordVector, CoordVector> ilu1 (B, 1, 0.96); // initialize preconditioner
-  BiCGSTABSolver<CoordVector> bcgs (op, ilu1, 1e-15, 500, 0);      // Bi-conjugate gradient solver
+  BiCGSTABSolver<CoordVector> bcgs (op, ilu1, 1e-15, 500, 0);       // Bi-conjugate gradient solver
   bcgs.apply (u, c, stats);
   
   /* Using another solver...
@@ -499,4 +511,6 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::solve ()
   cgs.apply (u, c, stats);
    
    */
+  
+  bench().stop ("System resolution");
 }
