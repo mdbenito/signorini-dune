@@ -1,5 +1,9 @@
 /******************************************************************************
  * shapefunctions.hpp                                                         *
+ *                                                                            *
+ * TODO:                                                                      *
+ *   - Replace *ShapeFunctionSet for a template class, taking the shape as    *
+ *     template parameter (needs changing the definition of P1 functions).    *
  ******************************************************************************/
 
 #ifndef SIGNORINI_SHAPEFUNCTIONS_HPP
@@ -251,5 +255,8 @@ private:
     _instance = 0;
   }
 };
+
+template <class C, int D> Q1ShapeFunctionSet<C,D>*
+Q1ShapeFunctionSet<C,D>::_instance = 0;
 
 #endif  // defined (SIGNORINI_SHAPEFUNCTIONS_HPP)

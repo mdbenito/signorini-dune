@@ -25,21 +25,25 @@ pdo.SetPoints(newPoints)
 
  */
 
-  // Dune includes
+  //// Dune includes
+
 #include "config.h"                    // file constructed by ./configure script
 #include <dune/grid/sgrid.hh>
 #include <dune/common/mpihelper.hh>
 #include <dune/common/exceptions.hh>
 
 #include <dune/grid/io/file/gmshreader.hh>
-  //#include <dune/grid/alugrid.hh>
+//#include <dune/grid/alugrid.hh>
 
-#include "traverse.hpp"
+  //// Project includes
+
 #include "functors.hpp"
-#include "integration.hpp"
-#include "finiteelements.cpp"
+#include "shapefunctions.hpp"
+#include "penaltymethod.hpp"
 #include "benchmark.hpp"
-#include "postprocessor.cpp"
+#include "postprocessor.hpp"
+
+  //// stdlib includes
 
 #include <string>
 using std::string;
@@ -66,7 +70,9 @@ int main (int argc, char** argv)
   
   grid_t grid (N, origin, topright);
   grid.globalRefine (7);
-  
+
+  const GV& gv = grid.leafView();
+
   /* This won't work... (AluGrid seems not to be properly configured)
 
   typedef AluGrid<3, 3> grid_t;
@@ -85,26 +91,25 @@ int main (int argc, char** argv)
 
     //// Problem setup
 
-  typedef VolumeLoad<ctype, dim>     VolumeForces;
-  typedef Tractions<ctype, dim>    BoundaryForces;
+  typedef VolumeLoad<ctype, dim>          VolumeF;
+  typedef Tractions<ctype, dim>         BoundaryF;
   typedef NormalGap<ctype, dim>               Gap;
-  typedef HookeTensor<ctype, dim>           Hooke;
+  typedef HookeTensor<ctype, dim>          HookeT;
   typedef Q1ShapeFunctionSet<ctype, dim> ShapeSet;
+  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap> FEMSolver;
+    //typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap> FEMSolver;
+
+  HookeT  a (E, nu);
+  VolumeF         f;
+  BoundaryF       p;
+  Gap             g;
   
-  Hooke          a (E, nu);
-  VolumeForces   f;
-  BoundaryForces p;
-  Gap            g;
-  
-  const GV& gv = grid.leafView();
-  
-  
-  SignoriniFEPenalty<GV, Hooke, VolumeForces, BoundaryForces, Gap> p1 (gv, a, f, p, g, 4);
+  FEMSolver fem (gv, a, f, p, g, 4);
   
     //// Misc.
   
-  PostProcessor<GV, Hooke, ShapeSet> post (gv, a);
-    //testShapes<ctype, dim, Q1ShapeFunctionSet>();
+  PostProcessor<GV, HookeT, ShapeSet> post (gv, a);
+    //testShapes<ctype, dim, ShapeSet>();
   
     //// Solution
   
@@ -112,24 +117,22 @@ int main (int argc, char** argv)
 
     cout << "Gremlin population: " << grid.size(dim) << "\n";
 
-    bench().start ("Initialization", false);
-    p1.initialize();
-    p1.assembleMain();
-    bench().stop ("Initialization");
+    fem.initialize();
   
     bench().start ("Resolution", false);
     int     step = 0;
     double error = 1.0;
       // HACK: don't stop in the first iteration
-    while (step++ < maxsteps && (error > tolerance || (error <= tolerance && step < 3))) {
+    while (step++ < maxsteps && (error > tolerance ||
+                                 (error <= tolerance && step < 3))) {
       bench().start (string("Iteration ") + step);
       
-      p1.assemblePenalties (eps);
-      p1.solve();
+      fem.assemblePenalties (eps);
+      fem.solve();
 
       bench().start ("Postprocessing", false);
-      post.check (p1.solution());
-      error = post.computeError (p1.solution ());
+      post.check (fem.solution());
+      error = post.computeError (fem.solution ());
       post.computeVonMises();
       bench().report ("Postprocessing", string ("New solution diverged by: ") + error);
       string f = post.writeVTKFile ("/tmp/SignoriniFEM", step);
