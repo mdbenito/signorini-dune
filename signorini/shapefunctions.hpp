@@ -2,8 +2,8 @@
  * shapefunctions.hpp                                                         *
  ******************************************************************************/
 
-#ifndef SHAPEFUNCTIONS_HPP
-#define SHAPEFUNCTIONS_HPP
+#ifndef SIGNORINI_SHAPEFUNCTIONS_HPP
+#define SIGNORINI_SHAPEFUNCTIONS_HPP
 
 #include <iostream>
 //#include <bitset>
@@ -252,4 +252,4 @@ private:
   }
 };
 
-#endif  // defined (SHAPEFUNCTIONS_HPP)
+#endif  // defined (SIGNORINI_SHAPEFUNCTIONS_HPP)

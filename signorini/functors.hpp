@@ -13,8 +13,8 @@
  *     or global, ...)                                                        *
  *                                                                            *
  ******************************************************************************/
-#ifndef FUNCTORS_HPP
-#define FUNCTORS_HPP
+#ifndef SIGNORINI_FUNCTORS_HPP
+#define SIGNORINI_FUNCTORS_HPP
 
 #include <dune/common/fvector.hh>
 #include <dune/common/fassign.hh>

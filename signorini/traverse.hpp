@@ -1,6 +1,8 @@
-//
-//  traverse.hpp
-//  Signorini
+/******************************************************************************
+ * traverse.hpp                                                               *
+ *                                                                            *
+ * More old stuff that I probably don't need any more...                      *
+ ******************************************************************************/
 
 #ifndef SIGNORINI_TRAVERSE_HPP
 #define SIGNORINI_TRAVERSE_HPP

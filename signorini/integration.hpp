@@ -1,5 +1,11 @@
-#ifndef DUNE_INTEGRATE_ENTITY_HPP
-#define DUNE_INTEGRATE_ENTITY_HPP
+/******************************************************************************
+ * integration.hpp                                                            *
+ *                                                                            *
+ * Old stuff that I probably don't need any more...                           *
+ ******************************************************************************/
+
+#ifndef SIGNORINI_INTEGRATION_HPP
+#define SIGNORINI_INTEGRATION_HPP
 
 #include <dune/common/exceptions.hh>
 #include <dune/geometry/quadraturerules.hh>
@@ -7,11 +13,7 @@
 #include <dune/grid/io/file/vtk/vtkwriter.hh>
 
 using namespace Dune;
-/*
-#include <math.h>
-#include <vector>
-#include <string>
- */
+
 #include <iostream>
 using std::cout; using std::cerr; using std::endl; using std::string;
 
