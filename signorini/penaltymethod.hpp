@@ -377,7 +377,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
 {
-  bench().report ("Penalty matrix assembly", "Coercing innocents...", false);
+  bench().report ("Penalty matrix assembly", "Coercing bypassers...", false);
   
   const auto&  iset = gv.indexSet ();
   const auto& basis = TSS::instance ();
@@ -447,7 +447,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
   }
   
   bench().report ("Penalty matrix assembly",
-                  string (string ("\t(") + pen).append(" nodes constrained)"));
+                  string (string (" (") + pen).append(" nodes constrained)"));
 }
 
 

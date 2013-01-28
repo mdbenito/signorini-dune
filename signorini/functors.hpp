@@ -7,12 +7,14 @@
  *                                                                            *
  * TODO:                                                                      *
  *   - Use data associated to a grid to define the support of any functor.    *
+ *   - Create a ProblemData template class to gather all functors, their type *
+ *     information and the reading of the grid to define the support.         *
  *   - Tests                                                                  *
  *   - For fun: use policies in a Functor template class to specify how the   *
  *     support is defined (grid or manually), whether coordinates are local   *
  *     or global, ...)                                                        *
- *                                                                            *
  ******************************************************************************/
+
 #ifndef SIGNORINI_FUNCTORS_HPP
 #define SIGNORINI_FUNCTORS_HPP
 

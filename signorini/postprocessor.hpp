@@ -163,7 +163,7 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
     }
   }
   
-  bench().report ("Postprocessing", "\tok");
+  bench().report ("Postprocessing", " done.");
 }
 
 template<class TGV, class TET, class TSS>
