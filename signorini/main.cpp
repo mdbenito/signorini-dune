@@ -96,15 +96,15 @@ int main (int argc, char** argv)
   typedef NormalGap<ctype, dim>               Gap;
   typedef HookeTensor<ctype, dim>          HookeT;
   typedef Q1ShapeFunctionSet<ctype, dim> ShapeSet;
-  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap> FEMSolver;
-    //typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap> FEMSolver;
+  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver;
+    //typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver;
 
   HookeT  a (E, nu);
   VolumeF         f;
   BoundaryF       p;
   Gap             g;
   
-  FEMSolver fem (gv, a, f, p, g, 4);
+  FEMSolver fem (gv, a, f, p, g, eps);
   
     //// Misc.
   
@@ -126,19 +126,15 @@ int main (int argc, char** argv)
     while (step++ < maxsteps && (error > tolerance ||
                                  (error <= tolerance && step < 3))) {
       bench().start (string("Iteration ") + step);
-      
-      fem.assemblePenalties (eps);
+
       fem.solve();
 
       bench().start ("Postprocessing", false);
-      post.check (fem.solution());
       error = post.computeError (fem.solution ());
-      post.computeVonMises();
-      bench().report ("Postprocessing", string ("New solution diverged by: ") + error);
-      string f = post.writeVTKFile ("/tmp/SignoriniFEM", step);
-      bench().report ("Postprocessing", "Output written to " + f);
+      post.computeVonMisesSquared();
+      (void) post.writeVTKFile ("/tmp/SignoriniFEM", step);
       bench().stop ("Postprocessing");
-      
+ 
       bench().stop (string("Iteration ") + step);
     }
     bench().stop ("Resolution");

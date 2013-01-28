@@ -10,7 +10,7 @@
 
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
-#include <dune/common/fassign.hh>     // operator <<= for vectors
+#include <dune/common/fassign.hh>     // operator <<= for FieldVectors
 #include <dune/geometry/quadraturerules.hh>
 #include <dune/grid/albertagrid.hh>
 
@@ -41,7 +41,6 @@ using std::string;
     different boundaries are (and use a Mapper)
   - Use some sort of mask to reduce the number of calculations in the penalty
   - CHECK: "Big penalty parameters => ill-conditioned systems"
-  - Make the elements (P1, Q1) parametrizable.
   - Generalize to higher order elements.
  
  Template type names:
@@ -50,8 +49,9 @@ using std::string;
     TFF: TForcesFunctor
     TTF: TTractionsFunctor
     TGF: TGapFunctor
+    TSS: TShapeFunctionSet
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 class SignoriniFEPenalty
 {
 public:
@@ -79,16 +79,20 @@ private:
   CoordVector u;  //!< Solution
   
   int quadratureOrder;
-  
+  double          eps; //!< Penalty parameter
 public:
-  SignoriniFEPenalty (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g, int _quadratureOrder = 4);
-  
-  void determineAdjacencyPattern ();
+  SignoriniFEPenalty (const TGV& _gv,  const TET& _a, const TFT& _f,
+                      const TTT& _p, const TGT& _g, double _eps,
+                      int _quadratureOrder = 4);
+
   void initialize ();
-  void assembleMain ();
-  void assemblePenalties (double epsilon);
   void solve ();
+
   const CoordVector& solution() const { return u; }
+  
+protected:
+  void assembleMain ();
+  void assemblePenalties ();
 };
 
 
@@ -96,11 +100,11 @@ public:
  * Implementation                                                             *
  ******************************************************************************/
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::SignoriniFEPenalty
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniFEPenalty
 (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g,
- int _quadratureOrder)
-: gv (_gv), a (_a), f (_f), p (_p), g(_g), quadratureOrder(_quadratureOrder)
+ double _eps, int _quadratureOrder)
+: gv (_gv), a (_a), f (_f), p (_p), g(_g), quadratureOrder(_quadratureOrder), eps(_eps)
 {
   I = 0.0;
   for (int i=0; i < dim; ++i)
@@ -125,14 +129,15 @@ SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::SignoriniFEPenalty
  
  so here we traverse all vertices of each leaf of codim 0 instead.
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
 {
   bench().start ("Initialization", false);
   
-  bench().report ("Initialization", "Imbuing with Q1 adjacency intuitions...", false);
   
-    //// Compute adjacency information.
+    //// 1. Compute adjacency information.
+  
+  bench().report ("Initialization", "Imbuing with adjacency intuitions...", false);
   
   const auto& set = gv.indexSet ();
   const int N = gv.size (dim);
@@ -150,9 +155,10 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
       }
     }
   }
+  
   bench().report ("Initialization", "\tdone.");
   
-    //// Initialize matrices and vectors
+    //// 2. Initialize matrices and vectors
   
   bench().report ("Initialization", "Randomizing inverse flow generator...", false);
 
@@ -191,11 +197,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
   
   bench().report ("Initialization", "\tdone.");
   
-    //// Assemble stiffness matrix
-  
-  bench().report ("Initialization", "Feeding gremlins...", false);
+    //// 3. Assemble stiffness matrix
+
   assembleMain ();
-  bench().report ("Initialization", "\tdone.");
   
   bench().stop ("Initialization");
 }
@@ -215,12 +219,13 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::initialize ()
  if we did allow overriding of Dirichlet nodes by the other kinds, we'd have
  empty rows in the stiffness matrix.
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 {
+  bench().report ("Initialization", "Feeding gremlins...", false);
   std::set<int> boundaryVisited;
 
-  const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
+  const auto& basis = TSS::instance ();
   const auto&  iset = gv.indexSet ();
   
   /*
@@ -241,8 +246,6 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
     const auto&  geo = it->geometry();
     const int   vnum = ref.size (dim);
-
-    //printCorners (geo);
 
       /// Stiffness matrix
     
@@ -355,6 +358,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
   }
 
   //printmatrix (cout, A, "Stiffness matrix","");
+  bench().report ("Initialization", "\tdone.");
 }
 
 
@@ -370,14 +374,13 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assembleMain ()
  
  only in that case
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
 {
-  bench().start ("Penalty matrix assembly", false);
   bench().report ("Penalty matrix assembly", "Coercing innocents...", false);
   
   const auto&  iset = gv.indexSet ();
-  const auto& basis = Q1ShapeFunctionSet<ctype, dim>::instance ();
+  const auto& basis = TSS::instance ();
   
   eps = 1.0 / eps;
   P   = 0.0;
@@ -445,7 +448,6 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
   
   bench().report ("Penalty matrix assembly",
                   string (string ("\t(") + pen).append(" nodes constrained)"));
-  bench().stop ("Penalty matrix assembly");
 }
 
 
@@ -460,11 +462,14 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::assemblePenalties (double eps)
  verbose   The verbosity level. (0,1,2)
  
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT>::solve ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::solve ()
 {
-  bench().start ("System resolution", false);
+  bench().start ("Penalty matrix assembly", false);
+  assemblePenalties ();
+  bench().stop ("Penalty matrix assembly");
 
+  bench().start ("System resolution", false);
   BlockMatrix B = A;  B += P;      // Add penalties
   CoordVector c = b;  c += r;      // Add penalties
 

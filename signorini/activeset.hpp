@@ -41,8 +41,9 @@ using namespace Dune;
     TFF: TForcesFunctor
     TTF: TTractionsFunctor
     TGF: TGapFunctor
+    TSS: TShapeSet
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT>
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 class SignoriniIASet
 {
 public:
@@ -72,7 +73,8 @@ private:
   int quadratureOrder;
   
 public:
-  SignoriniIASet (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g, int _quadratureOrder = 4);
+  SignoriniIASet (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p,
+                  const TGT& _g, int _quadratureOrder = 4);
   
   void setupMatrices ();
   void initialize ();
@@ -82,8 +84,8 @@ public:
   const CoordVector& solution() const { return u; }
 };
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-SignoriniIASet<TGV, TET, TFT, TTT, TGT>::SignoriniIASet (const TGV& _gv,
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniIASet (const TGV& _gv,
                                                          const TET& _a,
                                                          const TFT& _f,
                                                          const TTT& _p,
@@ -96,13 +98,13 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGT>::SignoriniIASet (const TGV& _gv,
     I[i][i] = 1.0;
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::setupMatrices ()
 {
-    // Using isSupported, create the indexSets with the vertices corresponding
+    // 1. Using isSupported, create the indexSets with the vertices corresponding
     // to Signorini nodes "indexSignorini", and the rest "indexStandard".
   
-    // create a Mapper "appending" indexSignorini to indexStandard:
+    // 2. create a Mapper "appending" indexSignorini to indexStandard:
     // indices not in the possible contact zone will all be greater than the
     // last one in indexSignorini. This will result in block matrices.
   
@@ -110,20 +112,20 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::setupMatrices ()
   
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::initialize ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
 {
   
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::assembleMain ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 {
   
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::solve ()
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::solve ()
 {
   
 }

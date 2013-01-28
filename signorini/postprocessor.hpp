@@ -13,6 +13,7 @@
 #include <vector>
 #include <cmath>
 
+#include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bvector.hh>
@@ -57,16 +58,16 @@ private:
 public:
   PostProcessor (const TGV& _gv,  const TET& _a);
 
-  void setSolution (const CoordVector& v);
   double computeError (const CoordVector& v);
-  void computeVonMises ();
+  void   computeVonMisesSquared ();
   
   std::string writeVTKFile (std::string base, int step) const;
-  void check (const CoordVector& v) const;
   
 protected:
-  template<class V>
-  std::vector<ctype> asVector(const V* u) const;};
+  void check (const CoordVector& v) const;
+  void setSolution (const CoordVector& v);
+  
+  template<class V> std::vector<ctype> asVector(const V* u) const;};
 
 template<class TGV, class TET, class TSS>
 PostProcessor<TGV, TET, TSS>::PostProcessor (const TGV& _gv,  const TET& _a)
@@ -96,6 +97,8 @@ void PostProcessor<TGV, TET, TSS>::setSolution (const CoordVector& v)
 template<class TGV, class TET, class TSS>
 double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
 {
+  check (v);
+
   long double r = 0.0;
   
   if (u == NULL) {
@@ -112,27 +115,34 @@ double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
       }
     }
     r = r / n;
+    bench().report ("Postprocessing", string ("New solution diverged by: ") + r);
   }
+  
   setSolution (v);
   return r;
 }
 
-/*! Brute force! 
+/*! Brute force! Returns the *squared* von Mises stress
  
- Don't think, just code...
+ Don't think, just code... There has to be a better way of creating a DUNE vector
+ of scalars...
  
  Also: shouldn't I normalize the contribution of each vertex?
  */
 template<class TGV, class TET, class TSS>
-void PostProcessor<TGV, TET, TSS>::computeVonMises ()
+void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
 {
   bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
   const auto&  iset = gv.indexSet ();
+  
+  const auto totalVertices = gv.size (dim);
+  
+  if (u == NULL || u->size() != totalVertices)
+    DUNE_THROW (Exception, "call PostProcessor::computeError() first");
 
   if (vm != NULL) delete vm;
-  
-  vm = new ScalarVector (gv.size (dim), gv.size (dim));
+  vm = new ScalarVector (totalVertices, totalVertices);
 
   for (auto& p : *vm)
     p = FieldVector<ctype,1>(0.0);
@@ -145,12 +155,10 @@ void PostProcessor<TGV, TET, TSS>::computeVonMises ()
     for (int i = 0; i < vnum; ++i) {
       auto ii = iset.subIndex (*it, i, dim);
       auto iipos = ref.position (i, dim);
+      block_t  s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
+      double   r = trace(s);
 
-      block_t s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
-      double  r = trace(s);      
-      r = r*r - 1.5*(r*r - trace (s.rightmultiplyany (s)));
-      r = std::sqrt (r);
-      
+      r = -0.5*r*r + 1.5*trace (s.rightmultiplyany (s));
       (*vm)[ii] += r;
     }
   }
@@ -168,6 +176,7 @@ std::string PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int st
   if (vm != NULL) vtkwriter.addVertexData (asVector (vm), "vm", 1);
   vtkwriter.write (oss.str(), VTKOptions::binaryappended);
   
+  bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
 }
 
@@ -183,6 +192,10 @@ PostProcessor<TGV, TET, TSS>::asVector(const V* v) const {
   return ret;
 }
 
+/*! Old sanity check.
+ Wrong setup of the stiffness matrix would lead to NaN results in some places.
+ This check should no longer be necessary, but it doesn't hurt either.
+ */
 template<class TGV, class TET, class TSS>
 void PostProcessor<TGV, TET, TSS>::check (const CoordVector& v) const {
   bool ok = true;
