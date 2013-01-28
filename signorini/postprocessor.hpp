@@ -79,8 +79,7 @@ PostProcessor<TGV, TET, TSS>::PostProcessor (const TGV& _gv,  const TET& _a)
 template<class TGV, class TET, class TSS>
 void PostProcessor<TGV, TET, TSS>::setSolution (const CoordVector& v)
 {
-  if (u != NULL)
-    delete u;
+  delete u;
   u = new CoordVector (v);
 }
 
@@ -184,7 +183,7 @@ std::string PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int st
 template<class TGV, class TET, class TSS>
 template <class V>
 std::vector<typename TGV::ctype>
-PostProcessor<TGV, TET, TSS>::asVector(const V* v) const {
+PostProcessor<TGV, TET, TSS>::asVector (const V* v) const {
   std::vector<ctype> ret;
   for (auto& p : *v)
     for (auto& c : p)

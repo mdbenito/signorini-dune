@@ -185,7 +185,7 @@ public:
       // Careful! remember that it must be g(x) > 0
     
     if (isSupported (x)) {
-      double g = sin (x[0]*6*M_PI) / 50.0;
+      double g = sin (x[0]*4*M_PI) / 100.0;
       return g > 0.0 ? g : 0;
     }
     return 0;

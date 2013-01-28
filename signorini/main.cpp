@@ -69,7 +69,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (7);
+  grid.globalRefine (3);
 
   const GV& gv = grid.leafView();
 
@@ -107,7 +107,7 @@ int main (int argc, char** argv)
   BoundaryF       p;
   Gap             g;
   
-  FEMSolver   fem (gv, a, f, p, g, eps);
+    //FEMSolver   fem (gv, a, f, p, g, eps);
   FEMSolver2 fem2 (gv, a, f, p, g);
 
     //// Misc.
@@ -119,9 +119,9 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling!!
     cout << "Gremlin population: " << grid.size(dim) << "\n";
-    fem.initialize();
-    fem.solve (maxsteps, tolerance);
-      //fem2.initialize ();
+      //fem.initialize();
+      //fem.solve (maxsteps, tolerance);
+    fem2.initialize ();
       //fem2.solve ();
     return 0;
   } catch (Exception& e) {
