@@ -28,7 +28,7 @@
 #include "utils.hpp"
 #include "benchmark.hpp"
 #include "shapefunctions.hpp"
-#include "vertexboundarymapper.hpp"
+#include "functorsupportmapper.hpp"
 
 using namespace Dune;
 using std::cout;
@@ -58,6 +58,8 @@ public:
   typedef     BlockVector<coord_t> CoordVector;
   typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
                                                   MCMGVertexLayout> VertexMapper;
+
+  typedef FunctorSupportMapper<dim, TGV, TGT> GapVertexMapper;
 
 private:
   const TGV& gv;  //!< Grid view
@@ -110,21 +112,14 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniIASet (const TGV& _gv,
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::setupMatrices ()
 {
-    // 1. Using isSupported, create the indexSets with the vertices corresponding
-    // to Signorini nodes "indexSignorini", and the rest "indexStandard".
-  
-  VertexMapper mapper (gv.grid());
+  VertexMapper       mapper (gv.grid());
+  GapVertexMapper gapMapper (gv, g);
   
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
-    if (g.isSupported (it->geometry().center()))
-      ;
+    cout << "Vertex #" << mapper.map (*it)
+         << " at " << it->geometry().center()
+         << " has new index " << gapMapper.map (*it) << "\n";
   }
-    // 2. create a Mapper "appending" indexSignorini to indexStandard:
-    // indices not in the possible contact zone will all be greater than the
-    // last one in indexSignorini. This will result in block matrices.
-  
-    //
-  
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
