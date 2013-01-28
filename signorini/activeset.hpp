@@ -25,9 +25,10 @@
 #include <dune/istl/preconditioners.hh>
 #include <dune/istl/io.hh>
 
-#include "shapefunctions.hpp"
 #include "utils.hpp"
 #include "benchmark.hpp"
+#include "shapefunctions.hpp"
+#include "vertexboundarymapper.hpp"
 
 using namespace Dune;
 using std::cout;
