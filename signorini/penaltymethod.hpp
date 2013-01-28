@@ -13,6 +13,7 @@
 #include <dune/common/fassign.hh>     // operator <<= for FieldVectors
 #include <dune/geometry/quadraturerules.hh>
 #include <dune/grid/albertagrid.hh>
+#include <dune/grid/common/mcmgmapper.hh>
 
 #include <dune/istl/bvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
@@ -26,6 +27,7 @@
 #include "traverse.hpp"
 #include "utils.hpp"
 #include "benchmark.hpp"
+#include "postprocessor.hpp"
 
 using namespace Dune;
 using std::string;
@@ -62,6 +64,8 @@ public:
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef      BCRSMatrix<block_t> BlockMatrix;
   typedef     BlockVector<coord_t> CoordVector;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
+                                                  MCMGVertexLayout> VertexMapper;
   
 private:
   const TGV& gv;  //!< Grid view
@@ -86,13 +90,14 @@ public:
                       int _quadratureOrder = 4);
 
   void initialize ();
-  void solve ();
+  void solve (int maxsteps, double tolerance);
 
   const CoordVector& solution() const { return u; }
   
 protected:
   void assembleMain ();
   void assemblePenalties ();
+  void solveSystem ();
 };
 
 
@@ -223,10 +228,10 @@ template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 {
   bench().report ("Initialization", "Feeding gremlins...", false);
+  
   std::set<int> boundaryVisited;
-
   const auto& basis = TSS::instance ();
-  const auto&  iset = gv.indexSet ();
+  VertexMapper mapper (gv.grid());
   
   /*
    We compute the stiffness matrix in an unintuitive way: for each entry A_ij one
@@ -259,8 +264,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
         for (int j = 0; j < vnum; ++j) {
           jacInvTra.mv (basis[j].evaluateGradient (x.position ()), grad2);
           
-          auto ii = iset.subIndex (*it, i, dim);
-          auto jj = iset.subIndex (*it, j, dim);
+          int ii = mapper.map (*it, i, dim);
+          int jj = mapper.map (*it, j, dim);
+            //cout << "ii= " << ii << ", jj= " << jj << "\n";
           try {
             A[ii][jj] +=
               a (grad2, grad1) * x.weight () * geo.integrationElement (x.position ());
@@ -273,7 +279,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
         //// Integrand of the RHS
       
       for (int i = 0 ; i < vnum; ++i)
-        b[iset.subIndex (*it, i, dim)] +=
+        b[mapper.map (*it, i, dim)] +=
               f (it->geometry ().global (x.position ())) *
               basis[i].evaluateFunction (x.position ()) *
               x.weight () *
@@ -282,7 +288,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
     }
 
       //// Boundary conditions. See the discussion in the comments to the method
-      
+
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
         const int  ivnum = ref.size (is->indexInInside (), 1, dim);
@@ -292,14 +298,15 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
         if (p.isSupported (igeo)) {            // Neumann conditions.
           //cout << "Neumann'ing: "; printCorners (igeo);
           for (int i = 0 ; i < ivnum; ++i) {
-            int rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
-            int   ii = iset.subIndex (*it, rsub, dim);
+            int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int   ii = mapper.map (*it, subi, dim);
               //auto   v = it->template subEntity<dim> (rsub)->geometry().center();
               //cout << "Neumann'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert (ii);
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
-              b[ii] += p (igeo.global (x.position ())) *
-                       basis[i].evaluateFunction (it->geometry().local (igeo.global (x.position ()))) *
+              auto global = igeo.global (x.position ());
+              b[ii] += p (global) *
+                       basis[i].evaluateFunction (it->geometry().local (global)) *
                        x.weight () *
                        igeo.integrationElement (x.position ());
             }
@@ -307,12 +314,14 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
         } else if (g.isSupported (igeo)) {    // Signorini conditions.
           //cout << "Signorini'ing: "; printCorners (ig);
           for (int i = 0 ; i < ivnum; ++i) {
-            int ii = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, i, dim), dim);
+            int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int   ii = mapper.map (*it, subi, dim);
               //cout << "Signorini'ing node: " << ii << "\n";
             boundaryVisited.insert (ii);
             
             for (int j = 0; j < ivnum; ++j) {
-              int jj = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, j, dim), dim);
+              int subj = ref.subEntity (is->indexInInside (), 1, j, dim);
+              int   jj = mapper.map (*it, subj, dim);
                 //cout << "Signorini'ing node: " << jj << "\n";
               boundaryVisited.insert (jj);
             }
@@ -342,9 +351,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
           //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
         
         for (int i = 0; i < ivnum; ++i) {
-          auto rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
+          auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             //auto v = it->template subEntity<dim> (rsub)->geometry().center();
-          int ii = iset.subIndex (*it, rsub , dim);          
+          int ii = mapper.map (*it, subi , dim);
           if (boundaryVisited.count (ii) == 0) {
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
@@ -379,7 +388,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
 {
   bench().report ("Penalty matrix assembly", "Coercing bypassers...", false);
   
-  const auto&  iset = gv.indexSet ();
+  VertexMapper mapper (gv.grid());
   const auto& basis = TSS::instance ();
   
   eps = 1.0 / eps;
@@ -409,9 +418,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
           block_t penalty (0.0);
 
           for (int i = 0 ; i < vnum; ++i) {
-            int   rsub = ref.subEntity (is->indexInInside (), 1, i, dim);
-            int     ii = iset.subIndex (*it, rsub, dim);
-            auto iipos = is->inside()->template subEntity<dim>(rsub)->geometry().center();
+            int   isub = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int     ii = mapper.map (*it, isub, dim);
+            auto iipos = is->inside()->template subEntity<dim>(isub)->geometry().center();
 
             for (auto& x : rule) {
               auto global = igeo.global (x.position ());
@@ -424,7 +433,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
                          x.weight() * igeo.integrationElement (x.position ()) * eps;
                          
                 for (int j = 0; j < vnum; ++j) {
-                  int jj = iset.subIndex (*it, ref.subEntity (is->indexInInside (), 1, j, dim), dim);
+                  int jsub = ref.subEntity (is->indexInInside (), 1, j, dim);
+                  int   jj = mapper.map (*it, jsub, dim);
                   for (int k = 0; k < dim; ++k) {
                     for (int l = 0; l < dim; ++l) {
                       penalty[k][l] = n[k] * basis[i].evaluateFunction (local) *
@@ -463,13 +473,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
  
  */
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::solve ()
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::solveSystem ()
 {
-  bench().start ("Penalty matrix assembly", false);
-  assemblePenalties ();
-  bench().stop ("Penalty matrix assembly");
-
-  bench().start ("System resolution", false);
+  
   BlockMatrix B = A;  B += P;      // Add penalties
   CoordVector c = b;  c += r;      // Add penalties
 
@@ -497,6 +503,38 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::solve ()
   cgs.apply (u, c, stats);
    
    */
-  
-  bench().stop ("System resolution");
+
 }
+
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::solve (int maxsteps,
+                                                              double tolerance)
+{
+  PostProcessor<TGV, TET, TSS> post (gv, a);
+  
+  int     step = 0;
+  double error = 1.0;
+    // HACK: don't stop in the first iterations
+  while (step++ < maxsteps &&
+         (error > tolerance || (error <= tolerance && step < 5))) {
+    bench().start (string("Iteration ") + step);
+    
+    bench().start ("Penalty matrix assembly", false);
+    assemblePenalties ();
+    bench().stop ("Penalty matrix assembly");
+    
+    bench().start ("System resolution", false);
+    solveSystem ();
+    bench().stop ("System resolution");
+    
+    bench().start ("Postprocessing", false);
+    error = post.computeError (u);
+    post.computeVonMisesSquared ();
+    (void) post.writeVTKFile ("/tmp/SignoriniFEM", step);
+    bench().stop ("Postprocessing");
+    
+    bench().stop (string("Iteration ") + step);
+  }
+}
+
+

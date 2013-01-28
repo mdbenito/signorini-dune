@@ -15,6 +15,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fassign.hh>     // operator <<= for vectors
 #include <dune/geometry/quadraturerules.hh>
+#include <dune/grid/common/mcmgmapper.hh>
 
 #include <dune/istl/bvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
@@ -29,7 +30,7 @@
 #include "benchmark.hpp"
 
 using namespace Dune;
-
+using std::cout;
 
 /*! Solve the one body Signorini problem with an active-inactive set strategy.
  
@@ -54,7 +55,9 @@ public:
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef      BCRSMatrix<block_t> BlockMatrix;
   typedef     BlockVector<coord_t> CoordVector;
-  
+  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
+                                                  MCMGVertexLayout> VertexMapper;
+
 private:
   const TGV& gv;  //!< Grid view
   
@@ -84,6 +87,11 @@ public:
   const CoordVector& solution() const { return u; }
 };
 
+
+/******************************************************************************
+ * Implementation                                                             *
+ ******************************************************************************/
+
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniIASet (const TGV& _gv,
                                                          const TET& _a,
@@ -99,11 +107,17 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniIASet (const TGV& _gv,
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::setupMatrices ()
+void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::setupMatrices ()
 {
     // 1. Using isSupported, create the indexSets with the vertices corresponding
     // to Signorini nodes "indexSignorini", and the rest "indexStandard".
   
+  VertexMapper mapper (gv.grid());
+  
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    if (g.isSupported (it->geometry().center()))
+      ;
+  }
     // 2. create a Mapper "appending" indexSignorini to indexStandard:
     // indices not in the possible contact zone will all be greater than the
     // last one in indexSignorini. This will result in block matrices.
@@ -115,7 +129,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT>::setupMatrices ()
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
 {
-  
+  setupMatrices();
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>

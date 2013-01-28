@@ -37,11 +37,11 @@ pdo.SetPoints(newPoints)
 
   //// Project includes
 
+#include "benchmark.hpp"
 #include "functors.hpp"
 #include "shapefunctions.hpp"
 #include "penaltymethod.hpp"
-#include "benchmark.hpp"
-#include "postprocessor.hpp"
+#include "activeset.hpp"
 
   //// stdlib includes
 
@@ -97,50 +97,33 @@ int main (int argc, char** argv)
   typedef HookeTensor<ctype, dim>          HookeT;
   typedef Q1ShapeFunctionSet<ctype, dim> ShapeSet;
   typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver;
-    //typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver;
+  typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver2;
+    //Should be:
+    //SignoriniIASet<GV, ProblemData, ShapeSet> FEMSolver;
+  
 
   HookeT  a (E, nu);
   VolumeF         f;
   BoundaryF       p;
   Gap             g;
   
-  FEMSolver fem (gv, a, f, p, g, eps);
-  
+  FEMSolver   fem (gv, a, f, p, g, eps);
+  FEMSolver2 fem2 (gv, a, f, p, g);
+
     //// Misc.
-  
-  PostProcessor<GV, HookeT, ShapeSet> post (gv, a);
-    //testShapes<ctype, dim, ShapeSet>();
+
+    //PostProcessor<GV, ProblemData, ShapeSet> post (gv, data);
+
   
     //// Solution
   
   try {   // Pokemon Exception Handling!!
-
     cout << "Gremlin population: " << grid.size(dim) << "\n";
-
     fem.initialize();
-  
-    bench().start ("Resolution", false);
-    int     step = 0;
-    double error = 1.0;
-      // HACK: don't stop in the first iteration
-    while (step++ < maxsteps && (error > tolerance ||
-                                 (error <= tolerance && step < 3))) {
-      bench().start (string("Iteration ") + step);
-
-      fem.solve();
-
-      bench().start ("Postprocessing", false);
-      error = post.computeError (fem.solution ());
-      post.computeVonMisesSquared();
-      (void) post.writeVTKFile ("/tmp/SignoriniFEM", step);
-      bench().stop ("Postprocessing");
- 
-      bench().stop (string("Iteration ") + step);
-    }
-    bench().stop ("Resolution");
+    fem.solve (maxsteps, tolerance);
+      //fem2.initialize ();
+      //fem2.solve ();
     return 0;
-  } catch (MatrixBlockError& e) {
-    cout << "DEAD! " << e.what() << "\n";// << p1.A[e.r][e.c] << "\n";
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
   }
