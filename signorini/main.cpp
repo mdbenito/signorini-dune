@@ -50,7 +50,7 @@ using std::string;
 
 int main (int argc, char** argv)
 {
-  const int          dim = 2;
+  const int          dim = 3;
   const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
   const double        nu = 0.3;         // Poisson's ratio         [FV05, p.35]
   const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
@@ -95,20 +95,26 @@ int main (int argc, char** argv)
   typedef Tractions<ctype, dim>         BoundaryF;
   typedef NormalGap<ctype, dim>               Gap;
   typedef HookeTensor<ctype, dim>          HookeT;
-  typedef Q1ShapeFunctionSet<ctype, dim> ShapeSet;
+  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
+  typedef Q1ShapeFunctionSet<ctype, dim, ShapeF> ShapeSet;
+  typedef LagrangeSpaceShapeFunction<ctype, dim>     LSShapeF;
+  typedef Q1ShapeFunctionSet<ctype, dim, LSShapeF> LSShapeSet;
+  
   typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver;
   typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> FEMSolver2;
+
+  testShapes<ctype, dim, LSShapeSet>();
+  
     //Should be:
     //SignoriniIASet<GV, ProblemData, ShapeSet> FEMSolver;
   
-
   HookeT  a (E, nu);
   VolumeF         f;
   BoundaryF       p;
   Gap             g;
   
     //FEMSolver   fem (gv, a, f, p, g, eps);
-  FEMSolver2 fem2 (gv, a, f, p, g);
+    //FEMSolver2 fem2 (gv, a, f, p, g);
 
     //// Misc.
 
@@ -121,7 +127,7 @@ int main (int argc, char** argv)
     cout << "Gremlin population: " << grid.size(dim) << "\n";
       //fem.initialize();
       //fem.solve (maxsteps, tolerance);
-    fem2.initialize ();
+      //fem2.initialize ();
       //fem2.solve ();
     return 0;
   } catch (Exception& e) {

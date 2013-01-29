@@ -2,7 +2,7 @@
  * shapefunctions.hpp                                                         *
  *                                                                            *
  * TODO:                                                                      *
- *   - Replace *ShapeFunctionSet for a template class, taking the shape as    *
+ *   - Replace *Q1ShapeFunctionSet for a template class, taking the shape as    *
  *     template parameter (needs changing the definition of P1 functions).    *
  ******************************************************************************/
 
@@ -13,6 +13,8 @@
 //#include <bitset>
 #include <dune/common/fvector.hh>
 #include <dune/geometry/referenceelements.hh>
+
+#include "utils.hpp"
 
 using namespace Dune;
 using std::cout;
@@ -28,8 +30,6 @@ class LinearShapeFunction
   typedef FieldVector<ctype, dim> coord_t;
   
 public:
-  const GeometryType::BasicType basicType = GeometryType::simplex;
-  
   enum { N = dim };
   
   LinearShapeFunction () : coeff0(0.0), coeff1(0.0) {}
@@ -65,7 +65,8 @@ class P1ShapeFunctionSet
   
 public:
   enum { N = dim + 1 };
-  
+  const GeometryType::BasicType basicType = GeometryType::simplex;
+
   typedef LinearShapeFunction<ctype, dim> ShapeFunction;
   
   static const P1ShapeFunctionSet& instance()
@@ -82,7 +83,7 @@ public:
   }
   
 private:
-    // private constructor prevents additional instances
+
   P1ShapeFunctionSet()
   {
     coord_t e(-1.0);
@@ -101,6 +102,7 @@ private:
   ShapeFunction f0;
   ShapeFunction f1[dim];
 };
+
 
 /*! MLinearShapeFunction:
  
@@ -133,7 +135,7 @@ class MLinearShapeFunction
   typedef FieldVector<ctype, dim> coord_t;
   
 public:
-  enum { D = dim };
+    //enum { D = dim };
   
   MLinearShapeFunction (unsigned long _mask=0) : mask(_mask)
   {
@@ -142,12 +144,12 @@ public:
 
   ctype evaluateFunction (const coord_t& local) const
   {
-    
     ctype r = 1.0;
     for (int i = 0; i < dim; ++i)
       r *= (mask & (1u<<i)) ? local[i] : (1-local[i]);
     
-      //std::cout << "Evaluating shape #" << mask << " on " << local << " returns " << r << "\n";
+      //std::cout << "Evaluating shape #" << mask << " on " << local
+      //          << " returns " << r << "\n";
 
     return r;
   }
@@ -169,7 +171,8 @@ public:
       r[i] = t;
     }
     
-      //cout << "Evaluating GRADIENT of shape #" << mask << " on " << local << " returns " << r << "\n";
+      //cout << "Evaluating GRADIENT of shape #" << mask << " on " << local
+      //     << " returns " << r << "\n";
     return r;
   }
   
@@ -177,11 +180,236 @@ private:
   unsigned long mask;  //!< Would break for dim > ulong bitsize
 };
 
-/*! Q1ShapeFunctionSet
+
+/*! For the discrete space of Lagrange multipliers.
  
- Singleton collection of LinearShapeFunction for Q1 elements.
+ These functions take value 2 on their associated vertex and -1 on the rest.
+ 
+ FIXME!! Lots of mindless copying. I should also memoize. And this just sucks...
  */
+  // FIXME: Why doesn't this work as I want it to?
+template <class T>
+std::vector<T>& operator<< (std::vector<T>& v, T d)
+{
+  v.push_back (d);
+  return v;
+}
+
 template<class ctype, int dim>
+class LagrangeSpaceShapeFunction
+{
+  typedef FieldVector<ctype, dim> coord_t;
+
+  class Monome {
+    int indices[dim];  // array (0 1 1) means x_2*x_3, etc.
+    void clear() {
+      for (int i=0; i < dim; ++i) indices[i] = 0;
+    }
+  public:
+    ctype coeff;
+    Monome (ctype _coeff=0) : coeff(_coeff) { clear(); }
+    Monome (std::vector<int> ilist, ctype _coeff) : coeff (_coeff) {
+      clear();
+      for (auto& x : ilist) indices[x] = 1;
+    };
+    
+    ctype operator() (const coord_t& local) const
+    {
+      ctype r = coeff;
+      for (int i=0; i < dim; ++i)
+        if (indices[i] > 0)
+          r *= local[i];
+
+      return r;
+    }
+
+    void differentiate (int which)
+    {
+      if (indices[which] == 0) {
+        clear();
+        coeff = 0;
+      } else {
+        indices[which] = 0;
+      }
+    }
+    
+    friend std::ostream& operator<< (std::ostream& os, const Monome& m)
+    {
+      os << m.coeff;
+      for (int i=0; i < dim; ++i)
+        if (m.indices[i] > 0)
+          os << "x[" << i << "]";
+      return os;
+    }
+  };
+  
+  typedef std::vector<Monome> Polynome;
+  
+  friend std::ostream& operator<< (std::ostream& os, const Polynome& p)
+  {
+    for (auto& m : p)
+      os << m << " + ";
+    return os;
+  }
+  
+  friend Monome& operator* (Monome& m, ctype c)
+  {
+    m.coeff = c;
+    return m;
+  }
+  
+  friend Polynome& operator* (Polynome& p, ctype c)
+  {
+    for (auto& x : p)
+      x = x*c;
+
+    return p;
+  }
+
+  Polynome monomesOfOrder (int order)
+  {
+    /* TODO: translate this!! and delete the rest!!!!
+     
+     (define dim 3)
+
+     (define (prepend x)
+       (lambda (y) (append x y)))
+     
+     (define (monomes ord from prog)
+       (cond ((>= from dim) '())
+             ((== ord 1) (cons `(,from) (monomes ord (+ 1 from) prog)))
+             (else
+                (with np (append prog `(,from))
+                  (append
+                    (map (prepend np) (monomes (- ord 1) (+ 1 from) '()))
+                    (monomes ord (+ 1 from) prog))))))
+     */
+    
+    if (dim > 3)
+      DUNE_THROW (Exception, "general monomesOfOrder not implemented in c++");
+
+    /*!  MEGA-HACK!!
+     
+     This is just plain stupid, but it's too late now for recursion in c++
+     without reasonable reference counting.
+     */
+    
+    Polynome p;
+    Monome m;
+    std::vector<int> indices;
+    if (order == 1) {
+      for (int i=0; i < dim; ++i) {
+        indices.push_back (i);
+        m = Monome (indices, 1);
+        p.push_back (m);
+        indices.clear();
+      }
+    } else if (order == 2) {
+      if (dim == 2) {
+        indices << 0 << 1;
+        m = Monome (indices, 1);
+        p.push_back (m);
+      } else if (dim == 3) {
+        m = Monome (indices << 0 << 1, 1);
+        p.push_back (m);
+        indices.clear();
+        m = Monome (indices << 0 << 2, 1);
+        p.push_back (m);
+        indices.clear();
+        m = Monome (indices << 1 << 2, 1);
+        p.push_back (m);
+      }
+    } else if (order == 3) {
+      indices.clear();
+      m = Monome (indices << 0 << 1 << 2, 1);
+      p.push_back (m);
+
+    }
+    return p;
+  }
+
+public:
+  Polynome poly;
+  Polynome gradient[dim];
+  
+  LagrangeSpaceShapeFunction (unsigned long _mask=0) : mask(_mask)
+  {
+    std::cout << "Creating shape function with mask " << mask << "\n";
+
+    Polynome p;
+    for (int i=0; i < dim; ++i) {
+      p = monomesOfOrder (i+1);
+      int sign = (i%2 == 0) ? -1 : 1;
+      p = p * (sign * 3.0);
+      poly.insert (poly.end(), p.begin(), p.end());
+    }
+    
+    Monome m(2);
+    poly.push_back(m);
+    
+    for (int i=0; i < dim; ++i) {
+      for (const auto& monome : poly) {
+        m = Monome (monome);
+        m.differentiate (i);
+        gradient[i].push_back (m);
+      }
+    }
+    
+    cout << "   Shape has poly: " << poly << "\n" << "       and grad: ";
+    for (int i=0; i < dim; ++i)
+       cout << gradient[i] << ", ";
+    cout << "\n";
+    
+  }
+  
+  /* The basis function at (0 1 1) is
+   
+     -3*(x_1 + (1-x_2) + (1-x_3)) + 3*(x_1*(1-x_2) + x_1*(1-x_3) + (1-x_2)*(1-x_3))
+     -3*(x_1*(1-x_2)*(1-x_3)) + 2
+   
+   */  
+  ctype evaluateFunction (const coord_t& local) const
+  {
+    ctype r = 0.0;
+    coord_t idiotic_copy (local);
+    for (int i = 0; i < dim; ++i)
+      idiotic_copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
+    
+    for (auto& monome : poly)
+      r += monome (idiotic_copy);
+
+      //std::cout << "Evaluating shape #" << mask << " on " << local
+      //      << " returns " << r << "\n";
+    
+    return r;
+  }
+  
+  inline coord_t evaluateGradient (const coord_t& local) const
+  {
+    coord_t r;
+    coord_t idiotic_copy (local);
+    for (int i = 0; i < dim; ++i)
+      idiotic_copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
+    
+    for (int i = 0; i < dim; ++i)
+      for (auto& monome : gradient[i])
+        r[i] += monome (idiotic_copy);
+
+          //cout << "Evaluating GRADIENT of shape #" << mask << " on " << local
+      //     << " returns " << r << "\n";
+    return r;
+  }
+  
+private:
+  unsigned long mask;  //!< Would break for dim > ulong bitsize
+};
+
+
+/*! Q1ShapeFunctionSet.
+ 
+ Singleton collection of *linear* ShapeFunction
+ */
+template<class ctype, int dim, class ShapeFunction>
 class Q1ShapeFunctionSet
 {
   typedef FieldVector<ctype, dim> coord_t;
@@ -189,9 +417,7 @@ class Q1ShapeFunctionSet
 public:
   const GeometryType::BasicType basicType = GeometryType::cube;
   enum { N = 1 << dim};
-  
-  typedef MLinearShapeFunction<ctype, dim> ShapeFunction;
-  
+
   static const Q1ShapeFunctionSet& instance()
   {
     if (! _instance)
@@ -220,6 +446,7 @@ private:
    and our system which assigns to the vertex with coordinates (1,1,0), i.e.
    number 3 in DUNE the index 6 = 110b. We basically do a poor man's bit order
    reversal (lsb->msb) of dim bits.
+   FIXME? breaks at dim = 16
    */
   inline unsigned int mapDuneIndex (int i)
   {
@@ -230,7 +457,8 @@ private:
     
       //std::bitset<8> lsb(i);
       //std::bitset<8> msb(msb_i);
-      //std::cout << "i= " << lsb << ",\t\tmsb_i= " << msb << "(" << (int)msb_i << ")\n";
+      //std::cout << "i= " << lsb << ",\t\tmsb_i= " << msb << "("
+      //          << (int)msb_i << ")\n";
     return msb_i;
   }
   
@@ -240,23 +468,23 @@ private:
   {
     for (int i=0; i < N; ++i)
       f[i] = new ShapeFunction (mapDuneIndex (i));
-    //atexit (&Q1ShapeFunctionSet::atExit);   //FIXME!
+    atexit (this->atExit);
   }
 
   ~Q1ShapeFunctionSet ()
   {
-    for (auto i=0; i < N; ++i)  // overkill type
+    for (auto i=0; i < N; ++i)
       delete f[i];
   }
   
-  void atExit ()
+  static void atExit ()
   {
     delete _instance;
     _instance = 0;
   }
 };
 
-template <class C, int D> Q1ShapeFunctionSet<C,D>*
-Q1ShapeFunctionSet<C,D>::_instance = 0;
+template <class C, int D, class TS>
+Q1ShapeFunctionSet<C, D, TS>* Q1ShapeFunctionSet<C, D, TS>::_instance = 0;
 
 #endif  // defined (SIGNORINI_SHAPEFUNCTIONS_HPP)

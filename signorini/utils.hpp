@@ -79,10 +79,10 @@ void writeVectorToFile (const VectorType& vector,
   outs.close();
 }
 
-template <class ctype, int dim, template <class, int> class ShapeSet>
+template <class ctype, int dim, class ShapeSet>
 bool testShapes()
 {
-  const auto& basis = ShapeSet<ctype, dim>::instance ();
+  const auto& basis = ShapeSet::instance ();
   GeometryType gt (basis.basicType, dim);
   const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
   FieldVector<ctype, dim> x;
@@ -94,6 +94,15 @@ bool testShapes()
         x = element.position (v, dim);
         cout << "   Basis[" << i << "](" << x << ") = "
              << basis[i].evaluateFunction (x) << "\n";
+    }
+  }
+  
+  cout << "Testing gradient:\n";
+  for (int i=0; i < basis.N; ++i) {
+    for (int v = 0; v < element.size (dim); ++v) {
+      x = element.position (v, dim);
+      cout << "   Basis[" << i << "](" << x << ") = "
+           << basis[i].evaluateGradient (x) << "\n";
     }
   }
   

@@ -90,6 +90,27 @@ public:
   const CoordVector& solution() const { return u; }
 };
 
+/*! */
+template <typename ctype, int dim>
+class ActiveSetFunctor {
+  typedef FieldVector<ctype, dim> coord_t;
+
+public:
+  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
+  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
+  {
+    for (int i = 0; i < geo.corners(); ++i)
+      if (! isSupported (geo.corner (i)))
+        return false;
+    
+    return true;
+  }
+  
+  inline bool isSupported (const coord_t& x) const
+  {
+    return false;
+  }
+};
 
 /******************************************************************************
  * Implementation                                                             *

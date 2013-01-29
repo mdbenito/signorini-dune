@@ -386,7 +386,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
 {
-  bench().report ("Penalty matrix assembly", "Coercing bypassers...", false);
+  bench().report ("Penalty matrix assembly", "Coercing bystanders...", false);
   
   VertexMapper mapper (gv.grid());
   const auto& basis = TSS::instance ();
