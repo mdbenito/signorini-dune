@@ -45,7 +45,6 @@ public:
   typedef      FieldVector<ctype, dim> coord_t;
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef     BlockVector<coord_t> CoordVector;
-        // FIXME: not the right type!!!!
   typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
   
 private:

@@ -29,6 +29,7 @@
 #include "benchmark.hpp"
 #include "shapefunctions.hpp"
 #include "functorsupportmapper.hpp"
+#include "activeinactivemapper.hpp"
 
 using namespace Dune;
 using std::cout;
@@ -56,10 +57,12 @@ public:
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef      BCRSMatrix<block_t> BlockMatrix;
   typedef     BlockVector<coord_t> CoordVector;
+  typedef BlockVector<FieldVector<ctype, 1> > ScalarVector;
   typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
                                                   MCMGVertexLayout> VertexMapper;
-
   typedef FunctorSupportMapper<dim, TGV, TGT> GapVertexMapper;
+  typedef ActiveSetFunctor<ctype, dim, ScalarVector> AIFunctor;
+  typedef ActiveInactiveMapper<dim, TGV, TGT, AIFunctor> AIMapper;
 
 private:
   const TGV& gv;  //!< Grid view
@@ -67,50 +70,31 @@ private:
   const TET& a;   //!< Elasticity tensor
   const TFT& f;   //!< Volume forces
   const TTT& p;   //!< Boundary forces
-  const TGT& g;   //!< Normal gap function (scalar)
+  const TGT& gap;   //!< Normal gap function (scalar)
   
-  block_t     I;  //!< Identity matrix block (Dune::DiagonalMatrix not working?)
-  BlockMatrix A;  //!< Stiffness matrix  
-  CoordVector b;  //!< RHS: volume forces and tractions
-  CoordVector r;  //!< RHS: penalty contributions
-  CoordVector u;  //!< Solution
+  block_t      I;  //!< Identity matrix block (Dune::DiagonalMatrix not working?)
+  BlockMatrix  A;  //!< Stiffness matrix
+  BlockMatrix  D;  //!< See [HW04, eq. (3.5)]
+  CoordVector  b;  //!< RHS: volume forces and tractions
+  CoordVector  u;  //!< Solution
+  ScalarVector g;  //!< Gap functor evaluated at the gap nodes
   
   std::vector<std::set<int> > adjacencyPattern;
   int quadratureOrder;
   
 public:
   SignoriniIASet (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p,
-                  const TGT& _g, int _quadratureOrder = 4);
+                  const TGT& _gap, int _quadratureOrder = 4);
   
   void setupMatrices ();
   void initialize ();
   void assembleMain ();
+  void activateSet ();
   void solve ();
   
   const CoordVector& solution() const { return u; }
 };
 
-/*! */
-template <typename ctype, int dim>
-class ActiveSetFunctor {
-  typedef FieldVector<ctype, dim> coord_t;
-
-public:
-  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
-  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
-  {
-    for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner (i)))
-        return false;
-    
-    return true;
-  }
-  
-  inline bool isSupported (const coord_t& x) const
-  {
-    return false;
-  }
-};
 
 /******************************************************************************
  * Implementation                                                             *
@@ -118,12 +102,12 @@ public:
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniIASet (const TGV& _gv,
-                                                         const TET& _a,
-                                                         const TFT& _f,
-                                                         const TTT& _p,
-                                                         const TGT& _g,
-                                                         int _quadratureOrder)
-: gv (_gv), a (_a), f (_f), p (_p), g(_g), quadratureOrder(_quadratureOrder)
+                                                              const TET& _a,
+                                                              const TFT& _f,
+                                                              const TTT& _p,
+                                                              const TGT& _gap,
+                                                              int _quadratureOrder)
+: gv (_gv), a (_a), f (_f), p (_p), gap(_gap), quadratureOrder(_quadratureOrder)
 {
   I = 0.0;
   for (int i=0; i < dim; ++i)
@@ -134,13 +118,16 @@ template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::setupMatrices ()
 {
   VertexMapper       mapper (gv.grid());
-  GapVertexMapper gapMapper (gv, g);
+  GapVertexMapper gapMapper (gv, gap);
   
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     cout << "Vertex #" << mapper.map (*it)
          << " at " << it->geometry().center()
          << " has new index " << gapMapper.map (*it) << "\n";
   }
+  
+  g.resize (gapMapper.size());
+  
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
@@ -153,6 +140,18 @@ template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
 {
   
+}
+
+template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS>::activateSet ()
+{
+  /*
+   ScalarVector ngap (gapCount);
+   ScalarVector nsol (gapCount);
+   ScalarVector nmul (gapCount);
+   AIFunctor activeset (ngap, nsol, nmul, c);
+   
+   */
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS>

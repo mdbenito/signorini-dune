@@ -180,14 +180,7 @@ private:
   unsigned long mask;  //!< Would break for dim > ulong bitsize
 };
 
-
-/*! For the discrete space of Lagrange multipliers.
- 
- These functions take value 2 on their associated vertex and -1 on the rest.
- 
- FIXME!! Lots of mindless copying. I should also memoize. And this just sucks...
- */
-  // FIXME: Why doesn't this work as I want it to?
+  // convenience funcs
 template <class T>
 std::vector<T>& operator<< (std::vector<T>& v, T d)
 {
@@ -195,18 +188,40 @@ std::vector<T>& operator<< (std::vector<T>& v, T d)
   return v;
 }
 
+struct clear_vector { };
+
+template <class T>
+std::vector<T>& operator<< (std::vector<T>& v, const clear_vector& c)
+{
+  (void) c;
+  v.clear();
+  return v;
+}
+
+/*! For the discrete space of Lagrange multipliers.
+ 
+ These functions take value 2 on their associated vertex and -1 on the rest.
+ 
+ FIXME!! Lots of mindless copying. I should also memoize. And this just sucks...
+ */
+
 template<class ctype, int dim>
 class LagrangeSpaceShapeFunction
 {
   typedef FieldVector<ctype, dim> coord_t;
 
   class Monome {
-    int indices[dim];  // array (0 1 1) means x_2*x_3, etc.
-    void clear() {
+    
+    int indices[dim];  // array {0 1 1} means x_2*x_3, etc.
+    ctype coeff;
+
+    void clear()
+    {
       for (int i=0; i < dim; ++i) indices[i] = 0;
     }
+    
   public:
-    ctype coeff;
+
     Monome (ctype _coeff=0) : coeff(_coeff) { clear(); }
     Monome (std::vector<int> ilist, ctype _coeff) : coeff (_coeff) {
       clear();
@@ -241,6 +256,12 @@ class LagrangeSpaceShapeFunction
           os << "x[" << i << "]";
       return os;
     }
+    
+    friend Monome& operator* (Monome& m, ctype c)
+    {
+      m.coeff *= c;
+      return m;
+    }
   };
   
   typedef std::vector<Monome> Polynome;
@@ -251,13 +272,7 @@ class LagrangeSpaceShapeFunction
       os << m << " + ";
     return os;
   }
-  
-  friend Monome& operator* (Monome& m, ctype c)
-  {
-    m.coeff = c;
-    return m;
-  }
-  
+
   friend Polynome& operator* (Polynome& p, ctype c)
   {
     for (auto& x : p)
@@ -268,7 +283,7 @@ class LagrangeSpaceShapeFunction
 
   Polynome monomesOfOrder (int order)
   {
-    /* TODO: translate this!! and delete the rest!!!!
+    /* TODO: translate this into C++!! and delete the rest!!!!
      
      (define dim 3)
 
@@ -291,39 +306,25 @@ class LagrangeSpaceShapeFunction
     /*!  MEGA-HACK!!
      
      This is just plain stupid, but it's too late now for recursion in c++
-     without reasonable reference counting.
+     without sensible reference counting.
      */
     
     Polynome p;
-    Monome m;
     std::vector<int> indices;
+
     if (order == 1) {
-      for (int i=0; i < dim; ++i) {
-        indices.push_back (i);
-        m = Monome (indices, 1);
-        p.push_back (m);
-        indices.clear();
-      }
+      for (int i=0; i < dim; ++i)
+        p.push_back (Monome (indices << clear_vector() << i, 1));
     } else if (order == 2) {
       if (dim == 2) {
-        indices << 0 << 1;
-        m = Monome (indices, 1);
-        p.push_back (m);
+        p.push_back (Monome (indices << clear_vector() << 0 << 1, 1));
       } else if (dim == 3) {
-        m = Monome (indices << 0 << 1, 1);
-        p.push_back (m);
-        indices.clear();
-        m = Monome (indices << 0 << 2, 1);
-        p.push_back (m);
-        indices.clear();
-        m = Monome (indices << 1 << 2, 1);
-        p.push_back (m);
+        p.push_back (Monome (indices << clear_vector() << 0 << 1, 1));
+        p.push_back (Monome (indices << clear_vector() << 0 << 2, 1));
+        p.push_back (Monome (indices << clear_vector() << 1 << 2, 1));
       }
     } else if (order == 3) {
-      indices.clear();
-      m = Monome (indices << 0 << 1 << 2, 1);
-      p.push_back (m);
-
+      p.push_back (Monome (indices << clear_vector() << 0 << 1 << 2, 1));
     }
     return p;
   }
@@ -354,12 +355,12 @@ public:
         gradient[i].push_back (m);
       }
     }
-    
+    /*
     cout << "   Shape has poly: " << poly << "\n" << "       and grad: ";
     for (int i=0; i < dim; ++i)
        cout << gradient[i] << ", ";
     cout << "\n";
-    
+    */
   }
   
   /* The basis function at (0 1 1) is
@@ -371,32 +372,27 @@ public:
   ctype evaluateFunction (const coord_t& local) const
   {
     ctype r = 0.0;
-    coord_t idiotic_copy (local);
+    coord_t copy (local);
     for (int i = 0; i < dim; ++i)
-      idiotic_copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
+      copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
     
     for (auto& monome : poly)
-      r += monome (idiotic_copy);
+      r += monome (copy);
 
-      //std::cout << "Evaluating shape #" << mask << " on " << local
-      //      << " returns " << r << "\n";
-    
     return r;
   }
   
   inline coord_t evaluateGradient (const coord_t& local) const
   {
-    coord_t r;
-    coord_t idiotic_copy (local);
+    coord_t r(0);
+    coord_t copy (local);
     for (int i = 0; i < dim; ++i)
-      idiotic_copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
+      copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
     
     for (int i = 0; i < dim; ++i)
       for (auto& monome : gradient[i])
-        r[i] += monome (idiotic_copy);
+        r[i] += monome (copy);
 
-          //cout << "Evaluating GRADIENT of shape #" << mask << " on " << local
-      //     << " returns " << r << "\n";
     return r;
   }
   
@@ -407,7 +403,7 @@ private:
 
 /*! Q1ShapeFunctionSet.
  
- Singleton collection of *linear* ShapeFunction
+ Singleton collection of *linear* ShapeFunctions
  */
 template<class ctype, int dim, class ShapeFunction>
 class Q1ShapeFunctionSet
