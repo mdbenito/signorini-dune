@@ -13,6 +13,7 @@
 //#include <bitset>
 #include <dune/common/fvector.hh>
 #include <dune/geometry/referenceelements.hh>
+#include <dune/geometry/quadraturerules.hh>
 
 #include "utils.hpp"
 
@@ -180,24 +181,6 @@ private:
   unsigned long mask;  //!< Would break for dim > ulong bitsize
 };
 
-  // convenience funcs
-template <class T>
-std::vector<T>& operator<< (std::vector<T>& v, T d)
-{
-  v.push_back (d);
-  return v;
-}
-
-struct clear_vector { };
-
-template <class T>
-std::vector<T>& operator<< (std::vector<T>& v, const clear_vector& c)
-{
-  (void) c;
-  v.clear();
-  return v;
-}
-
 /*! For the discrete space of Lagrange multipliers.
  
  These functions take value 2 on their associated vertex and -1 on the rest.
@@ -328,11 +311,10 @@ class LagrangeSpaceShapeFunction
     }
     return p;
   }
-
-public:
   Polynome poly;
   Polynome gradient[dim];
   
+public:
   LagrangeSpaceShapeFunction (unsigned long _mask=0) : mask(_mask)
   {
     std::cout << "Creating shape function with mask " << mask << "\n";
@@ -482,5 +464,44 @@ private:
 
 template <class C, int D, class TS>
 Q1ShapeFunctionSet<C, D, TS>* Q1ShapeFunctionSet<C, D, TS>::_instance = 0;
+
+template <class ctype, int dim, class ShapeSet>
+bool testShapes()
+{
+  const auto& basis = ShapeSet::instance ();
+  GeometryType gt (basis.basicType, dim);
+  const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
+  FieldVector<ctype, dim> x;
+  
+  cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
+  cout << "Testing vertices:\n";
+  for (int i=0; i < basis.N; ++i) {
+    for (int v = 0; v < element.size (dim); ++v) {
+      x = element.position (v, dim);
+      cout << "   Basis[" << i << "](" << x << ") = "
+      << basis[i].evaluateFunction (x) << "\n";
+    }
+  }
+  
+  cout << "Testing gradient:\n";
+  for (int i=0; i < basis.N; ++i) {
+    for (int v = 0; v < element.size (dim); ++v) {
+      x = element.position (v, dim);
+      cout << "   Basis[" << i << "](" << x << ") = "
+      << basis[i].evaluateGradient (x) << "\n";
+    }
+  }
+  
+  cout << "Testing quadrature of order two:\n";
+  for (int i=0; i < basis.N; ++i) {
+    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
+      cout << "   Basis[" << i << "](" << x.position() << ") = "
+      << basis[i].evaluateFunction (x.position()) << "\n";
+    }
+  }
+  
+  return true;
+}
+
 
 #endif  // defined (SIGNORINI_SHAPEFUNCTIONS_HPP)

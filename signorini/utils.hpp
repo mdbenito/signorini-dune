@@ -6,15 +6,18 @@
 #define SIGNORINI_UTILS_HPP
 
 #include "config.h"
-#include <dune/geometry/quadraturerules.hh>
+#include <dune/common/fvector.hh>
+#include <dune/common/fmatrix.hh>
+#include <dune/istl/bcrsmatrix.hh>
 
 #include <iostream>
 #include <cmath>
 #include <string>
 #include <fstream>
+#include <set>
+#include <vector>
 
-#include "shapefunctions.hpp"
-
+using namespace Dune;
 using std::cout;
 
 template<class K, int R, int C>
@@ -35,6 +38,17 @@ K trace (const FieldMatrix<K, R, C>& m)
   for (int i=0; i < R; ++i)
     ret += m[i][i];
 
+  return ret;
+}
+
+template<class K, int R, int C>
+FieldVector<K, C> operator* (const FieldVector<K, C>& v, const FieldMatrix<K, R, C>& m)
+{
+  FieldVector<K, C> ret (0.0);
+  for (int i=0; i < C; ++i)
+    for (int j=0; j < R; ++j)
+      ret[i] += v[j] * m[j][i];
+  
   return ret;
 }
 
@@ -79,45 +93,30 @@ void writeVectorToFile (const VectorType& vector,
   outs.close();
 }
 
-template <class ctype, int dim, class ShapeSet>
-bool testShapes()
+  // convenience funcs
+template <class T>
+std::vector<T>& operator<< (std::vector<T>& v, const T& d)
 {
-  const auto& basis = ShapeSet::instance ();
-  GeometryType gt (basis.basicType, dim);
-  const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
-  FieldVector<ctype, dim> x;
-  
-  cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
-  cout << "Testing vertices:\n";
-  for (int i=0; i < basis.N; ++i) {
-    for (int v = 0; v < element.size (dim); ++v) {
-        x = element.position (v, dim);
-        cout << "   Basis[" << i << "](" << x << ") = "
-             << basis[i].evaluateFunction (x) << "\n";
-    }
-  }
-  
-  cout << "Testing gradient:\n";
-  for (int i=0; i < basis.N; ++i) {
-    for (int v = 0; v < element.size (dim); ++v) {
-      x = element.position (v, dim);
-      cout << "   Basis[" << i << "](" << x << ") = "
-           << basis[i].evaluateGradient (x) << "\n";
-    }
-  }
-  
-  cout << "Testing quadrature of order two:\n";
-  for (int i=0; i < basis.N; ++i) {
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
-        cout << "   Basis[" << i << "](" << x.position() << ") = "
-             << basis[i].evaluateFunction (x.position()) << "\n";
-    }
-  }
-
-  return true;
+  v.push_back (d);
+  return v;
 }
 
+template <class T>
+std::set<T>& operator<< (std::set<T>& s, const T& d)
+{
+  s.insert (d);
+  return s;
+}
 
+struct clear_vector { };
+
+template <class T>
+std::vector<T>& operator<< (std::vector<T>& v, const clear_vector& c)
+{
+  (void) c;
+  v.clear();
+  return v;
+}
   ////// Shitty, wasteful, slow string manipulation:
 
 
@@ -131,6 +130,68 @@ std::string operator+ (const std::string& a, T b)
   oss << a << b;
   return oss.str();
 }
+
+/*! Wrap a BCRSMatrix class and offer a window into it.
+ 
+ Simply wraps operator[] and adds offsets.
+ */
+template <class T>
+class MatrixWindow : public T
+{
+  typedef typename T::row_type row_type;
+  typedef typename T::size_type size_type;
+
+  class RowWindow : public row_type
+  {
+  public:
+    int offset;
+    row_type* r;
+
+    RowWindow () : offset(0) { }
+    T& operator[] (size_type i) { return (*r)[i+offset]; }
+    const T& operator[] (size_type i) const { return (*r)[i+offset]; }
+  };
+
+  const T& M;
+  const int roffset;
+  const int coffset;
+  
+  mutable RowWindow row;
+
+public:
+  MatrixWindow (const T& m, int r, int c) : M(m), roffset(r), coffset(c)
+  {
+    row.offset = coffset;
+  }
+  
+  RowWindow& operator[] (size_type i)
+  {
+    row.r = &M[i + roffset];
+    return *row;
+  }
+  
+  const RowWindow& operator[] (size_type i) const
+  {
+    row.r = &M[i + roffset];
+    return *row;
+  }
+};
+
+template <class ctype, int R, int C>
+class MatrixFlattener : BCRSMatrix<ctype>
+{
+  typedef BCRSMatrix<FieldMatrix<ctype, R, C> > BaseMatrix;
+  const BaseMatrix& M;
+
+public:
+  MatrixFlattener (const BaseMatrix& from) : M(from)
+  {
+    setSize (M.rows() * R, M.columns() * C);
+      // 1. Set sparsity pattern from M
+    
+      // 2. Fill from M
+  }
+};
 
 
 #endif  // SIGNORINI_UTILS_HPP
