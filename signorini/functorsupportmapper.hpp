@@ -11,7 +11,7 @@
 /*! A mapper to order entities according to problem data.
  
  The entities in the GridView will be sorted according to the support of the
- functor: those which do NOT lie in the support will be sorted first, then the
+ functor: those which DO lie in the support will be sorted first, then the
  rest.
  
 
@@ -33,8 +33,7 @@ template <int codim, class TGV, class TFN>
 class FunctorSupportMapper
   : public Mapper<typename TGV::Grid, FunctorSupportMapper<codim, TGV, TFN> >
 {
-  typedef typename TGV::template Codim<0>::Entity Entity;
-    //static const int dim = TGV::dimension;
+  typedef typename TGV::template Codim<codim>::Entity Entity;
 
   const TFN& func;
   const TGV&   gv;

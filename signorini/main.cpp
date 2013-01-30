@@ -55,7 +55,7 @@ int main (int argc, char** argv)
     //const double        nu = 0.3;         // Poisson's ratio         [FV05, p.35]
   const double         E = 200;         // See [HW04, p.3154]
   const double        nu = 0.3;         // See [HW04, p.3154]
-  const double       eps = 1.0e-12 / E;  // See [KO88, p.140]
+  const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
   const double tolerance = 1.0e-5;      // For the iterative penalty method
   const int     maxsteps = 10;
 
@@ -71,7 +71,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (4);
+  grid.globalRefine (3);
 
   const GV& gv = grid.leafView();
 
@@ -102,21 +102,23 @@ int main (int argc, char** argv)
   typedef LagrangeSpaceShapeFunction<ctype, dim>     LSShapeF;
   typedef Q1ShapeFunctionSet<ctype, dim, LSShapeF> LSShapeSet;
   
-  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> PMSolver;
-  typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet> IASolver;
+  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet>
+          PMSolver;
+  typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
+          IASolver;
     //Should be:
     //SignoriniIASet<GV, ProblemData, ShapeSet> IASolver;
   
     //testShapes<ctype, dim, LSShapeSet>();
-  testShapes<ctype, dim, ShapeSet>();
+    //testShapes<ctype, dim, ShapeSet>();
   
   HookeT  a (E, nu);
   VolumeF         f;
   BoundaryF       p;
   Gap             g;
   
-  PMSolver  fem (gv, a, f, p, g, eps);
-    //IASolver fem2 (gv, a, f, p, g);
+    //PMSolver  fem (gv, a, f, p, g, eps);
+  IASolver fem2 (gv, a, f, p, g);
 
     //// Misc.
 
@@ -127,10 +129,10 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling!!
     cout << "Gremlin population: " << grid.size(dim) << "\n";
-    fem.initialize();
-    fem.solve (maxsteps, tolerance);
-      //fem2.initialize ();
-      //fem2.solve ();
+      //fem.initialize();
+      //fem.solve (maxsteps, tolerance);
+    fem2.initialize ();
+    fem2.solve ();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
