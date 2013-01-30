@@ -184,12 +184,9 @@ public:
   inline ctype operator() (const coord_t& x) const
   {
       // Careful! remember that it must be g(x) > 0
-    if (isSupported (x)) {
-        //double g = sin (x[0]*4*M_PI) / 100.0;
-        //return g > 0.0 ? g : 0;
-      return 0.05;
-    }
-    return 0;
+      //double g = sin (x[0]*4*M_PI) / 100.0;
+      //return g > 0.0 ? g : 0;
+    return 0.05;
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -206,7 +203,7 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[1] == 0 && x[0] > 0 && x[0] < 1);
+    return x[1] == 0; // (x[1] == 0 && x[0] > 0 && x[0] < 1);
   }
 };
 
