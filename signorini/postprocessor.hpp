@@ -120,10 +120,9 @@ double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
   return r;
 }
 
-/*! Brute force! Returns the *squared* von Mises stress
- 
- Don't think, just code... There has to be a better way of creating a DUNE vector
- of scalars...
+/*! Returns the *squared* von Mises stress
+
+ Brute force!
  
  Also: shouldn't I normalize the contribution of each vertex?
  */
@@ -149,14 +148,20 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
     const int   vnum = ref.size (dim);
-    
+
+    double r;
     for (int i = 0; i < vnum; ++i) {
       auto ii = iset.subIndex (*it, i, dim);
       auto iipos = ref.position (i, dim);
       block_t  s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
-      double   r = trace(s);
-
-      r = -0.5*r*r + 1.5*trace (s.rightmultiplyany (s));
+      double   t = trace(s);
+        //r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+      r = 0.0;
+      for (int k=0; k<dim; ++k) {
+        for (int l=0; l<dim; ++l) {
+          r += (s[k][l] + (k==l ? -0.5*t : 0))*(s[k][l] + (k==l ? -0.5*t : 0));
+        }
+      }
       (*vm)[ii] += r;
     }
   }
