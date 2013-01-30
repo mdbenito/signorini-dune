@@ -306,7 +306,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
               auto global = igeo.global (x.position ());
               b[ii] += p (global) *
-                       basis[i].evaluateFunction (it->geometry().local (global)) *
+                       basis[subi].evaluateFunction (it->geometry().local (global)) *
                        x.weight () *
                        igeo.integrationElement (x.position ());
             }
@@ -430,7 +430,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
               
               if (n * u[ii] - g (iipos) > 0) {
                 ++pen;  //cout << " " << ii;
-                r[ii] += n * basis[i].evaluateFunction (local) * g (global) *
+                r[ii] += n * basis[isub].evaluateFunction (local) * g (global) *
                          x.weight() * igeo.integrationElement (x.position ()) * eps;
                          
                 for (int j = 0; j < vnum; ++j) {
@@ -438,8 +438,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
                   int   jj = mapper.map (*it, jsub, dim);
                   for (int k = 0; k < dim; ++k) {
                     for (int l = 0; l < dim; ++l) {
-                      penalty[k][l] = n[k] * basis[i].evaluateFunction (local) *
-                                      n[l] * basis[j].evaluateFunction (local) *
+                      penalty[k][l] = n[k] * basis[isub].evaluateFunction (local) *
+                                      n[l] * basis[jsub].evaluateFunction (local) *
                                       x.weight() * eps *
                                       igeo.integrationElement (x.position ());
                     }
