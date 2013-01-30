@@ -120,7 +120,7 @@ SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::SignoriniFEPenalty
 /*! One-time initialization: Sets the sizes and sparsity patterns for the 
  stiffness and penalty matrices, then assembles the stiffness matrix.
  
- FIXME: How do I set the number of nonzeros for the matrices?
+ FIXME: How do I properly set the number of nonzeros for the matrices?
  The value N + 2*gv.size (dim-1) causes an exception to be thrown:
    "Specified number of nonzeros ... not sufficient for calculated nonzeros ..."
  
@@ -144,7 +144,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
   
   bench().report ("Initialization", "Imbuing with adjacency intuitions...", false);
   
-  const auto& set = gv.indexSet ();
+  VertexMapper mapper (gv.grid());
   const int N = gv.size (dim);
   std::vector<std::set<int> > adjacencyPattern (N);
   
@@ -155,8 +155,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
     int vnum = ref.size (dim);
     for (int i = 0; i < vnum; ++i) {
       for (int j = 0; j < vnum; ++j) {
-        auto& cur = adjacencyPattern[set.subIndex (*it, i, dim)];
-        cur.insert (set.subIndex (*it, j, dim));
+        auto& cur = adjacencyPattern[mapper.map (*it, i, dim)];
+        cur.insert (mapper.map (*it, j, dim));
       }
     }
   }
@@ -215,7 +215,7 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::initialize ()
  BOUNDARY CONDITIONS:
  
  We traverse all faces of all elements with the intersection iterator gv.ibegin()...
- Boundary conditions must be set so that the Neumann and Signorini boundaries have
+ Boundary conditions must be set so that the Dirichlet and Signorini boundaries have
  no vertices in common. For every Neumann face we compute the contributions
  to the system.
  
@@ -419,9 +419,9 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
           block_t penalty (0.0);
 
           for (int i = 0 ; i < vnum; ++i) {
-            int   isub = ref.subEntity (is->indexInInside (), 1, i, dim);
-            int     ii = mapper.map (*it, isub, dim);
-            auto iipos = is->inside()->template subEntity<dim>(isub)->geometry().center();
+            int   subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int     ii = mapper.map (*it, subi, dim);
+            auto iipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
 
             for (auto& x : rule) {
               auto global = igeo.global (x.position ());
@@ -430,16 +430,16 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assemblePenalties ()
               
               if (n * u[ii] - g (iipos) > 0) {
                 ++pen;  //cout << " " << ii;
-                r[ii] += n * basis[isub].evaluateFunction (local) * g (global) *
+                r[ii] += n * basis[subi].evaluateFunction (local) * g (global) *
                          x.weight() * igeo.integrationElement (x.position ()) * eps;
                          
                 for (int j = 0; j < vnum; ++j) {
-                  int jsub = ref.subEntity (is->indexInInside (), 1, j, dim);
-                  int   jj = mapper.map (*it, jsub, dim);
+                  int subj = ref.subEntity (is->indexInInside (), 1, j, dim);
+                  int   jj = mapper.map (*it, subj, dim);
                   for (int k = 0; k < dim; ++k) {
                     for (int l = 0; l < dim; ++l) {
-                      penalty[k][l] = n[k] * basis[isub].evaluateFunction (local) *
-                                      n[l] * basis[jsub].evaluateFunction (local) *
+                      penalty[k][l] = n[k] * basis[subi].evaluateFunction (local) *
+                                      n[l] * basis[subj].evaluateFunction (local) *
                                       x.weight() * eps *
                                       igeo.integrationElement (x.position ());
                     }
