@@ -7,7 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		498DE65C163AC44500D62D92 /* finiteelements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 498DE65A163AC44500D62D92 /* finiteelements.cpp */; };
+		4909D1DE16B408C8004D1959 /* benchmark.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1DC16B408C8004D1959 /* benchmark.cpp */; };
+		4909D1E216B445A6004D1959 /* postprocessor.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1E016B445A6004D1959 /* postprocessor.hpp */; };
+		4909D1E416B588F8004D1959 /* utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1E316B588F8004D1959 /* utils.cpp */; };
+		4909D1EB16B5A932004D1959 /* penaltymethod.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1EA16B5A932004D1959 /* penaltymethod.hpp */; };
 		49C47D101632FF8B00D38056 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 49C47D0F1632FF8B00D38056 /* main.cpp */; };
 /* End PBXBuildFile section */
 
@@ -24,9 +27,16 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4909D1DC16B408C8004D1959 /* benchmark.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = benchmark.cpp; sourceTree = "<group>"; };
+		4909D1DD16B408C8004D1959 /* benchmark.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = benchmark.hpp; sourceTree = "<group>"; };
+		4909D1E016B445A6004D1959 /* postprocessor.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = postprocessor.hpp; sourceTree = "<group>"; };
+		4909D1E316B588F8004D1959 /* utils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = utils.cpp; sourceTree = "<group>"; };
+		4909D1E616B5A13F004D1959 /* activeset.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = activeset.hpp; sourceTree = "<group>"; };
+		4909D1EA16B5A932004D1959 /* penaltymethod.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = penaltymethod.hpp; sourceTree = "<group>"; };
 		491132E11674009F009F1A5C /* utils.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = utils.hpp; sourceTree = "<group>"; };
-		498DE65A163AC44500D62D92 /* finiteelements.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = finiteelements.cpp; sourceTree = "<group>"; };
 		498DE65B163AC44500D62D92 /* shapefunctions.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = shapefunctions.hpp; sourceTree = "<group>"; };
+		49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = functorsupportmapper.hpp; sourceTree = "<group>"; };
+		49C165A416B8863E00167EF1 /* activeinactivemapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = activeinactivemapper.hpp; sourceTree = "<group>"; };
 		49C47D0B1632FF8B00D38056 /* Signorini */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Signorini; sourceTree = BUILT_PRODUCTS_DIR; };
 		49C47D0F1632FF8B00D38056 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		49C47D1A1633007400D38056 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
@@ -65,14 +75,21 @@
 		49C47D0E1632FF8B00D38056 /* Signorini */ = {
 			isa = PBXGroup;
 			children = (
+				49C165A416B8863E00167EF1 /* activeinactivemapper.hpp */,
+				4909D1E616B5A13F004D1959 /* activeset.hpp */,
+				4909D1DC16B408C8004D1959 /* benchmark.cpp */,
+				4909D1DD16B408C8004D1959 /* benchmark.hpp */,
 				49C47D1A1633007400D38056 /* config.h */,
-				498DE65A163AC44500D62D92 /* finiteelements.cpp */,
-				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
-				49C47D2F16343B1D00D38056 /* integration.hpp */,
 				49C47D2E16343A2000D38056 /* functors.hpp */,
-				491132E11674009F009F1A5C /* utils.hpp */,
+				49C47D2F16343B1D00D38056 /* integration.hpp */,
 				49C47D0F1632FF8B00D38056 /* main.cpp */,
+				4909D1EA16B5A932004D1959 /* penaltymethod.hpp */,
+				4909D1E016B445A6004D1959 /* postprocessor.hpp */,
+				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
 				49C47D3016343F4B00D38056 /* traverse.hpp */,
+				4909D1E316B588F8004D1959 /* utils.cpp */,
+				491132E11674009F009F1A5C /* utils.hpp */,
+				49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */,
 			);
 			name = Signorini;
 			path = signorini;
@@ -130,7 +147,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				49C47D101632FF8B00D38056 /* main.cpp in Sources */,
-				498DE65C163AC44500D62D92 /* finiteelements.cpp in Sources */,
+				4909D1DE16B408C8004D1959 /* benchmark.cpp in Sources */,
+				4909D1E216B445A6004D1959 /* postprocessor.hpp in Sources */,
+				4909D1E416B588F8004D1959 /* utils.cpp in Sources */,
+				4909D1EB16B5A932004D1959 /* penaltymethod.hpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
