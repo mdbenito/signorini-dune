@@ -209,4 +209,41 @@ public:
   }
 };
 
+/*! A boundary scalar functor for the active / inactive set strategy.
+ 
+ Template parameters:
+ 
+   TGV: TGapVector (values of the gap functor at the vertices of the other vectors)
+   TNS: TNormalSolution (the normal component of the solution vector)
+   TNL: TNormalLagrange (the normal component of the lagrange multipliers vector)
+ */
+  //template <typename ctype, int dim, class TGV, class TNS, class TNL>
+template <class ctype, int dim, class ScalarVector>
+class ActiveSetFunctor {
+  typedef FieldVector<ctype, dim> coord_t;
+  
+  const ScalarVector& gap;
+  const ScalarVector& solution;
+  const ScalarVector& multipliers;
+  ctype c;
+ 
+public:
+  
+  ActiveSetFunctor (const ScalarVector& _gap, const ScalarVector& _sol,
+                    const ScalarVector& _mul, ctype _c)
+    : gap (_gap), solution (_sol), multipliers (_mul), c (_c) { }
+  
+  inline ctype operator() (int i) const
+  {
+    return multipliers[i]+c*(solution[i]-gap[i]);
+  }
+  
+  inline bool isSupported (int i) const
+  {
+    return multipliers[i]+c*(solution[i]-gap[i]) > 0;
+  }
+};
+
+
+
 #endif // FUNCTORS_HPP
