@@ -23,40 +23,48 @@ template <int codim, class TGV>
 class ActiveInactiveMapper
 : public Mapper<typename TGV::Grid, ActiveInactiveMapper<codim, TGV> >
 {
+  typedef typename TGV::template Codim<0>::Entity Element;
   typedef typename TGV::template Codim<codim>::Entity Entity;
-  typedef typename TGV::EntityPointer EntityPointer;
-  typedef std::vector<EntityPointer> EntityPointerVector;
+  typedef std::vector<const Entity*> EntityVector;
   
-  const TGV&      gv;
+  typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
+  typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
+  typedef std::set<IdType>                           IdSet;
+ 
+  const TGV& gv;
+  const GlobalIdSet& gids;
   const typename TGV::IndexSet& iset;
-  int*     indices;
+  
+  std::map<IdType, int> indices;
 
 public:
   ActiveInactiveMapper (const TGV& _gv,
-                        const EntityPointerVector& active,
-                        const EntityPointerVector& inactive,
-                        const EntityPointerVector& others);
+                        const IdSet& active,
+                        const IdSet& inactive,
+                        const IdSet& others);
   
   template<class EntityType> int map (const EntityType& e) const;
-  int map (const Entity& e, int i, unsigned int cc) const;
+  int map (IdType id) const;
+  int map (const Element& e, int i, unsigned int cc) const;
+  int map (Element& e, int i, unsigned int cc) const;
   
-  bool contains (const Entity& e, int i, int cc, int& result) const;
+  bool contains (const Element& e, int i, int cc, int& result) const;
   template<class EntityType>
   bool contains (const EntityType& e, int& result) const;
   
   int size () const;
-  void update (const EntityPointerVector& active,
-               const EntityPointerVector& inactive,
-               const EntityPointerVector& others);
+  void update (const IdSet& active,
+               const IdSet& inactive,
+               const IdSet& others);
 };
 
 
 template <int codim, class TGV>
 ActiveInactiveMapper<codim, TGV>::ActiveInactiveMapper (const TGV& _gv,
-                                                        const EntityPointerVector& active,
-                                                        const EntityPointerVector& inactive,
-                                                        const EntityPointerVector& others)
-: gv (_gv), iset (_gv.indexSet()), indices (NULL)
+                                                        const IdSet& active,
+                                                        const IdSet& inactive,
+                                                        const IdSet& others)
+: gv (_gv), gids(_gv.grid().globalIdSet()), iset (_gv.indexSet())
 {
   update (active, inactive, others);
 }
@@ -66,24 +74,33 @@ template <int codim, class TGV>
 template<class EntityType>
 int ActiveInactiveMapper<codim, TGV>::map (const EntityType& e) const
 {
-    //int idx = indices[iset.index (e)];
-    //return (idx < 0) ? (-1*idx + gapEntities.size()-1) : idx;
-  return indices[iset.index (e)];
+  return indices.at(gids.id(e));
 }
 
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::map (const IdType id) const
+{
+  return indices.at(id);
+}
 
 template <int codim, class TGV>
-int ActiveInactiveMapper<codim, TGV>::map (const Entity& e, int i,
+int ActiveInactiveMapper<codim, TGV>::map (const Element& e, int i,
                                            unsigned int cc) const
 {
-    //int idx = indices[iset.index (e, i, cc)];
-    //return (idx < 0) ? (-1*idx + gapEntities.size()-1) : idx;
-  indices[iset.index (e, i, cc)];
+  return indices.at(gids.subId (e, i, cc));
+}
+
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::map (Element& e, int i,
+                                           unsigned int cc) const
+{
+  return indices.at(gids.subId (e, i, cc));
 }
 
 
+
 template <int codim, class TGV>
-bool ActiveInactiveMapper<codim, TGV>::contains (const Entity& e, int i,
+bool ActiveInactiveMapper<codim, TGV>::contains (const Element& e, int i,
                                                  int cc, int& result) const
 {
   DUNE_THROW (Exception, "not implemented");
@@ -107,46 +124,15 @@ int ActiveInactiveMapper<codim, TGV>::size () const
 
 
 template <int codim, class TGV>
-void ActiveInactiveMapper<codim, TGV>::update (const EntityPointerVector& active,
-                                               const EntityPointerVector& inactive,
-                                               const EntityPointerVector& others)
+void ActiveInactiveMapper<codim, TGV>::update (const IdSet& active,
+                                               const IdSet& inactive,
+                                               const IdSet& others)
 {
-  delete indices; indices = new int[gv.size (codim)];
+  indices.clear();
   int cnt = 0;
-  for (auto& x : others)   indices[iset.index(x)] = cnt++;
-  for (auto& x : inactive) indices[iset.index(x)] = cnt++;
-  for (auto& x : active)   indices[iset.index(x)] = cnt++;
-  
-  /*
-  gapEntities.clear();
-  total = gv.size (codim);
-  delete indices;
-  indices = new int[total];
-  int cnt = 0;
-
-  for (auto it = gv.template begin<codim>(); it != gv.template end<codim>(); ++it) {
-    if (gap.isSupported (it->geometry())) {
-      gapEntities << *it;
-    } else {
-      indices[iset.index(*it)] = cnt++;
-    }
-  }
-  
-  if (gapSupported == 0)
-    DUNE_THROW (Exception, "functor had empty support");
-
-  activeEntities.clear();
-  int active = 0;
-  int cnt2 = -1;
-  for (auto& x : gapEntities) {
-    if (contact.isSupported (x.geometry())) {
-      activeEntities << *it;
-      indices[iset.index(x)] = cnt + gapEntities.size() + cnt2--;
-    } else {
-      indices[iset.index(x)] = cnt + active++;
-    }
-  }
-   */
+  for (auto x : others)   indices[x] = cnt++;
+  for (auto x : inactive) indices[x] = cnt++;
+  for (auto x : active)   indices[x] = cnt++;
 }
 
 
