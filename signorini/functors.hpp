@@ -112,8 +112,10 @@ public:
       //ret[0] = 9.6154; ret[1] = -4.8077;
       //return ret * 1.0e7;
     
-    ret[0] = 0; ret[1] = -10;
-    return ret * 1.0e8;
+      //ret[0] = 0; ret[1] = -10;
+      //return ret * 1.0e8;
+    ret <<= zero;
+    return ret;
   }
 };
 
@@ -142,16 +144,14 @@ public:
     return ret*1.0e7;
     */
     
-    /* The values in Hüber&Wohlmuth2005
-    if (isSupported(x)) ret <<= (0.5-x[0])*30, 6.5;  // 2D
-    else                ret <<= zero;
-     
+      // The values in [HW04]
+    ret[0] = (0.5-x[0])*30;
+    ret[1] = 6.5;
     return ret;
-     */
     
       // upper and lower tractions
-    ret[0] = -2; ret[1] = -12;
-    return ret * 1.0e7;
+      //ret[0] = -2; ret[1] = -12;
+      //return ret * 1.0e7;
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -168,7 +168,8 @@ public:
   {
       //return (x[0] > 1 - x[1]);  // For the values from [FV05, p.36]
       //return x[0] > 0 && x[0] < 1;   // For the upper and lower tractions
-    return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
+      //return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
+    return x[0] == 0 || x[0] == 1; // For the values in [HW04]
   }
 };
 
@@ -183,10 +184,10 @@ public:
   inline ctype operator() (const coord_t& x) const
   {
       // Careful! remember that it must be g(x) > 0
-    
     if (isSupported (x)) {
-      double g = sin (x[0]*4*M_PI) / 100.0;
-      return g > 0.0 ? g : 0;
+        //double g = sin (x[0]*4*M_PI) / 100.0;
+        //return g > 0.0 ? g : 0;
+      return 0.05;
     }
     return 0;
   }

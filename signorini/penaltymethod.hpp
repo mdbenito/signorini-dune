@@ -340,7 +340,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TSS>::assembleMain ()
      */
 
   coord_t dirichlet;
-  dirichlet <<= zero; // 0.0, -0.07;
+    //dirichlet <<= zero;
+  dirichlet[0] = 0; dirichlet[1] = -0.07;
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
