@@ -109,18 +109,10 @@ public:
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-    
-      // [FV05, p.36]
-    ret[0] = 9.6154; ret[1] = -4.8077;
-    return ret * 1.0e7;
-    
-      // [HW05]
-      //ret <<= zero;
-      //return ret;
-    
-      // DATA3
-      //ret[0] = 0; ret[1] = -10;
-      //return ret * 1.0e8;
+      //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
+      //ret <<= zero; return ret;                               // [HW05]
+      //ret[0] = 0; ret[1] = -10; return ret * 1.0e7;           // DATA3
+    ret[0] = 0; ret[1] = -10; return ret * 1.0e9;  // DATA4
   }
 };
 
@@ -134,18 +126,9 @@ public:
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
-    
-      // [FV05, p.36]
-    ret <<= zero;
-    return ret;
-    
-      // [HW05]
-      //ret[0] = 0; ret[1] = -0.07;
-      //return ret;
-    
-      // DATA3
-      //ret[0] = 0; ret[1] = -.02;
-      //return ret;
+    ret <<= zero; return ret;                    // [FV05, p.36]
+      //ret[0] = 0; ret[1] = -0.07; return ret;      // [HW05]
+      //ret[0] = 0; ret[1] = -.02; return ret;       // DATAxx
   }
 };
 
@@ -162,26 +145,22 @@ public:
     coord_t ret;
 
       // Values from [FV05, p.36]
+    /*
     if (x[1] == 1.0) {
-      ret[0] =  1.9231*x[0] - 3.8462;
-      ret[1] = -13.462*x[0] + 2.8846;
+      ret[0] =  1.9231*x[0] - 3.8462;  ret[1] = -13.462*x[0] + 2.8846;
     } else if (x[0] == 1.0) {
-      ret[0] =  6.7308*x[1] - 5.7692;
-      ret[1] = -3.8462*x[1] + 3.9231;
+      ret[0] =  6.7308*x[1] - 5.7692;  ret[1] = -3.8462*x[1] + 3.9231;
     } else {
         ret <<= zero;
     }
     
     return ret*1.0e7;
+    */
     
-      // The values in [HW05]
-      //ret[0] = (0.5-x[0])*30;
-      //ret[1] = 6.5;
-      //return ret;
-
-      // upper and lower tractions
-      //ret[0] = -2; ret[1] = -12;
-      //return ret * 1.0e7;
+      //ret[0] = (0.5-x[0])*30; ret[1] = 6.5; return ret; // [HW05]
+      //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
+      //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
+    ret[0] = (1-x[0])-0.5; ret[1] = -12; return ret * 1.0e7;       // DATA5
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -196,10 +175,10 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-      return (x[0] > 1 - x[1]);  // [FV05, p.36]
-      //return x[0] > 0 && x[0] < 1;   // For the upper and lower tractions
+      //return (x[0] > 1 - x[1]);       // [FV05]
+      //return x[0] > 0 && x[0] < 1;    // For the upper and lower tractions
       //return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
-      //return x[0] == 0 || x[0] == 1;   // [HW05]
+    return x[0] == 0 || x[0] == 1;   // [HW05]
   }
 };
 
@@ -214,8 +193,9 @@ public:
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-    return sin (x[0]*4*M_PI) / 50.0;   // DATA3
-    //return 0.05;                       // [HW05]
+      //return 0.05;                       // [HW05]
+      //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
+    return abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -230,20 +210,14 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return x[1] == 0; // (x[1] == 0 && x[0] > 0 && x[0] < 1);
+      //return false;   // [FV05]
+    return x[1] == 0;
   }
 };
 
 
 /*! A boundary scalar functor for the active / inactive set strategy.
- 
- Template parameters:
- 
-   TGV: TGapVector (values of the gap functor at the vertices of the other vectors)
-   TNS: TNormalSolution (the normal component of the solution vector)
-   TNL: TNormalLagrange (the normal component of the lagrange multipliers vector)
  */
-  //template <typename ctype, int dim, class TGV, class TNS, class TNL>
 template <class ctype, int dim, class ScalarVector>
 class ActiveSetFunctor {
   typedef FieldVector<ctype, dim> coord_t;

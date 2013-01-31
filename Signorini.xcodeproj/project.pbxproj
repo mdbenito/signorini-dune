@@ -81,6 +81,7 @@
 				4909D1DD16B408C8004D1959 /* benchmark.hpp */,
 				49C47D1A1633007400D38056 /* config.h */,
 				49C47D2E16343A2000D38056 /* functors.hpp */,
+				49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */,
 				49C47D2F16343B1D00D38056 /* integration.hpp */,
 				49C47D0F1632FF8B00D38056 /* main.cpp */,
 				4909D1EA16B5A932004D1959 /* penaltymethod.hpp */,
@@ -89,7 +90,6 @@
 				49C47D3016343F4B00D38056 /* traverse.hpp */,
 				4909D1E316B588F8004D1959 /* utils.cpp */,
 				491132E11674009F009F1A5C /* utils.hpp */,
-				49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */,
 			);
 			name = Signorini;
 			path = signorini;
@@ -211,6 +211,7 @@
 		49C47D161632FF8B00D38056 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_UNROLL_LOOPS = YES;
 				GCC_VERSION = "";
@@ -232,6 +233,7 @@
 		49C47D171632FF8B00D38056 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_UNROLL_LOOPS = YES;
