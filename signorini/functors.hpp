@@ -79,10 +79,12 @@ public:
   /* Yes, we could return a vector here because the stress tensor
    is symmetric.
    
-   In order to approximate ∂u_k/∂x_l we use that u a linear combination of the
+   In order to calculate ∂u_k/∂x_l we use that u is a linear combination of the
    basis functions:
    
       u = u^a * phi^a  ==> ∂u_k/∂x_l = u^a_k * ∂phi^a/∂x_l
+   
+   FIXME: Is this right?
    */
   block_t stress (const coord_t& u, const coord_t& phi) const
   {
@@ -92,7 +94,7 @@ public:
       for (int j = 0; j < dim; ++j)
         for (int k = 0; k < dim; ++k)
           for (int l = 0; l < dim; ++l)
-            s[k][l] += a[i][j][k][l] * u[k] * phi[l];
+            s[i][j] += a[i][j][k][l] * u[k] * phi[l];
 
     return s;
   }
@@ -108,16 +110,46 @@ public:
   {
     coord_t ret;
     
-      // Values from [FV05, p.36]
-      //ret[0] = 9.6154; ret[1] = -4.8077;
-      //return ret * 1.0e7;
+      // [FV05, p.36]
+    ret[0] = 9.6154; ret[1] = -4.8077;
+    return ret * 1.0e7;
     
+      // [HW05]
+      //ret <<= zero;
+      //return ret;
+    
+      // DATA3
       //ret[0] = 0; ret[1] = -10;
       //return ret * 1.0e8;
-    ret <<= zero;
-    return ret;
   }
 };
+
+
+/*! A functor to model Dirichlet data */
+template <typename ctype, int dim>
+class DirichletFunctor {
+  typedef FieldVector<ctype, dim> coord_t;
+  
+public:
+  coord_t operator() (const coord_t& x) const
+  {
+    coord_t ret;
+    
+      // [FV05, p.36]
+    ret <<= zero;
+    return ret;
+    
+      // [HW05]
+      //ret[0] = 0; ret[1] = -0.07;
+      //return ret;
+    
+      // DATA3
+      //ret[0] = 0; ret[1] = -.02;
+      //return ret;
+  }
+};
+
+
 
 /*! A boundary vectorial functor. Implements isSupported() */
 template <typename ctype, int dim>
@@ -130,7 +162,6 @@ public:
     coord_t ret;
 
       // Values from [FV05, p.36]
-    /*
     if (x[1] == 1.0) {
       ret[0] =  1.9231*x[0] - 3.8462;
       ret[1] = -13.462*x[0] + 2.8846;
@@ -142,13 +173,12 @@ public:
     }
     
     return ret*1.0e7;
-    */
     
-      // The values in [HW04]
-    ret[0] = (0.5-x[0])*30;
-    ret[1] = 6.5;
-    return ret;
-    
+      // The values in [HW05]
+      //ret[0] = (0.5-x[0])*30;
+      //ret[1] = 6.5;
+      //return ret;
+
       // upper and lower tractions
       //ret[0] = -2; ret[1] = -12;
       //return ret * 1.0e7;
@@ -166,10 +196,10 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-      //return (x[0] > 1 - x[1]);  // For the values from [FV05, p.36]
+      return (x[0] > 1 - x[1]);  // [FV05, p.36]
       //return x[0] > 0 && x[0] < 1;   // For the upper and lower tractions
       //return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
-    return x[0] == 0 || x[0] == 1; // For the values in [HW04]
+      //return x[0] == 0 || x[0] == 1;   // [HW05]
   }
 };
 
@@ -181,22 +211,19 @@ class NormalGap {
 
 public:
 
+    // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-      // Careful! remember that it must be g(x) > 0
-      //double g = sin (x[0]*4*M_PI) / 100.0;
-      //return g > 0.0 ? g : 0;
-    return 0.05;
+    return sin (x[0]*4*M_PI) / 50.0;   // DATA3
+    //return 0.05;                       // [HW05]
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
   bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
   {
     for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner(i))) {
-          //cout << "Not supported at " << geo.corner(i) << "\n";
+      if (! isSupported (geo.corner(i)))
         return false;
-      }
 
     return true;
   }
@@ -206,6 +233,7 @@ public:
     return x[1] == 0; // (x[1] == 0 && x[0] > 0 && x[0] < 1);
   }
 };
+
 
 /*! A boundary scalar functor for the active / inactive set strategy.
  
