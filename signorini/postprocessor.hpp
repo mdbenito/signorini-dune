@@ -46,6 +46,8 @@ public:
   typedef FieldMatrix<ctype, dim, dim> block_t;
   typedef     BlockVector<coord_t> CoordVector;
   typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
+                                                  MCMGVertexLayout> VertexMapper;
   
 private:
   const TGV& gv;  //!< Grid view
@@ -131,14 +133,15 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
 {
   bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
-  const auto&  iset = gv.indexSet ();
+  VertexMapper mapper (gv.grid());
+    //std::set<int> visited;
   
-  const auto totalVertices = gv.size (dim);
+  const auto totalVertices = mapper.size ();
   
   if (u == NULL || u->size() != totalVertices)
     DUNE_THROW (Exception, "call PostProcessor::computeError() first");
 
-  if (vm != NULL) delete vm;
+  delete vm;
   vm = new ScalarVector (totalVertices, totalVertices);
 
   for (auto& p : *vm)
@@ -151,18 +154,24 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
 
     double r;
     for (int i = 0; i < vnum; ++i) {
-      auto ii = iset.subIndex (*it, i, dim);
+      auto ii = mapper.map (*it, i, dim);
+        //if (visited.count(ii) != 0)
+        //break;
+        //visited.insert (ii);
       auto iipos = ref.position (i, dim);
       block_t  s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
       double   t = trace(s);
-        //r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+      r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+        //cout << "stressing: " << ii << " ";
+      /*
       r = 0.0;
       for (int k=0; k<dim; ++k) {
         for (int l=0; l<dim; ++l) {
           r += (s[k][l] + (k==l ? -0.5*t : 0))*(s[k][l] + (k==l ? -0.5*t : 0));
         }
       }
-      (*vm)[ii] += r;
+       */
+      (*vm)[ii] += r / vnum;
     }
   }
   
