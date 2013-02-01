@@ -355,8 +355,8 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::assembleMain ()
           int ii = mapper.map (*it, subi , dim);
           auto global = it->geometry().global (ref.position (subi, dim));
           if (boundaryVisited.count (ii) == 0) {
-            auto v = it->template subEntity<dim> (subi)->geometry().center();
-            cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+              //auto v = it->template subEntity<dim> (subi)->geometry().center();
+              //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
             A[ii] = 0.0;
             A[ii][ii] = I;
@@ -421,16 +421,18 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::assemblePenalties ()
             int   subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             int     ii = mapper.map (*it, subi, dim);
             auto iipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
-            coord_t   n = is->centerUnitOuterNormal ();//x.position());
+            coord_t   n = is->centerUnitOuterNormal ();//unitOuterNormal (x.position());
             
             if (n * u[ii] - g (iipos) > 0) {
-              ++pen;  cout << " " << ii;
+              ++pen;  //cout << " " << ii;
               
               for (auto& x : rule) {
                 auto global = igeo.global (x.position ());
                 auto local  = it->geometry().local (global);
+                  //cout << "global= " << global << "\tlocal= " << local << "\tn= " << n << "\tbasis= " << basis[subi].evaluateFunction (local) << "\tg= " << g(global);
                 r[ii] += n * basis[subi].evaluateFunction (local) * g (global) *
                          x.weight() * eps * igeo.integrationElement (x.position ());
+                  //cout << "\tr[" << ii << "]= " << r[ii] << "\n";
                 for (int j = 0; j < vnum; ++j) {
                   int subj = ref.subEntity (is->indexInInside (), 1, j, dim);
                   int   jj = mapper.map (*it, subj, dim);

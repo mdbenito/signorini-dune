@@ -22,6 +22,7 @@
 #include <dune/common/fassign.hh>
 
 #include "utils.hpp"
+#include <cmath>
 
 /*! Kronecker's delta. */
 template <typename T>
@@ -112,7 +113,7 @@ public:
       //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
       //ret <<= zero; return ret;                               // [HW05]
       //ret[0] = 0; ret[1] = -10; return ret * 1.0e7;           // DATA3
-    ret[0] = 0; ret[1] = -10; return ret * 1.0e9;  // DATA4
+    ret[0] = 0; ret[1] = -10; return ret * 1.0e7;  // DATA4
   }
 };
 
@@ -160,7 +161,7 @@ public:
       //ret[0] = (0.5-x[0])*30; ret[1] = 6.5; return ret; // [HW05]
       //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
       //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
-    ret[0] = (1-x[0])-0.5; ret[1] = -12; return ret * 1.0e7;       // DATA5
+    ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;       // DATA5
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -195,7 +196,7 @@ public:
   {
       //return 0.05;                       // [HW05]
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
-    return abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
+    return std::abs (sin (x[0]*4*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>

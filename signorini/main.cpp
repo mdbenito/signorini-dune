@@ -72,7 +72,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (6);
+  grid.globalRefine (7);
 
   const GV& gv = grid.leafView();
 
