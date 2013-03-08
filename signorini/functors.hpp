@@ -194,9 +194,9 @@ public:
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-      //return 0.05;                       // [HW05]
+    return 0.05;                       // [HW05]
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
-    return std::abs (sin (x[0]*4*M_PI) / 20.0);   // DATA5
+      //return std::abs (sin (x[0]*4*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -241,6 +241,8 @@ public:
   
   inline bool isSupported (int i) const
   {
+      //cout << "ActiveSetFunctor::isSupported(" << i << ")= "
+      //<< multipliers[i]+c*(solution[i]-gap[i]) << "\n";
     return multipliers[i]+c*(solution[i]-gap[i]) > 0;
   }
 };

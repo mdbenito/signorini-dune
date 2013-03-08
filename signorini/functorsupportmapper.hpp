@@ -106,7 +106,7 @@ bool FunctorSupportMapper<codim, TGV, TFN>::contains (const EntityType& e,
 template <int codim, class TGV, class TFN>
 int FunctorSupportMapper<codim, TGV, TFN>::size () const
 {
-  return ntot;
+  return supp;
 }
 
 

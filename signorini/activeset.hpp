@@ -20,6 +20,7 @@
 #include <dune/istl/bvector.hh>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/matrixmatrix.hh>
+#include <dune/istl/bdmatrix.hh>
 #include <dune/istl/ilu.hh>
 #include <dune/istl/operators.hh>
 #include <dune/istl/solvers.hh>
@@ -48,7 +49,7 @@ using std::cout;
     TSS: TShapeSet
     TLM: TLagrangeMultipliersShapeSet
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 class SignoriniIASet
 {
 public:
@@ -59,19 +60,20 @@ public:
   typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
   typedef std::set<IdType>                           IdSet;
   typedef std::vector<const Vertex*>              IdVector;
-  
   typedef typename TGV::ctype                        ctype;
+  typedef FieldVector<ctype, 1>                   scalar_t;
   typedef FieldVector<ctype, dim>                  coord_t;
   typedef FieldMatrix<ctype, dim, dim>             block_t;
-  typedef BCRSMatrix<block_t>                  BlockMatrix;
+  typedef BCRSMatrix<scalar_t>                ScalarMatrix;
   typedef BCRSMatrix<coord_t>                 VectorMatrix;
+  typedef BCRSMatrix<block_t>                  BlockMatrix;
+  typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
-  typedef BlockVector<FieldVector<ctype, 1> > ScalarVector;
   typedef ActiveSetFunctor<ctype, dim, ScalarVector>  AIFunctor;
   typedef ActiveInactiveMapper<dim, TGV>               AIMapper;
   typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
                                                   MCMGVertexLayout> VertexMapper;
-  typedef FunctorSupportMapper<dim, TGV, TGT> GapVertexMapper;
+  typedef FunctorSupportMapper<dim, TGV, TGF> GapVertexMapper;
 
 private:
   const TGV& gv;    //!< Grid view
@@ -80,16 +82,14 @@ private:
   const TET& a;     //!< Elasticity tensor
   const TFT& f;     //!< Volume forces
   const TTT& p;     //!< Boundary forces
-  const TGT& gap;   //!< Normal gap function (scalar)
+  const TGF& gap;   //!< Normal gap function (scalar)
   
   block_t      I;   //!< Identity matrix block (Dune::DiagonalMatrix not working?)
   BlockMatrix  A;   //!< Stiffness matrix
-  BlockMatrix  D;   //!< See [HW04, eq. (3.5)]
-  VectorMatrix N;   //!< See [HW04, eq. (3.5)]
-  VectorMatrix T;   //!< See [HW04, eq. (3.5)]  
+  BlockMatrix  D;   //!< See [HW05] (Should be Dune::BDMatrix, but cannot build it)
   CoordVector  b;   //!< RHS: volume forces and tractions
   CoordVector  u;   //!< Solution
-  CoordVector  m;   //!< Lagrange multiplier
+  CoordVector  n;   //!< Normals at the gap nodes
   ScalarVector g;   //!< Gap functor evaluated at the gap nodes
   ScalarVector n_u; //!< Normal component of the solution at gap nodes
   ScalarVector n_m; //!< Normal component of the lagrange multiplier at gap nodes
@@ -98,25 +98,26 @@ private:
     //IdSet boundary;
   IdSet   active;
   IdSet inactive;
-  IdSet   others;
+  IdSet    other;
     // tests
     //IdVector activeV;
     //IdVector inactiveV;
-    //IdVector othersV;
+    //IdVector otherV;
   
   GapVertexMapper* gapMapper;  // FIXME: don't use gapMapper
   AIMapper*         aiMapper;
 
 public:
   SignoriniIASet (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p,
-                  const TGT& _gap, int _quadratureOrder = 4);
+                  const TGF& _gap, int _quadratureOrder = 4);
   
   void setupMatrices ();
   void initialize ();
   void assemble ();
   void determineActive ();
+  void step ();
   void solve ();
-  
+
   const CoordVector& solution() const { return u; }
 };
 
@@ -125,12 +126,12 @@ public:
  * Implementation                                                             *
  ******************************************************************************/
 
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::SignoriniIASet (const TGV& _gv,
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _gv,
                                                                    const TET& _a,
                                                                    const TFT& _f,
                                                                    const TTT& _p,
-                                                                   const TGT& _gap,
+                                                                   const TGF& _gap,
                                                                    int _quadratureOrder)
 : gv (_gv), gids(_gv.grid().globalIdSet()), a (_a), f (_f), p (_p), gap(_gap),
   quadratureOrder(_quadratureOrder), gapMapper(new GapVertexMapper(_gv, _gap))
@@ -142,68 +143,101 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::SignoriniIASet (const TGV& _g
   g.resize (gapMapper->size());
   n_u.resize (gapMapper->size());
   n_m.resize (gapMapper->size());
+  
+  n_u = 0;
+  n_m = 0;
+  g   = 0;
 
-  aiMapper = new AIMapper (gv, active, inactive, others);
+  aiMapper = new AIMapper (gv, active, inactive, other);
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::setupMatrices ()
+/*! Initializes the stiffness matrix.
+ 
+ At step k=0, the system matrix (without boundary conditions) is
+ 
+  /                 \
+  | A_NN   A_NS   0 |
+  | A_SN   A_SS   D |
+  |    0      0   I |
+  \                 /
+
+ */
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 {
   const int total = gv.size (dim);
   const int ingap = gapMapper->size();  // *Should* be active.size() + inactive.size()
+  //cout << "total= " << total << ", ingap= " << ingap << "\n";
 
-  std::vector<std::set<int> > adjacencyPattern (total);
+  std::vector<std::set<int> > adjacencyPattern (total+2*ingap); //too big actually
   
     //For each element we traverse all its vertices and set them as adjacent
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type ());
     int vnum = ref.size (dim);
     for (int i = 0; i < vnum; ++i) {
+      int ii = aiMapper->map (*it, i, dim);
       for (int j = 0; j < vnum; ++j) {
-        adjacencyPattern[aiMapper->map (*it, i, dim)].insert (aiMapper->map (*it, j, dim));
+        int jj = aiMapper->map (*it, j, dim);
+        adjacencyPattern[ii].insert (jj);
       }
+      /* Next we add one entry corresponding to the diagonal matrix D in
+                /                 \
+                | A_NN   A_NS   0 |
+                | A_SN   A_SS   D |
+                |    0      0   I |
+                \                 /
+       */
+      if (other.find (gids.subId (*it, i, dim)) == other.end())  // i.e.: vertex is in S
+        adjacencyPattern[ii].insert (total + aiMapper->mapInBoundary (*it, i, dim));
     }
   }
 
     //// Initialize default values
 
-  A.setSize (total, total);
+  A.setSize (total+ingap, total+ingap);
   A.setBuildMode (BlockMatrix::random);
-  
   D.setSize (ingap, ingap);
   D.setBuildMode (BlockMatrix::random);
-
-  b.resize (total, false);
-  u.resize (total, false);
+  
+  b.resize (total+ingap, false);
+  u.resize (total+ingap, false);
   
   for (int i = 0; i < total; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
-  
-  for (int i = 0; i < ingap; ++i)
-    D.setrowsize (i, 1);
-  
+  for (int i = total; i < total+ingap; ++i)
+    A.setrowsize (i, 1);
   A.endrowsizes ();
-  D.endrowsizes ();
   
   for (int i = 0; i < total; ++i)
     for (const auto& it : adjacencyPattern[i])
       A.addindex (i, it);
-  
-  for (int i = 0; i < ingap; ++i)
-    D.addindex (i,i);
-  
-
+  for (int i = total; i < total+ingap; ++i)
+    A.addindex (i, i);
   A.endindices ();
-  D.endindices ();
   
+  for (int i = 0; i < ingap; ++i) D.setrowsize (i, 1);
+  D.endrowsizes();
+  for (int i = 0; i < ingap; ++i) D.addindex (i, i);
+  D.endindices();
+    //for (int i = 0; i < ingap; ++i) D[i][i] = I;
+  
+  /* This crashes:
+  D.setBuildMode (BlockMatrix::row_wise);
+  for (auto row = D.createbegin(); row != D.createend(); ++row) {
+    auto i = row.index();
+    row.insert (i);
+    D[i][i] = I;
+  }
+  */
+
   A = 0.0;
-  D = 0.0;
   b = 0.0;
   u = 0.0;
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::initialize ()
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::initialize ()
 {
   bench().start ("Active set initialization");
   determineActive();
@@ -215,14 +249,14 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::initialize ()
 
 }
 
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::determineActive ()
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
 {
   AIFunctor contact (g, n_u, n_m, 1.0);  // 0 initial values *should* imply empty support
   
   active.clear();
   inactive.clear();
-  others.clear();  // FIXME: no need to recalculate this!
+  other.clear();  // FIXME: no need to recalculate this!
   
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     auto id = gids.id (*it);
@@ -233,18 +267,18 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::determineActive ()
         inactive << id;
       }
     } else {
-      others << id;
+      other << id;
     }
   }
   
-  aiMapper->update (active, inactive, others);
+  aiMapper->update (active, inactive, other);
   
-  cout << "Others:";
-  for (auto x : others)   cout << " " << aiMapper->map(x);
+    //cout << "Others:";
+    //for (auto x : other)   cout << " " << aiMapper->map(x);
   cout << "\nInactive:";
-  for (auto x : inactive) cout << " " << aiMapper->map(x);
+  for (auto x : inactive) cout << x << "->" << aiMapper->map(x) << " ";
   cout << "\nActive:";
-  for (auto x : active)   cout << " " << aiMapper->map(x);
+  for (auto x : active)   cout << x << "->" << " " << aiMapper->map(x) << " ";
   cout << "\n";
 }
 
@@ -256,138 +290,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::determineActive ()
    corresponding entries in the matrix.
 
  */
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
 {
-    //// Recalculate matrix D.
-
-    // Recall that the integral is over the gap boundary, so we need not integrate
-    // the basis functions of nodes outside it.
-  
   const auto& multBasis = TLM::instance();
   const auto&     basis = TSS::instance();
-  int            offset = static_cast<int> (others.size());
-  cout << "Offsetting by " << offset << "\n";
-  
-  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      if (is->boundary ()) {
-        const auto&   in = is->inside();
-        const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
-        const int   vnum = ref.size (is->indexInInside (), 1, dim);
-        const auto& igeo = is->geometry ();
-        
-        if (gap.isSupported (igeo)) {
-          for (int i = 0 ; i < vnum; ++i) {
-            int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
-            IdType id = gids.subId (*it, subi, dim);
-            int    ii = aiMapper->map (id) - offset;  // FIXME: the offset is a hack
-            cout << "Setting index " << ii << "\n";
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
-              const auto& global = igeo.global (x.position ());
-              const auto&  local = it->geometry().local (global);
-              D[ii][ii] = I * basis[subi].evaluateFunction (local) *
-                          multBasis[subi].evaluateFunction (local) *
-                          x.weight () *
-                          igeo.integrationElement (x.position ());
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  /*
-  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
-    GeometryType typ = it->type ();
-    const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
-    const auto&  geo = it->geometry();
-    
-    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      if (is->boundary ()) {
-        const int  ivnum = ref.size (is->indexInInside (), 1, dim);
-        const auto& igeo = is->geometry ();
-        const auto& ityp = is->type ();
-        
-        if (gap.isSupported (igeo)) {
-          for (int i = 0 ; i < ivnum; ++i) {
-            int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-            int   ii = aiMapper->map (*it, subi, dim);
-            
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
-              auto& global = igeo.global (x.position ());
-              auto&  local = it->geometry().local (global);
-              D[ii][ii] += basis[subi].evaluateFunction (local) *
-              multBasis[subi].evaluateFunction (local) *
-              x.weight () *
-              igeo.integrationElement (x.position ());
-            }
-          }
-        }
-      }
-    }
-  }
-  */
-  
-  
-    //// Recalculate matrices N, T
-  
-    // Ok, it's not exactly smart to use sparse matrices to store diagonal ones...
-
-  const int K = (int)active.size();
-  offset     += inactive.size();
-
-  N.setSize (K, K);
-  N.setBuildMode (VectorMatrix::random);
-  T.setSize (K, K);
-  T.setBuildMode (VectorMatrix::random);
-  
-  for (int i=0; i < K; ++i) {
-    N.setrowsize (i, 1);
-    T.setrowsize (i, 1);
-  }
-  
-  N.endrowsizes();
-  T.endrowsizes();
-  
-  AIFunctor contact (g, n_u, n_m, 1.0);  // 0 initial values *should* imply empty support
-  
-  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
-    if (gap.isSupported (it->geometry())) {
-      if (contact.isSupported (gapMapper->map (*it))) {  // careful with the mapper!
-        int idx = aiMapper->map (*it);
-        N.addindex (idx, idx);
-        T.addindex (idx, idx);
-      }
-    }
-  }
-  
-  N.endindices();
-  T.endindices();
-  
-  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
-      if (is->boundary ()) {
-        const auto&   in = is->inside();
-        const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
-        const int   vnum = ref.size (is->indexInInside (), 1, dim);
-        for (int i = 0 ; i < vnum; ++i) {
-          int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-          coord_t n = is->centerUnitOuterNormal ();  // ok?
-          coord_t t; t[0] = -n[1]; t[1] = n[0];
-          int   ii = aiMapper->map (*it, subi, dim) - offset;  // FIXME: the offset is a hack
-          if (active.find (gids.subId (*it, subi, dim)) != active.end()) {  // ARGH!
-            N[ii][ii] = n * D[ii][ii];
-            T[ii][ii] = t * D[ii][ii];  // FIXMEMEMEMEEMME!!!!
-          }
-        }
-      }
-    }
-  }
+  const int       total = gv.size (dim);
   
     //// Stiffness matrix:
-  
-  
+
   bench().report ("Assembly", "Feeding gremlins...", false);
   std::set<int> boundaryVisited;
   
@@ -444,7 +355,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
       
     }
     
-      //// Boundary conditions. See the discussion in the comments to the method
+      //// Gap at boundary for the computation of the active index set
+
+    for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it)
+      if (gap.isSupported (it->geometry())) {
+        g[aiMapper->mapInBoundary (gids.id (*it))] = gap (it->geometry().center());
+        boundaryVisited.insert (aiMapper->map (*it));
+      }
+
+      //// Neumann Boundary conditions.
     
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
@@ -452,20 +371,20 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
         const auto& igeo = is->geometry ();
         const auto& ityp = is->type ();
         
-        if (p.isSupported (igeo)) {            // Neumann conditions.
-                                               //cout << "Neumann'ing: "; printCorners (igeo);
+        if (p.isSupported (igeo)) {
+            //cout << "Neumann'ing: "; printCorners (igeo);
           for (int i = 0 ; i < ivnum; ++i) {
             int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             int   ii = aiMapper->map (*it, subi, dim);
-              //auto   v = it->template subEntity<dim> (rsub)->geometry().center();
-              //cout << "Neumann'ing node: " << ii << " at " << v << "\n";
+            auto   v = it->template subEntity<dim> (subi)->geometry().center();
+            cout << "Neumann'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert (ii);
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
               auto global = igeo.global (x.position ());
               b[ii] += p (global) *
-              basis[subi].evaluateFunction (it->geometry().local (global)) *
-              x.weight () *
-              igeo.integrationElement (x.position ());
+                      basis[subi].evaluateFunction (it->geometry().local (global)) *
+                      x.weight () *
+                      igeo.integrationElement (x.position ());
             }
           }
         }
@@ -482,8 +401,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
    */
   
   coord_t dirichlet;
-  dirichlet <<= zero;
-    //dirichlet[0] = 0; dirichlet[1] = -0.07;
+  dirichlet[0] = 0; dirichlet[1] = 0.05;
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
@@ -495,10 +413,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
         
         for (int i = 0; i < ivnum; ++i) {
           auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-            //auto v = it->template subEntity<dim> (rsub)->geometry().center();
+          auto v = it->template subEntity<dim> (subi)->geometry().center();
           int ii = aiMapper->map (*it, subi , dim);
           if (boundaryVisited.count (ii) == 0) {
-              //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+            cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
             A[ii] = 0.0;
             A[ii][ii] = I;
@@ -509,80 +427,186 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::assemble ()
     }
   }
   
-    //printmatrix (cout, A, "Stiffness matrix","");
-  bench().report ("Assembly", "\tdone.");
+    //// Calculate submatrix D.
   
+    // Recall that the integral is over the gap boundary, so we need not integrate
+    // the basis functions of nodes outside it.
+  
+  int offset = total;
+    //cout << "Offsetting by " << offset << "\n";
+  
+  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
+    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
+      if (is->boundary ()) {
+        const auto&   in = is->inside();
+        const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
+        const int   vnum = ref.size (is->indexInInside (), 1, dim);
+        const auto& igeo = is->geometry ();
+        
+        if (gap.isSupported (igeo)) {
+          for (int i = 0 ; i < vnum; ++i) {
+            int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
+            IdType id = gids.subId (*it, subi, dim);
+            int    ii = aiMapper->map (id);
+            int    kk = aiMapper->mapInBoundary (id);
+            int    jj = offset + kk;
+            cout << "Setting index for D: " << ii << "\n";
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+              const auto& global = igeo.global (x.position ());
+              const auto&  local = it->geometry().local (global);
+              A[ii][jj] = I * basis[subi].evaluateFunction (local) *
+                          multBasis[subi].evaluateFunction (local) *
+                          x.weight () *
+                          igeo.integrationElement (x.position ());
+              D[kk][kk] = A[ii][jj];
+            }
+          }
+        }
+      }
+    }
+  }
+
+  bench().report ("Assembly", "\tdone.");
 }
 
 
-template<class TGV, class TET, class TFT, class TTT, class TGT, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::solve ()
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
 {
-  bench().start ("Assembly");
-  assemble();
-  bench().stop ("Assembly");
-
     //// HACK of the HACKS...
-  bench().start ("Gluing");
-  const int n_N = (int)others.size();
+  bench().start ("Gluing", false);
+  const int total = gv.size (dim);
+  const int n_N = (int)other.size();
   const int n_A = (int)active.size();
   const int n_I = (int)inactive.size();
   
+  CoordVector uu, c;
+  n.resize (n_I+n_A, false);
+  c.resize (total+n_I+2*n_A, false);
+  uu.resize (total+n_A+n_I, false);
+  
+    // Copy RHS vector
+  for (int i = 0; i < total; ++i)
+    c[i] = b[i];
+  for (int i = total; i < total+n_I+2*n_A; ++i)
+    c[i] = 0.0; // we initialize the last n_A elements to gap() later.
+
+  /* We copy matrix A and append the last lines. B should be:
+   
+         /                                 \
+         | A_NN   A_NI   A_NS      0       |
+         | A_IN   A_II   A_IA    D_I     0 |
+         | A_AN   A_AI   A_AA      0   D_A |
+     B = |    0      0      0   Id_I     0 |
+         |    0      0      0      0   T_A |
+         |    0      0    N_A      0     0 |
+         \                                /
+   
+   The line | 0 0 N_A 0 0 | has row indices in [total+n_I+n_A, total+n_I+2*n_A)
+   */
   BlockMatrix B;
   B.setBuildMode (BlockMatrix::row_wise);
-  B.setSize (n_N+n_I+2*n_A, n_N+n_I+n_A);
-  CoordVector uu, c;
-  c.resize (n_N+n_I+n_A, false);
-  uu.resize (n_N+n_I+n_A, false);
-  
-  MatrixWindow<BlockMatrix> A_NN (A, 0, 0);
-  MatrixWindow<BlockMatrix> A_NI (A, 0, n_N);
-  MatrixWindow<BlockMatrix> A_NA (A, 0, n_N+n_I);
-  MatrixWindow<BlockMatrix> A_IN (A, n_N, 0);
-  MatrixWindow<BlockMatrix> A_II (A, n_N, n_N);
-  MatrixWindow<BlockMatrix> A_IA (A, n_N, n_N+n_I);
-  MatrixWindow<BlockMatrix> A_AN (A, n_N+n_I, 0);
-  MatrixWindow<BlockMatrix> A_AI (A, n_N+n_I, n_N);
-  MatrixWindow<BlockMatrix> A_AA (A, n_N+n_I, n_N+n_I);
-  
-  VectorMatrix T1(T);
-    //matMultMat(T1, T, MatrixTransformer<BlockMatrix, VectorMatrix>(A_AN));
+  B.setSize (total+n_I+2*n_A, total+n_A+n_I);
+  cout << "B is " << total+n_I+2*n_A << " x " << total+n_A+n_I << "\n";
 
-  VectorMatrix T2(T);
-    //matMultMat(T2, T, MatrixTransformer<BlockMatrix, VectorMatrix>(A_AI));
-
-  VectorMatrix T3(T);
-    //matMultMat(T3, T, MatrixTransformer<BlockMatrix, VectorMatrix>(A_AA));
+    // Build an adjacency pattern for the last line in B
+  std::vector<std::set<int> > adjacencyPattern (total);
+  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
+    const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type ());
+    int vnum = ref.size (dim);
+    for (int i = 0; i < vnum; ++i) {
+      IdType id = gids.subId (*it, i, dim);
+      if (active.find (id) != active.end()) {
+        int ii = aiMapper->mapInActive (id);
+        int jj = aiMapper->map (id);
+        adjacencyPattern[ii].insert (jj);
+      }
+    }
+  }
   
   for (auto row = B.createbegin(); row != B.createend(); ++row) {
-    if (row.index() < n_N + n_I) {
+    if (row.index() < total) {
       for (auto col = A[row.index()].begin(); col != A[row.index()].end(); ++col)
         row.insert (col.index());
-    } else if (row.index() < n_N+n_I+n_A) {
+    } else if (row.index() < total+n_I+n_A) {
       row.insert (row.index());
     } else if (row.index() < B.N()) {
-      auto i = row.index() - n_N+n_I+n_A;
-      for (auto col = T1[i].begin(); col != T1[i].end(); ++col)
-        row.insert (col.index());
-      for (auto col = T2[i].begin(); col != T2[i].end(); ++col)
-        row.insert (col.index());
-      for (auto col = T3[i].begin(); col != T3[i].end(); ++col)
-        row.insert (col.index());
+      for (const auto& it : adjacencyPattern[row.index() - total - n_I - n_A])
+        row.insert (it);
+    }
+  }
+  
+  B = 0.0;
+  
+  for (auto row = B.begin(); row != B.end(); ++row) {
+    if (row.index() < total) {
+      for (auto col = A[row.index()].begin(); col != A[row.index()].end(); ++col)
+        B[row.index()][col.index()] = A[row.index()][col.index()];
+    } else if (row.index() < total+n_I+n_A) {
+      B[row.index()][row.index()] = I;
+    }
+  }
+  
+    // Fill the lines:
+    //             |    0      0      0      0   T_A |
+    //             |    0      0    N_A      0     0 |
+  
+  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
+    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
+      if (is->boundary ()) {
+        const auto&   in = is->inside();
+        const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
+        const int   vnum = ref.size (is->indexInInside (), 1, dim);
+        const auto& igeo = is->geometry ();
+        
+        if (gap.isSupported (igeo)) {
+          for (int i = 0 ; i < vnum; ++i) {
+            int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
+            IdType id = gids.subId (*it, subi, dim);
+            if (active.find (id) != active.end()) {
+              int kk = aiMapper->mapInBoundary (id);
+              cout << "Found active: " << id << " -> " << kk << "\n";
+              auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
+
+                // HACK: Build temporary matrices with repeated elements
+              coord_t nr = FMatrixHelp::mult (D[kk][kk], is->centerUnitOuterNormal());
+              coord_t tg;
+              tg[0] = -nr[1]; tg[1] = nr[0];
+              for (int r=2; r<dim; ++r)
+                tg[r] = 0;
+              
+              block_t T, N;
+              for (int k=0; k<dim; ++k) {
+                for (int l=0; l<dim; ++l) {
+                  T[k][l] = tg[l];
+                  N[k][l] = nr[l];
+                }
+              }
+                // double HACK: save n for later use
+              n[kk] = nr;
+                // first the tangential stuff for the multipliers.
+              int ii = total + kk;
+              B[ii][ii] += T*(1.0/vnum);
+              c[ii] = 0.0;
+                // now the last rows
+              ii = total + n_A + n_I + aiMapper->mapInActive (id);
+              int jj = aiMapper->map (id);
+              cout << "ii= " << ii << ", jj= " << jj << "\n";
+              B[ii][jj] += N*(1.0/vnum);
+              c[ii] = gap(ipos);  // copies the scalar dim times (part of HACK)
+            }
+          }
+        }
+      }
     }
   }
 
-  for (auto row = B.begin(); row != B.end(); ++row) {
-    if (row.index() < n_N+n_I) {
-      for (auto col = A[row.index()].begin(); col != A[row.index()].end(); ++col)
-        B[row.index()][col.index()] = A[row.index()][col.index()];
-    } else if (row.index() < n_N+n_I+n_A) {
-        //B[row.index()][row.index()] = N
-    } else if (row.index() < B.N()) {
-    }
-  }
-  
   bench().stop ("Gluing");
+  printmatrix(cout, B, "B", "");
+  writeMatrixToMatlab (B, "/tmp/stiff");
+  writeVectorToFile (c, "/tmp/rhs");
   
+  printvector(cout, c, "c", "");
   bench().start ("Solving");
   InverseOperatorResult stats;
   MatrixAdapter<BlockMatrix, CoordVector, CoordVector> op (B);
@@ -591,7 +615,30 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGT, TSS, TLM>::solve ()
   SeqILUn<BlockMatrix, CoordVector, CoordVector> ilu1 (B, 1, 0.96);
   BiCGSTABSolver<CoordVector> bcgs (op, ilu1, 1e-15, 500, 0);
   bcgs.apply (uu, c, stats);
+  for (int i = 0; i < n_I+n_A; ++i) {
+    n_u[i] = n[i] * uu[n_N+i];
+    n_m[i] = n[i] * uu[total+i];
+  }
+  printvector (cout, n_u, "Solution Normal", "");
+  printvector (cout, n_m, "Multiplier Normal", "");
+  
   bench().stop ("Solving");
 }
 
+template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
+{
+  for (int i = 0; i < 5; ++i) {
+    bench().start ("Active set initialization", false);
+    determineActive();
+    bench().stop ("Active set initialization");
+    bench().start ("Adjacency computation", false);
+    setupMatrices();
+    bench().stop ("Adjacency computation");
+    bench().start ("Assembly");
+    assemble();
+    bench().stop ("Assembly");
+    step();
+  }
+}
 #endif /* defined (SIGNORINI_ACTIVESET_HPP) */

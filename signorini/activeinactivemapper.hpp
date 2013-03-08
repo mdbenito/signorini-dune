@@ -36,17 +36,24 @@ class ActiveInactiveMapper
   const typename TGV::IndexSet& iset;
   
   std::map<IdType, int> indices;
-
+  int sizeInner;
+  int offsetActive;
 public:
   ActiveInactiveMapper (const TGV& _gv,
                         const IdSet& active,
                         const IdSet& inactive,
-                        const IdSet& others);
+                        const IdSet& other);
   
   template<class EntityType> int map (const EntityType& e) const;
   int map (IdType id) const;
   int map (const Element& e, int i, unsigned int cc) const;
   int map (Element& e, int i, unsigned int cc) const;
+  int mapInBoundary (IdType id) const;
+  int mapInBoundary (const Element& e, int i, unsigned int cc) const;
+  int mapInBoundary (Element& e, int i, unsigned int cc) const;
+  int mapInActive (IdType id) const;
+  int mapInActive (const Element& e, int i, unsigned int cc) const;
+  int mapInActive (Element& e, int i, unsigned int cc) const;
   
   bool contains (const Element& e, int i, int cc, int& result) const;
   template<class EntityType>
@@ -55,7 +62,7 @@ public:
   int size () const;
   void update (const IdSet& active,
                const IdSet& inactive,
-               const IdSet& others);
+               const IdSet& other);
 };
 
 
@@ -63,10 +70,11 @@ template <int codim, class TGV>
 ActiveInactiveMapper<codim, TGV>::ActiveInactiveMapper (const TGV& _gv,
                                                         const IdSet& active,
                                                         const IdSet& inactive,
-                                                        const IdSet& others)
-: gv (_gv), gids(_gv.grid().globalIdSet()), iset (_gv.indexSet())
+                                                        const IdSet& other)
+: gv (_gv), gids(_gv.grid().globalIdSet()), iset (_gv.indexSet()), sizeInner(0),
+  offsetActive(0)
 {
-  update (active, inactive, others);
+  update (active, inactive, other);
 }
 
 
@@ -84,6 +92,12 @@ int ActiveInactiveMapper<codim, TGV>::map (const IdType id) const
 }
 
 template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const IdType id) const
+{
+  return indices.at(id)-sizeInner;
+}
+
+template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::map (const Element& e, int i,
                                            unsigned int cc) const
 {
@@ -97,7 +111,39 @@ int ActiveInactiveMapper<codim, TGV>::map (Element& e, int i,
   return indices.at(gids.subId (e, i, cc));
 }
 
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const Element& e, int i,
+                                                     unsigned int cc) const
+{
+  return indices.at(gids.subId (e, i, cc))-sizeInner;
+}
 
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInBoundary (Element& e, int i,
+                                                     unsigned int cc) const
+{
+  return indices.at(gids.subId (e, i, cc))-sizeInner;
+}
+
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInActive (const IdType id) const
+{
+  return indices.at(id)-offsetActive;
+}
+
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInActive (const Element& e, int i,
+                                                   unsigned int cc) const
+{
+  return indices.at(gids.subId (e, i, cc))-offsetActive;
+}
+
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInActive (Element& e, int i,
+                                                     unsigned int cc) const
+{
+  return indices.at(gids.subId (e, i, cc))-offsetActive;
+}
 
 template <int codim, class TGV>
 bool ActiveInactiveMapper<codim, TGV>::contains (const Element& e, int i,
@@ -126,12 +172,14 @@ int ActiveInactiveMapper<codim, TGV>::size () const
 template <int codim, class TGV>
 void ActiveInactiveMapper<codim, TGV>::update (const IdSet& active,
                                                const IdSet& inactive,
-                                               const IdSet& others)
+                                               const IdSet& other)
 {
   indices.clear();
   int cnt = 0;
-  for (auto x : others)   indices[x] = cnt++;
+  for (auto x : other)   indices[x] = cnt++;
+  sizeInner = cnt;
   for (auto x : inactive) indices[x] = cnt++;
+  offsetActive = cnt;
   for (auto x : active)   indices[x] = cnt++;
 }
 

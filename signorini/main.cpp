@@ -72,7 +72,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (7);
+  grid.globalRefine (3);
 
   const GV& gv = grid.leafView();
 
@@ -115,13 +115,13 @@ int main (int argc, char** argv)
     //testShapes<ctype, dim, LSShapeSet>();
     //testShapes<ctype, dim, ShapeSet>();
 
-  HookeT  a (E, nu);
-  VolumeF         f;
-  BoundaryF       p;
-  Gap             g;
-  Dirichlet       d;
+  HookeT a (E, nu);
+  VolumeF        f;
+  BoundaryF      p;
+  Gap            g;
+  Dirichlet      d;
   
-  PMSolver  fem (gv, a, f, p, g, d, eps);
+    //PMSolver  fem (gv, a, f, p, g, d, eps);
   IASolver fem2 (gv, a, f, p, g);
 
     //// Misc.
@@ -133,10 +133,10 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling!!
     cout << "Gremlin population: " << grid.size(dim) << "\n";
-    fem.initialize();
-    fem.solve (maxsteps, tolerance);
-      //fem2.initialize ();
-      //fem2.solve ();
+      //fem.initialize();
+      //fem.solve (maxsteps, tolerance);
+      //fem2.initialize ();  // not needed anymore
+    fem2.solve ();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
