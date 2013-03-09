@@ -30,12 +30,13 @@ using namespace Dune;
  Template type names:
  TGV: TGridView
  TET: TElasticityTensor
+ TMP: TMapper
  TSS: TShapeFunctionSet
  
  FIXME: Should only take one template parameter: the FEM class, and from it
  read types for GridView, Elasticity tensor, shape function set, etc.
  */
-template<class TGV, class TET, class TSS>
+template<class TGV, class TET, class TMP, class TSS>
 class PostProcessor
 {
 public:
@@ -44,20 +45,24 @@ public:
   typedef            typename TGV::ctype ctype;
   typedef      FieldVector<ctype, dim> coord_t;
   typedef FieldMatrix<ctype, dim, dim> block_t;
-  typedef     BlockVector<coord_t> CoordVector;
+  typedef BlockVector<coord_t>                CoordVector;
   typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
+  typedef std::vector<ctype>                   FlatVector;
+
   typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
                                                   MCMGVertexLayout> VertexMapper;
   
 private:
-  const TGV& gv;  //!< Grid view
-  const TET& a;   //!< Elasticity tensor
+  const TGV& gv;      //!< Grid view
+  const TMP& mapper;  //!< Index mapper
+  const TET& a;       //!< Elasticity tensor
+  
   
   CoordVector* u;      //!< Solution
   ScalarVector* vm;    //!< Von Mises stress of solution
 
 public:
-  PostProcessor (const TGV& _gv,  const TET& _a);
+  PostProcessor (const TGV& _gv, const TMP& _m, const TET& _a);
 
   double computeError (const CoordVector& v);
   void   computeVonMisesSquared ();
@@ -68,20 +73,24 @@ protected:
   void check (const CoordVector& v) const;
   void setSolution (const CoordVector& v);
   
-  template<class V> std::vector<ctype> asVector(const V* u) const;};
+  template<class V> FlatVector* asVector(const V* u) const;
+};
 
-template<class TGV, class TET, class TSS>
-PostProcessor<TGV, TET, TSS>::PostProcessor (const TGV& _gv,  const TET& _a)
-  : gv (_gv), a (_a), u (NULL), vm (NULL)
+template<class TGV, class TET, class TMP, class TSS>
+PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
+                                                  const TMP& _m,
+                                                  const TET& _a)
+  : gv (_gv), mapper(_m), a (_a), u (NULL), vm (NULL)
 {
 
 }
 
-template<class TGV, class TET, class TSS>
-void PostProcessor<TGV, TET, TSS>::setSolution (const CoordVector& v)
+template<class TGV, class TET, class TMP, class TSS>
+void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
 {
   delete u;
   u = new CoordVector (v);
+  bench().report ("Postprocessing", string("New solution has size: ") + u->size());
 }
 
 /*! Computes the error wrt. to the previous solution.
@@ -94,8 +103,8 @@ void PostProcessor<TGV, TET, TSS>::setSolution (const CoordVector& v)
  
  In case no previous solution was set, returns 1, but still copies the data.
  */
-template<class TGV, class TET, class TSS>
-double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
+template<class TGV, class TET, class TMP, class TSS>
+double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
 {
   check (v);
 
@@ -128,17 +137,17 @@ double PostProcessor<TGV, TET, TSS>::computeError (const CoordVector& v)
  
  Also: shouldn't I normalize the contribution of each vertex?
  */
-template<class TGV, class TET, class TSS>
-void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
+template<class TGV, class TET, class TMP, class TSS>
+void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 {
   bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
-  VertexMapper mapper (gv.grid());
+  VertexMapper defaultMapper (gv.grid());
     //std::set<int> visited;
   
-  const auto totalVertices = mapper.size ();
+  const auto totalVertices = defaultMapper.size ();
   
-  if (u == NULL || u->size() != totalVertices)
+  if (u == NULL || u->size() < totalVertices)
     DUNE_THROW (Exception, "call PostProcessor::computeError() first");
 
   delete vm;
@@ -154,7 +163,7 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
 
     double r;
     for (int i = 0; i < vnum; ++i) {
-      auto ii = mapper.map (*it, i, dim);
+      auto ii = defaultMapper.map (*it, i, dim);
         //if (visited.count(ii) != 0)
         //break;
         //visited.insert (ii);
@@ -178,29 +187,49 @@ void PostProcessor<TGV, TET, TSS>::computeVonMisesSquared ()
   bench().report ("Postprocessing", " done.");
 }
 
-template<class TGV, class TET, class TSS>
-std::string PostProcessor<TGV, TET, TSS>::writeVTKFile (std::string base, int step) const
+
+  /// This is about the ugliest code I've written in a while...
+
+template<class TGV, class TET, class TMP, class TSS>
+std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, int step) const
 {
   std::ostringstream oss;
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
   VTKWriter<typename TGV::Grid::LeafGridView> vtkwriter (gv.grid().leafView());
-  if (u != NULL)  vtkwriter.addVertexData (asVector (u), "u", dim);
-  if (vm != NULL) vtkwriter.addVertexData (asVector (vm), "vm", 1);
-  vtkwriter.write (oss.str(), VTKOptions::binaryappended);
   
+  FlatVector* uu, *vvmm;
+  
+  if (u != NULL) {
+    uu = asVector(u);
+    vtkwriter.addVertexData (*uu, "u", dim);
+  }
+  if (vm != NULL) {
+    vvmm = asVector(vm);
+    vtkwriter.addVertexData (*vvmm, "vm", 1);
+  }
+  vtkwriter.write (oss.str(), VTKOptions::binaryappended);
+  if (u != NULL) delete uu;
+  if (vm != NULL) delete vvmm;
+
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
 }
 
-// FIXME: lots of copying! Choose some memory policy and fix this.
-template<class TGV, class TET, class TSS>
+/*! Copies the solution remapping to the VertexMapper
+ 
+ */
+template<class TGV, class TET, class TMP, class TSS>
 template <class V>
-std::vector<typename TGV::ctype>
-PostProcessor<TGV, TET, TSS>::asVector (const V* v) const {
-  std::vector<ctype> ret;
-  for (auto& p : *v)
-    for (auto& c : p)
-      ret.push_back (c);
+std::vector<typename TGV::ctype>*   // FlatVector*
+PostProcessor<TGV, TET, TMP, TSS>::asVector (const V* v) const {
+  auto ret = new FlatVector (gv.size(dim)*V::block_type::dimension);
+  VertexMapper defaultMapper (gv.grid());
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    int from = mapper.map (*it);
+    int to = defaultMapper.map (*it);
+    for (int c = 0; c < V::block_type::dimension; ++c)
+      (*ret)[to*dim+c] = ((*v)[from])[c];
+  }
   return ret;
 }
 
@@ -208,8 +237,8 @@ PostProcessor<TGV, TET, TSS>::asVector (const V* v) const {
  Wrong setup of the stiffness matrix would lead to NaN results in some places.
  This check should no longer be necessary, but it doesn't hurt either.
  */
-template<class TGV, class TET, class TSS>
-void PostProcessor<TGV, TET, TSS>::check (const CoordVector& v) const {
+template<class TGV, class TET, class TMP, class TSS>
+void PostProcessor<TGV, TET, TMP, TSS>::check (const CoordVector& v) const {
   bool ok = true;
   for (const auto& it : v)
     for (int i = 0; i < dim; ++i)

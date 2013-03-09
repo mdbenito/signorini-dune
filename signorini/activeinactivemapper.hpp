@@ -36,7 +36,7 @@ class ActiveInactiveMapper
   const typename TGV::IndexSet& iset;
   
   std::map<IdType, int> indices;
-  int sizeInner;
+  int offsetInner;
   int offsetActive;
 public:
   ActiveInactiveMapper (const TGV& _gv,
@@ -71,8 +71,8 @@ ActiveInactiveMapper<codim, TGV>::ActiveInactiveMapper (const TGV& _gv,
                                                         const IdSet& active,
                                                         const IdSet& inactive,
                                                         const IdSet& other)
-: gv (_gv), gids(_gv.grid().globalIdSet()), iset (_gv.indexSet()), sizeInner(0),
-  offsetActive(0)
+: gv (_gv), gids(_gv.grid().globalIdSet()), iset (_gv.indexSet()),
+  offsetInner(0), offsetActive(0)
 {
   update (active, inactive, other);
 }
@@ -94,7 +94,7 @@ int ActiveInactiveMapper<codim, TGV>::map (const IdType id) const
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const IdType id) const
 {
-  return indices.at(id)-sizeInner;
+  return indices.at(id)-offsetInner;
 }
 
 template <int codim, class TGV>
@@ -115,14 +115,14 @@ template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const Element& e, int i,
                                                      unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-sizeInner;
+  return indices.at(gids.subId (e, i, cc))-offsetInner;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInBoundary (Element& e, int i,
                                                      unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-sizeInner;
+  return indices.at(gids.subId (e, i, cc))-offsetInner;
 }
 
 template <int codim, class TGV>
@@ -177,7 +177,7 @@ void ActiveInactiveMapper<codim, TGV>::update (const IdSet& active,
   indices.clear();
   int cnt = 0;
   for (auto x : other)   indices[x] = cnt++;
-  sizeInner = cnt;
+  offsetInner = cnt;
   for (auto x : inactive) indices[x] = cnt++;
   offsetActive = cnt;
   for (auto x : active)   indices[x] = cnt++;

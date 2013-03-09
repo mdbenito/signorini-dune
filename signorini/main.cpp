@@ -72,7 +72,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (3);
+  grid.globalRefine (5);
 
   const GV& gv = grid.leafView();
 
@@ -114,20 +114,20 @@ int main (int argc, char** argv)
   
     //testShapes<ctype, dim, LSShapeSet>();
     //testShapes<ctype, dim, ShapeSet>();
+    //exit(1);
 
   HookeT a (E, nu);
   VolumeF        f;
   BoundaryF      p;
   Gap            g;
-  Dirichlet      d;
+    //Dirichlet      d;
   
     //PMSolver  fem (gv, a, f, p, g, d, eps);
   IASolver fem2 (gv, a, f, p, g);
 
     //// Misc.
 
-    //PostProcessor<GV, ProblemData, ShapeSet> post (gv, data);
-
+    //  PostProcessor<GV, HookeT, ShapeSet> post (gv, a);
   
     //// Solution
   
@@ -137,6 +137,7 @@ int main (int argc, char** argv)
       //fem.solve (maxsteps, tolerance);
       //fem2.initialize ();  // not needed anymore
     fem2.solve ();
+
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

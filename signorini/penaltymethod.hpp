@@ -508,7 +508,7 @@ template<class TGV, class TET, class TFT, class TTT, class TGT, class TDF, class
 void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::solve (int maxsteps,
                                                               double tolerance)
 {
-  PostProcessor<TGV, TET, TSS> post (gv, a);
+  PostProcessor<TGV, TET, VertexMapper, TSS> post (gv, a);
   
   int     step = 0;
   double error = 1.0;

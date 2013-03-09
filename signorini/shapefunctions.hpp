@@ -10,7 +10,7 @@
 #define SIGNORINI_SHAPEFUNCTIONS_HPP
 
 #include <iostream>
-//#include <bitset>
+  //#include <bitset>
 #include <dune/common/fvector.hh>
 #include <dune/geometry/referenceelements.hh>
 #include <dune/geometry/quadraturerules.hh>
@@ -138,10 +138,7 @@ class MLinearShapeFunction
 public:
     //enum { D = dim };
   
-  MLinearShapeFunction (unsigned long _mask=0) : mask(_mask)
-  {
-      //std::cout << "Creating shape function with mask " << mask << "\n";
-  }
+  MLinearShapeFunction (unsigned long _mask=0) : mask(_mask) { }
 
   ctype evaluateFunction (const coord_t& local) const
   {
@@ -194,25 +191,20 @@ class LagrangeSpaceShapeFunction
   typedef FieldVector<ctype, dim> coord_t;
 
   class Monome {
-    
     int indices[dim];  // array {0 1 1} means x_2*x_3, etc.
     ctype coeff;
 
-    void clear()
-    {
+    void clear() {
       for (int i=0; i < dim; ++i) indices[i] = 0;
     }
-    
   public:
-
     Monome (ctype _coeff=0) : coeff(_coeff) { clear(); }
     Monome (std::vector<int> ilist, ctype _coeff) : coeff (_coeff) {
       clear();
       for (auto& x : ilist) indices[x] = 1;
     };
     
-    ctype operator() (const coord_t& local) const
-    {
+    ctype operator() (const coord_t& local) const {
       ctype r = coeff;
       for (int i=0; i < dim; ++i)
         if (indices[i] > 0)
@@ -221,8 +213,7 @@ class LagrangeSpaceShapeFunction
       return r;
     }
 
-    void differentiate (int which)
-    {
+    void differentiate (int which) {
       if (indices[which] == 0) {
         clear();
         coeff = 0;
@@ -231,8 +222,7 @@ class LagrangeSpaceShapeFunction
       }
     }
     
-    friend std::ostream& operator<< (std::ostream& os, const Monome& m)
-    {
+    friend std::ostream& operator<< (std::ostream& os, const Monome& m) {
       os << m.coeff;
       for (int i=0; i < dim; ++i)
         if (m.indices[i] > 0)
@@ -240,8 +230,7 @@ class LagrangeSpaceShapeFunction
       return os;
     }
     
-    friend Monome& operator* (Monome& m, ctype c)
-    {
+    friend Monome& operator* (Monome& m, ctype c) {
       m.coeff *= c;
       return m;
     }
@@ -249,8 +238,7 @@ class LagrangeSpaceShapeFunction
   
   typedef std::vector<Monome> Polynome;
   
-  friend std::ostream& operator<< (std::ostream& os, const Polynome& p)
-  {
+  friend std::ostream& operator<< (std::ostream& os, const Polynome& p) {
     for (auto& m : p)
       os << m << " + ";
     return os;
@@ -317,8 +305,6 @@ class LagrangeSpaceShapeFunction
 public:
   LagrangeSpaceShapeFunction (unsigned long _mask=0) : mask(_mask)
   {
-    std::cout << "Creating shape function with mask " << mask << "\n";
-
     Polynome p;
     for (int i=0; i < dim; ++i) {
       p = monomesOfOrder (i+1);
@@ -444,8 +430,13 @@ private:
   Q1ShapeFunctionSet (const Q1ShapeFunctionSet& other) { }
   Q1ShapeFunctionSet ()
   {
-    for (int i=0; i < N; ++i)
-      f[i] = new ShapeFunction (mapDuneIndex (i));
+      /// WTF??!??!?!??! mapDuneIndex() is no longer necessary? was it ever?
+      // when did I change the shape functions' evaluation?
+    for (int i=0; i < N; ++i) {
+        //unsigned int mask = mapDuneIndex(i);
+      cout << "Creating shape function " << i << " with mask " << i << "\n";
+      f[i] = new ShapeFunction (i);
+    }
     atexit (this->atExit);
   }
 
