@@ -38,7 +38,7 @@ using std::cout;
 
 /*! Solve the one body Signorini problem with an active-inactive set strategy.
  
- This implements the algorithm described in [LW04].
+ This implements the algorithm described in [HW05].
  
  Template type names:
     TGV: TGridView
@@ -89,22 +89,16 @@ private:
   BlockMatrix  D;   //!< See [HW05] (Should be Dune::BDMatrix, but cannot build it)
   CoordVector  b;   //!< RHS: volume forces and tractions
   CoordVector  u;   //!< Solution
-  CoordVector  n_d;   //!< D * normal at the gap nodes
+  CoordVector  n_d; //!< D * normal at the gap nodes
   ScalarVector g;   //!< Gap functor evaluated at the gap nodes
   ScalarVector n_u; //!< Normal component of the solution at gap nodes
   ScalarVector n_m; //!< Normal component of the lagrange multiplier at gap nodes
   
-  int          quadratureOrder;
-    //IdSet boundary;
-  IdSet   active;
-  IdSet inactive;
-  IdSet    other;
-    // tests
-    //IdVector activeV;
-    //IdVector inactiveV;
-    //IdVector otherV;
-
-  AIMapper*         aiMapper;
+  int quadratureOrder;
+  IdSet        active;
+  IdSet      inactive;
+  IdSet         other;
+  AIMapper*  aiMapper;
 
 public:
   SignoriniIASet (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p,
@@ -138,7 +132,7 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
   for (int i=0; i < dim; ++i)
     I[i][i] = 1.0;
 
-    //// Initialize the AIMapper: set all nodes in the gap to inactive:
+    //// Initialize the AIMapper setting all nodes in the gap to inactive:
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     auto id = gids.id (*it);
     if (gap.isSupported (it->geometry()))  inactive << id;
@@ -148,32 +142,33 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
   
     //// Other initializations
   g.resize (inactive.size());
+  n_d.resize (inactive.size());
   n_u.resize (inactive.size());
   n_m.resize (inactive.size());
-  n_u = 0;
-  n_m = 0;
-  g   = 0;
+  n_d = 0.0;
+  n_u = 0.0;
+  n_m = 0.0;
+  g   = 0.0;
 }
 
 /*! Initializes the stiffness matrix.
  
  At step k=0, the system matrix (without boundary conditions) is
  
-  /                 \
-  | A_NN   A_NS   0 |
-  | A_SN   A_SS   D |
-  |    0      0   I |
-  \                 /
+  /             \
+  | A_NN   A_NS |
+  | A_SN   A_SS |
+  \             /
 
  */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 {
-  const int total = gv.size (dim);
-  const int ingap = active.size() + inactive.size();
+  const int  total = gv.size (dim);
+  const auto ingap = active.size() + inactive.size();
   cout << "total= " << total << ", ingap= " << ingap << "\n";
 
-  std::vector<std::set<int> > adjacencyPattern (total+2*ingap); //too big actually
+  std::vector<std::set<int> > adjacencyPattern (total);
   
     //For each element we traverse all its vertices and set them as adjacent
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
@@ -185,43 +180,32 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
         int jj = aiMapper->map (*it, j, dim);
         adjacencyPattern[ii].insert (jj);
       }
-      /* Next we add one entry corresponding to the diagonal matrix D in
-                /                 \
-                | A_NN   A_NS   0 |
-                | A_SN   A_SS   D |
-                |    0      0   I |
-                \                 /
-       */
-      if (other.find (gids.subId (*it, i, dim)) == other.end())  // i.e.: vertex is in S
-        adjacencyPattern[ii].insert (total + aiMapper->mapInBoundary (*it, i, dim));
     }
   }
 
     //// Initialize default values
 
-  A.setSize (total+ingap, total+ingap);
+  A.setSize (total, total);
   A.setBuildMode (BlockMatrix::random);
   D.setSize (ingap, ingap);
   D.setBuildMode (BlockMatrix::random);
   
-  b.resize (total+ingap, false);
+  b.resize (total + inactive.size() + 2*active.size(), false);
   
   for (int i = 0; i < total; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
-  for (int i = total; i < total+ingap; ++i)
-    A.setrowsize (i, 1);
   A.endrowsizes ();
   
   for (int i = 0; i < total; ++i)
     for (const auto& it : adjacencyPattern[i])
       A.addindex (i, it);
-  for (int i = total; i < total+ingap; ++i)
-    A.addindex (i, i);
   A.endindices ();
   
-  for (int i = 0; i < ingap; ++i) D.setrowsize (i, 1);
+  for (int i = 0; i < ingap; ++i)
+    D.setrowsize (i, 1);
   D.endrowsizes();
-  for (int i = 0; i < ingap; ++i) D.addindex (i, i);
+  for (int i = 0; i < ingap; ++i)
+    D.addindex (i, i);
   D.endindices();
     //for (int i = 0; i < ingap; ++i) D[i][i] = I;
   
@@ -240,10 +224,12 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 }
 
 
+/*!
+ */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
 {
-  AIFunctor contact (g, n_u, n_m, 1.0);  // 0 initial values *should* imply empty support
+  AIFunctor contact (g, n_u, n_m, 1.0); // all nodes inactive for initial values == 0
   
   active.clear();
   inactive.clear();
@@ -258,8 +244,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
   
   aiMapper->update (active, inactive, other);
   
-    //cout << "Others:";
-    //for (auto x : other)   cout << " " << aiMapper->map(x);
   cout << "\nInactive:";
   for (auto x : inactive) cout << x << "->" << aiMapper->map(x) << " ";
   cout << "\nActive:";
@@ -267,20 +251,14 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
   cout << "\n";
 }
 
-/*! Assemble the system matrix from the matrices A, D, N, T.
 
- FIXME: I should simply reorder matrices D, N, T. Something like:
- 
-   get the old iaMapper indices, and for each permutation old<->new, swap the
-   corresponding entries in the matrix.
-
+/*! Assemble the system matrix from the matrices A, D.
  */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
 {
   const auto& multBasis = TLM::instance();
   const auto&     basis = TSS::instance();
-  const int       total = gv.size (dim);
   
     //// Stiffness matrix:
 
@@ -333,11 +311,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
       
       for (int i = 0 ; i < vnum; ++i)
         b[aiMapper->map (*it, i, dim)] +=
-            f (it->geometry ().global (x.position ())) *
-            basis[i].evaluateFunction (x.position ()) *
-            x.weight () *
-            it->geometry ().integrationElement (x.position ());
-      
+                f (it->geometry ().global (x.position ())) *
+                basis[i].evaluateFunction (x.position ()) *
+                x.weight () *
+                it->geometry ().integrationElement (x.position ());
     }
     
       //// Gap at boundary for the computation of the active index set
@@ -381,7 +358,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
 
   /* Dirichlet boundary conditions.
    For unvisited vertices on the boundary, replace the associated line of A
-   and b with a trivial one. This must be done in a separate step.
+   and b with a trivial one.
    */
   coord_t dirichlet;
   dirichlet[0] = 0; dirichlet[1] = -0.07;
@@ -396,10 +373,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
         
         for (int i = 0; i < ivnum; ++i) {
           auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-            //auto v = it->template subEntity<dim> (subi)->geometry().center();
+          auto v = it->template subEntity<dim> (subi)->geometry().center();
           int ii = aiMapper->map (*it, subi , dim);
           if (boundaryVisited.count (ii) == 0) {
-              //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+            cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
             A[ii] = 0.0;
             A[ii][ii] = I;
@@ -427,14 +404,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
           for (int i = 0 ; i < vnum; ++i) {
             int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids.subId (*it, subi, dim);
-            int    ii = aiMapper->map (id);
-            
-              //auto   v = it->template subEntity<dim> (subi)->geometry().center();
-              //cout << "Setting index for D: " << ii << " at " << v << "\n";
-            
             int kk = aiMapper->mapInBoundary (id);
-            int jj = total + kk;
-              //cout << "     jj= " << jj << ", kk= " << kk << "\n";
+              //auto   v = it->template subEntity<dim> (subi)->geometry().center();
+              //cout << "Setting index for D: " << kk << " at " << v << "\n";
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
                 // Transform relative (dim-1)-dimensional coord. in local coord.
               const auto& global = igeo.global (x.position ());
@@ -446,11 +418,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
                    << "\n" << "       multbasis eval[" << subi
                    << "]= " << multBasis[subi].evaluateFunction (local) << "\n";
                */
-              A[ii][jj] += I * basis[subi].evaluateFunction (local) *
+              D[kk][kk] += I * basis[subi].evaluateFunction (local) *
                            multBasis[subi].evaluateFunction (local) *
                            x.weight () *
                            igeo.integrationElement (x.position ());
-              D[kk][kk] += A[ii][jj];
             }
           }
         }
@@ -462,32 +433,85 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
     //printmatrix (cout, D, "D", "");
 }
 
+template<class M, class X, class Y, int l=1>
+class DummyPreconditioner : public Preconditioner<X,Y> {
+public:
+    //! \brief The matrix type the preconditioner is for.
+  typedef typename Dune::remove_const<M>::type matrix_type;
+    //! \brief The domain type of the preconditioner.
+  typedef X domain_type;
+    //! \brief The range type of the preconditioner.
+  typedef Y range_type;
+    //! \brief The field type of the preconditioner.
+  typedef typename X::field_type field_type;
+  
+    // define the category
+  enum {
+      //! \brief The category the preconditioner is part of.
+    category=SolverCategory::sequential
+  };
+  
+  /*! \brief Constructor.
+   */
+  DummyPreconditioner () { }
+  
+  /*!
+   \brief Prepare the preconditioner.
+   
+   \copydoc Preconditioner::pre(X&,Y&)
+   */
+  virtual void pre (X& x, Y& b) {}
+  
+  /*!
+   \brief Apply the precondioner.
+   
+   \copydoc Preconditioner::apply(X&,const Y&)
+   */
+  virtual void apply (X& v, const Y& d)
+  {
+    v = d;
+  }
+  
+  /*!
+   \brief Clean up.
+   
+   \copydoc Preconditioner::post(X&)
+   */
+  virtual void post (X& x) {}
+};
 
+
+/*! HACK of the HACKS...
+ */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
 {
-    //// HACK of the HACKS...
+
   bench().report ("Stepping", "Gluing", false);
-  const int total = gv.size (dim);
+  const int n_T = gv.size (dim);
   const int n_N = (int)other.size();
   const int n_A = (int)active.size();
   const int n_I = (int)inactive.size();
-  
+
+  assert (n_T == n_N+n_A+n_I);
+
   CoordVector uu, c;
-  n_d.resize (n_I+n_A, false);
+  c.resize (n_T+n_I+2*n_A, false);
+  u.resize (n_T+n_A+n_I, false);
+  uu.resize (n_T+n_A+n_I, false);
+  uu  = 0.0;
   n_d = 0.0;
-  c.resize (total+n_I+2*n_A, false);
-  u.resize (total+n_A+n_I, false);
-  uu.resize (total+n_A+n_I, false);
-  uu = 0.0;
+  n_m = 0.0;
+  n_u = 0.0;
 
     // Copy RHS vector
-  for (int i = 0; i < total; ++i)
+  for (int i = 0; i < n_T; ++i)
     c[i] = b[i];
-  for (int i = total; i < total+n_I+2*n_A; ++i)
+  for (int i = n_T; i < n_T+n_I+2*n_A; ++i)
     c[i] = 0.0; // we initialize the last n_A elements to gap() later.
 
-  /* We copy matrix A and append the last lines. B should be:
+  /*
+   We copy matrix A and append some columns and lines. B should be:
    
          /                                 \
          | A_NN   A_NI   A_NS      0       |
@@ -499,59 +523,56 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
          \                                /
    
    The line | 0 0 N_A 0 0 | has row indices in [total+n_I+n_A, total+n_I+2*n_A)
-   
    */
+
   BlockMatrix B;
   B.setBuildMode (BlockMatrix::row_wise);
-    //B.setSize (total+n_I+2*n_A, total+n_I+2*n_A);
-    //cout << "B is " << total+n_I+2*n_A << " x " << total+n_I+2*n_A << "\n";
-  B.setSize (total+n_I+2*n_A, total+n_I+n_A);
-  cout << "B is " << total+n_I+2*n_A << " x " << total+n_I+n_A << "\n";
+  B.setSize (n_T+n_I+2*n_A, n_T+n_I+n_A);
+  cout << " B is " << n_T+n_I+2*n_A << " x " << n_T+n_I+n_A << "\n";
   
-    // Build an adjacency pattern for the last block-line in B
-  std::vector<std::set<int> > adjacencyPattern (total);
-  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type ());
-    int vnum = ref.size (dim);
-    for (int i = 0; i < vnum; ++i) {
-      IdType id = gids.subId (*it, i, dim);
-      if (active.find (id) != active.end()) {
-        int ii = aiMapper->mapInActive (id);
-        int jj = aiMapper->map (id);
-        adjacencyPattern[ii].insert (jj);
-      }
+    // Build an adjacency pattern for the rows in B below A
+  std::vector<std::set<int> > adjacencyPattern (n_I+2*n_A);
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    IdType id = gids.id (*it);
+    if (inactive.find (id) != inactive.end()) {
+      int ii = aiMapper->mapInBoundary (id);
+      adjacencyPattern[ii].insert (ii+n_T);  // Id_I
+    } else if (active.find (id) != active.end()) {
+      int ii = aiMapper->mapInActive (id);
+      adjacencyPattern[n_I+ii].insert (n_T + aiMapper->mapInBoundary (id)); // T_A
+      adjacencyPattern[n_I+n_A+ii].insert (aiMapper->map (id)); // N_A
     }
   }
+    //cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row) {
-    if (row.index() < total) {
-      for (auto col = A[row.index()].begin(); col != A[row.index()].end(); ++col)
+    auto r = row.index();
+    if (r < n_T) {
+      for (auto col = A[r].begin(); col != A[r].end(); ++col)
         row.insert (col.index());
-    } else if (row.index() < total+n_I) {
-      row.insert (row.index());
-    } else if (row.index() < total+n_I+n_A) {
-      row.insert (row.index());
-        //row.insert (row.index()+n_A);  // HACK: zero columns to have a square matrix
-    } else if (row.index() < B.N()) {
-      for (const auto& it : adjacencyPattern[row.index() - total - n_I - n_A])
+      if (r >= n_N)  // D_I and D_A
+        row.insert (r+n_I+n_A);
+    } else if (r < B.N()) {
+      for (const auto& it : adjacencyPattern[r - n_T])
         row.insert (it);
     }
   }
   
   B = 0.0;
-  
+
   for (auto row = B.begin(); row != B.end(); ++row) {
-    if (row.index() < total) {
-      for (auto col = A[row.index()].begin(); col != A[row.index()].end(); ++col)
-        B[row.index()][col.index()] = A[row.index()][col.index()];
-    } else if (row.index() < total+n_I) {
-      B[row.index()][row.index()] = I;
-    } else if (row.index() < total+n_I+n_A) {
-      B[row.index()][row.index()] = I;
-        //B[row.index()][row.index()+n_A] = 0;// HACK: zero columns to have a square matrix
-    }
+    auto r = row.index();
+    if (r < n_T) {
+      for (auto col = A[r].begin(); col != A[r].end(); ++col)
+        B[r][col.index()] = A[r][col.index()];
+      if (r >= n_N)
+        B[r][r+n_A+n_I] = D[r-n_N][r-n_N];
+    } else if (row.index() < n_T+n_I+n_A)
+      B[r][r] = I;
   }
   
+    //cout << "B initialized (1/2).\n";
+
     // Fill the lines:
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
@@ -569,9 +590,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
             int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids.subId (*it, subi, dim);
             int kk = aiMapper->mapInBoundary (id);
-            coord_t nr = FMatrixHelp::mult (D[kk][kk], is->centerUnitOuterNormal());
+            coord_t   nr = is->centerUnitOuterNormal();
+            coord_t D_nr = FMatrixHelp::mult (D[kk][kk], nr);
               //cout << "kk= " << kk << ", nr= " << nr << "\n";
-            n_d[kk] += nr*(1.0/vnum); // FIXME: we shouldn't compute this here
+            n_d[kk] += D_nr*(1.0/vnum); // FIXME: we shouldn't compute this here
             
             if (active.find (id) != active.end()) {
                 //cout << "Found active: " << id << " -> " << kk << "\n";
@@ -587,66 +609,80 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
                 tg[r] = 0;
               
               block_t T, N;
-              for (int k=0; k<dim; ++k) {
+              T=0;
+              N=0;
+                //for (int k=0; k<dim; ++k) {
                 for (int l=0; l<dim; ++l) {
-                  T[k][l] = tg[l];
-                  N[k][l] = nr[l];
+                  T[0][l] = tg[l];
+                  N[0][l] = D_nr[l];
                 }
-              }
+                //}
                 // first the tangential stuff for the multipliers.
-              int ii = total + kk;
+              int ii = n_T + kk;
               B[ii][ii] += T*(1.0/vnum);
               c[ii] = 0.0;
 
                 // now the last rows
-              ii = total + n_A + n_I + aiMapper->mapInActive (id);
+              ii = n_T + n_A + n_I + aiMapper->mapInActive (id);
               int jj = aiMapper->map (id);
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               B[ii][jj] += N*(1.0/vnum);
-              c[ii] = gap(ipos);  // copies the scalar dim times (part of HACK)
+                //c[ii] = gap(ipos);  // copies the scalar dim times (part of HACK)
+              c[ii][0] = gap(ipos);
             }
           }
         }
       }
     }
   }
-
+    //cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
 
     //printmatrix(cout, B, "B", "");
     //printvector(cout, c, "c", "");
-  writeMatrixToMatlab (B, "/tmp/stiff");
-  writeVectorToFile (c, "/tmp/rhs");
+  writeMatrixToMatlab (B, "/tmp/B");
+  writeVectorToFile (c, "/tmp/c");
 
   bench().report ("Stepping", "Solving", false);
+
+    //HACK: multiply the system by transpose(B) by the left to make it square.
+  BlockMatrix BB;
+  BB.setSize (n_T+n_I+2*n_A, n_T+n_I+2*n_A);
+  transposeMatMultMat(BB, B, B);
+  CoordVector cc;
+  cc.resize (n_T+n_I+n_A, false);
+  B.mtv (c, cc);
+  
+  writeMatrixToMatlab (BB, "/tmp/BB");
+  writeVectorToFile (cc, "/tmp/cc");
   
   InverseOperatorResult stats;
-  MatrixAdapter<BlockMatrix, CoordVector, CoordVector> op (B);
+  MatrixAdapter<BlockMatrix, CoordVector, CoordVector> op (BB);
 
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (B, 1, 0.95);
-    //BiCGSTABSolver<CoordVector> bcgs (op, ssor, 1e-8, 100, 0);
-  RestartedGMResSolver<CoordVector> rgmres (op, ssor, 1e-8, gv.size(dim)/2, 200, 0);
-  rgmres.apply (uu, c, stats);
-  
+  /*
+  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.95);
+  RestartedGMResSolver<CoordVector> rgmres (op, ssor, 1e-8, n_T/2, 200, 0);
+  rgmres.apply (uu, cc, stats);
+  */
   /*
     // This one seems to work
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (B, 1, 0.96);
+  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.96);
   LoopSolver<CoordVector> lsol (op, ssor, 1e-8, 200, 1);
-  lsol.apply (uu, c, stats);
+  lsol.apply (uu, cc, stats);
   */
 
-  /*
-   //The SeqILUn preconditioner stalls as soon as any node is active
-  SeqILUn<BlockMatrix, CoordVector, CoordVector> ilu1 (B, 1, 0.96);
-  BiCGSTABSolver<CoordVector> bcgs (op, ilu1, 1e-8, 200, 0);
-  bcgs.apply (uu, c, stats);
-   */
-
+   //DummyPreconditioner<BlockMatrix, CoordVector, CoordVector> pre;
+  SeqILUn<BlockMatrix, CoordVector, CoordVector> ilu (BB, 1, 0.95);
+   //BiCGSTABSolver<CoordVector> bcgs (op, ilu, 1e-9, 400, 1);
+   //SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.95);
+  CGSolver<CoordVector> cgs (op, ilu, 1e-17, 300, 2);
+  cgs.apply (uu, cc, stats);
+  
   /*
     //This solver produces lots of NaNs as soon as any node is active
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (B, 1, 0.96);
+  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.96);
   CGSolver<CoordVector> cgs (op, ssor, 1e-8, 200, 2);
-  cgs.apply (uu, c, stats);
+  cgs.apply (uu, cc, stats);
   */
   
   bench().report ("Stepping", " done.");
@@ -663,13 +699,13 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     int i = aiMapper->mapInBoundary(x);
     int j = aiMapper->map(x);
     n_u[i] = n_d[i] * uu[j];
-    n_m[i] = n_d[i] * uu[total+i];
+    n_m[i] = n_d[i] * uu[n_T+i];
   }
   for (const auto& x : active) {
     int i = aiMapper->mapInBoundary(x);
     int j = aiMapper->map(x);
     n_u[i] = n_d[i] * uu[j];
-    n_m[i] = n_d[i] * uu[total+i];
+    n_m[i] = n_d[i] * uu[n_T+i];
   }
   
   /* This must be wrong:
@@ -690,13 +726,13 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
 
   for (int cnt = 0; cnt < 5; ++cnt) {
     bench().start ("Active set initialization", false);
-    determineActive();
+    determineActive();  // needs g, n_u, n_m computed from last iteration or =0
     bench().stop ("Active set initialization");
     bench().start ("Adjacency computation", false);
-    setupMatrices();
+    setupMatrices();  // resets sparse matrix info according to new active/inactive sets
     bench().stop ("Adjacency computation");
     bench().start ("Assembly");
-    assemble();
+    assemble();  // reassembles matrices FIXME: should just reorder.
     bench().stop ("Assembly");
     bench().start ("Stepping");
     step();

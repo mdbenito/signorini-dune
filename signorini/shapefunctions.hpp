@@ -433,9 +433,9 @@ private:
       /// WTF??!??!?!??! mapDuneIndex() is no longer necessary? was it ever?
       // when did I change the shape functions' evaluation?
     for (int i=0; i < N; ++i) {
-        //unsigned int mask = mapDuneIndex(i);
-      cout << "Creating shape function " << i << " with mask " << i << "\n";
-      f[i] = new ShapeFunction (i);
+      unsigned int mask = i; //mapDuneIndex(i);
+      cout << "Creating shape function " << i << " with mask " << mask << "\n";
+      f[i] = new ShapeFunction (mask);
     }
     atexit (this->atExit);
   }

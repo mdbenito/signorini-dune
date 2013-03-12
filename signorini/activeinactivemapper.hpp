@@ -82,67 +82,67 @@ template <int codim, class TGV>
 template<class EntityType>
 int ActiveInactiveMapper<codim, TGV>::map (const EntityType& e) const
 {
-  return indices.at(gids.id(e));
+  return indices.at (gids.id(e));
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::map (const IdType id) const
 {
-  return indices.at(id);
-}
-
-template <int codim, class TGV>
-int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const IdType id) const
-{
-  return indices.at(id)-offsetInner;
+  return indices.at (id);
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::map (const Element& e, int i,
                                            unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc));
+  return indices.at (gids.subId (e, i, cc));
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::map (Element& e, int i,
                                            unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc));
+  return indices.at (gids.subId (e, i, cc));
+}
+
+template <int codim, class TGV>
+int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const IdType id) const
+{
+  return indices.at (id)-offsetInner;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInBoundary (const Element& e, int i,
                                                      unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-offsetInner;
+  return indices.at (gids.subId (e, i, cc))-offsetInner;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInBoundary (Element& e, int i,
                                                      unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-offsetInner;
+  return indices.at (gids.subId (e, i, cc))-offsetInner;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInActive (const IdType id) const
 {
-  return indices.at(id)-offsetActive;
+  return indices.at (id)-offsetActive;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInActive (const Element& e, int i,
                                                    unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-offsetActive;
+  return indices.at (gids.subId (e, i, cc))-offsetActive;
 }
 
 template <int codim, class TGV>
 int ActiveInactiveMapper<codim, TGV>::mapInActive (Element& e, int i,
                                                      unsigned int cc) const
 {
-  return indices.at(gids.subId (e, i, cc))-offsetActive;
+  return indices.at (gids.subId (e, i, cc))-offsetActive;
 }
 
 template <int codim, class TGV>
