@@ -322,14 +322,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
                 it->geometry ().integrationElement (x.position ());
     }
     
-      //// Gap at boundary for the computation of the active index set
-
-    for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it)
-      if (gap.isSupported (it->geometry())) {
-        g[aiMapper->mapInBoundary (gids.id (*it))] = gap (it->geometry().center());
-        boundaryVisited.insert (aiMapper->map (*it));
-      }
-
       //// Neumann Boundary conditions.
     
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
@@ -362,8 +354,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
   }
 
   /* Dirichlet boundary conditions.
-   For unvisited vertices on the boundary, replace the associated line of A
-   and b with a trivial one.
+   Replace the associated line of A and b with a trivial one.
    */
   coord_t dirichlet;
   dirichlet[0] = 0; dirichlet[1] = -0.07;
@@ -380,7 +371,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
           auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
           auto v = it->template subEntity<dim> (subi)->geometry().center();
           int ii = aiMapper->map (*it, subi , dim);
-          if (boundaryVisited.count (ii) == 0) {
+          if (v[1]==1 && v[0]>0 && v[0]<1) {  // HACK! replace with functor!!
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
             A[ii] = 0.0;
@@ -391,9 +382,11 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
       }
     }
   }
-
-    //// Calculate submatrix D.
   
+  g = 0.0;
+    //// Calculate submatrix D and  the gap at boundary for the computation of
+    //// the active index set
+    
     // Recall that the integral is over the gap boundary, so we need not integrate
     // the basis functions of nodes outside it.
   
@@ -427,13 +420,18 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
                            multBasis[subi].evaluateFunction (local) *
                            x.weight () *
                            igeo.integrationElement (x.position ());
+              g[kk] += gap (global) *
+                       multBasis[subi].evaluateFunction (local) *
+                       x.weight () *
+                       igeo.integrationElement (x.position ());
+              boundaryVisited.insert (aiMapper->map (id));
             }
           }
         }
       }
     }
   }
-
+ 
   bench().report ("Assembly", "\tdone.");
     //printmatrix (cout, D, "D", "");
 }
@@ -559,6 +557,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
   
+  const auto& multBasis = TLM::instance();
+  g = 0.0;
+
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
@@ -575,7 +576,22 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
             coord_t   nr = is->centerUnitOuterNormal();
             coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
               //cout << "ib= " << ib << ", nr= " << nr << "\n";
-            n_d[ib] += D_nr;//*(1.0/vnum); // FIXME: we shouldn't compute this here
+            
+              // FIXME: we shouldn't compute this here
+            n_d[ib] += D_nr;//*(1.0/vnum);
+            
+              // nor this:
+              // Gap at boundary for the computation of the active index set
+              // FIXME: yet another stupid recomputation. Should reorder instead.
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+                // Transform relative (dim-1)-dimensional coord. in local coord.
+              const auto& global = igeo.global (x.position ());
+              const auto&  local = it->geometry().local (global);
+              g[ib] += gap (global) *
+              multBasis[subi].evaluateFunction (local) *
+              x.weight () *
+              igeo.integrationElement (x.position ());
+            }
             
             if (active.find (id) != active.end()) {
               int ia = aiMapper->mapInActive (id);
@@ -669,11 +685,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   bench().report ("Stepping", " done.");
 
     //// FIXME: the following stuff doesn't belong here.
-  
-    // Gap at boundary for the computation of the active index set
-  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it)
-    if (gap.isSupported (it->geometry()))
-      g[aiMapper->mapInBoundary (gids.id (*it))] = gap (it->geometry().center());
   
   for (int i = 0; i < total; ++i)
     for (int j = 0; j < dim; ++j)
