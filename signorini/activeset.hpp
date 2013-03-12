@@ -64,8 +64,9 @@ public:
   typedef FieldVector<ctype, 1>                   scalar_t;
   typedef FieldVector<ctype, dim>                  coord_t;
   typedef FieldMatrix<ctype, dim, dim>             block_t;
-  typedef BCRSMatrix<scalar_t>                ScalarMatrix;
-  typedef BCRSMatrix<coord_t>                 VectorMatrix;
+  typedef FieldMatrix<ctype, 1, 1>             scalarmat_t;
+  typedef BCRSMatrix<scalarmat_t>             ScalarMatrix;
+    //typedef BCRSMatrix<coord_t>                 VectorMatrix; // WRONG
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
@@ -140,7 +141,7 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
   }
   aiMapper = new AIMapper (gv, active, inactive, other);
   
-    //// Other initializations
+    //// Other initializations (inactive.size() at init =  size of gap)
   g.resize (inactive.size());
   n_d.resize (inactive.size());
   n_u.resize (inactive.size());
@@ -164,11 +165,11 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 {
-  const int  total = gv.size (dim);
+  const int  n_T = gv.size (dim);
   const auto ingap = active.size() + inactive.size();
-  cout << "total= " << total << ", ingap= " << ingap << "\n";
+    //cout << "total= " << n_T << ", ingap= " << ingap << "\n";
 
-  std::vector<std::set<int> > adjacencyPattern (total);
+  std::vector<std::set<int> > adjacencyPattern (n_T);
   
     //For each element we traverse all its vertices and set them as adjacent
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
@@ -185,18 +186,19 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 
     //// Initialize default values
 
-  A.setSize (total, total);
+  A.setSize (n_T, n_T);
   A.setBuildMode (BlockMatrix::random);
   D.setSize (ingap, ingap);
   D.setBuildMode (BlockMatrix::random);
   
-  b.resize (total + inactive.size() + 2*active.size(), false);
-  
-  for (int i = 0; i < total; ++i)
+  b.resize (n_T + inactive.size() + active.size(), false);
+  u.resize (n_T + inactive.size() + active.size(), false);
+
+  for (int i = 0; i < n_T; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
   A.endrowsizes ();
   
-  for (int i = 0; i < total; ++i)
+  for (int i = 0; i < n_T; ++i)
     for (const auto& it : adjacencyPattern[i])
       A.addindex (i, it);
   A.endindices ();
@@ -221,6 +223,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
   A = 0.0;
   D = 0.0;
   b = 0.0;
+  u = 0.0;
 }
 
 
@@ -237,17 +240,19 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     auto id = gids.id (*it);
     if (gap.isSupported (it->geometry())) {
-      if (contact.isSupported (aiMapper->map (*it))) active << id;
-      else                                         inactive << id;
+      if (contact.isSupported (aiMapper->mapInBoundary (id)))
+        active << id;
+      else
+        inactive << id;
     }
   }
   
   aiMapper->update (active, inactive, other);
   
-  cout << "\nInactive:";
-  for (auto x : inactive) cout << x << "->" << aiMapper->map(x) << " ";
-  cout << "\nActive:";
-  for (auto x : active)   cout << x << "->" << " " << aiMapper->map(x) << " ";
+  cout << "\nInactive: " << inactive.size();
+    //for (auto x : inactive) cout << x << "->" << aiMapper->map(x) << " ";
+  cout << "\nActive: " << active.size();
+    //for (auto x : active)   cout << x << "->" << " " << aiMapper->map(x) << " ";
   cout << "\n";
 }
 
@@ -376,7 +381,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
           auto v = it->template subEntity<dim> (subi)->geometry().center();
           int ii = aiMapper->map (*it, subi , dim);
           if (boundaryVisited.count (ii) == 0) {
-            cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+              //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             boundaryVisited.insert(ii);
             A[ii] = 0.0;
             A[ii][ii] = I;
@@ -433,54 +438,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
     //printmatrix (cout, D, "D", "");
 }
 
-template<class M, class X, class Y, int l=1>
-class DummyPreconditioner : public Preconditioner<X,Y> {
-public:
-    //! \brief The matrix type the preconditioner is for.
-  typedef typename Dune::remove_const<M>::type matrix_type;
-    //! \brief The domain type of the preconditioner.
-  typedef X domain_type;
-    //! \brief The range type of the preconditioner.
-  typedef Y range_type;
-    //! \brief The field type of the preconditioner.
-  typedef typename X::field_type field_type;
-  
-    // define the category
-  enum {
-      //! \brief The category the preconditioner is part of.
-    category=SolverCategory::sequential
-  };
-  
-  /*! \brief Constructor.
-   */
-  DummyPreconditioner () { }
-  
-  /*!
-   \brief Prepare the preconditioner.
-   
-   \copydoc Preconditioner::pre(X&,Y&)
-   */
-  virtual void pre (X& x, Y& b) {}
-  
-  /*!
-   \brief Apply the precondioner.
-   
-   \copydoc Preconditioner::apply(X&,const Y&)
-   */
-  virtual void apply (X& v, const Y& d)
-  {
-    v = d;
-  }
-  
-  /*!
-   \brief Clean up.
-   
-   \copydoc Preconditioner::post(X&)
-   */
-  virtual void post (X& x) {}
-};
-
-
 /*! HACK of the HACKS...
  */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
@@ -492,26 +449,27 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   const int n_N = (int)other.size();
   const int n_A = (int)active.size();
   const int n_I = (int)inactive.size();
+  const int total = n_T + n_I + n_A;
+  
+  assert (n_T == n_N + n_A + n_I);
 
-  assert (n_T == n_N+n_A+n_I);
-
-  CoordVector uu, c;
-  c.resize (n_T+n_I+2*n_A, false);
-  u.resize (n_T+n_A+n_I, false);
-  uu.resize (n_T+n_A+n_I, false);
+  ScalarVector uu, c;
+  c.resize (total*dim, false);
+  uu.resize (total*dim, false);
   uu  = 0.0;
   n_d = 0.0;
   n_m = 0.0;
   n_u = 0.0;
 
     // Copy RHS vector
-  for (int i = 0; i < n_T; ++i)
-    c[i] = b[i];
-  for (int i = n_T; i < n_T+n_I+2*n_A; ++i)
+  for (int i = 0; i < n_T*dim; ++i)
+    for (int j = 0; j < dim; ++j)
+      c[i*dim+j] = b[i][j];
+  for (int i = n_T*dim; i < total*dim; ++i)
     c[i] = 0.0; // we initialize the last n_A elements to gap() later.
 
   /*
-   We copy matrix A and append some columns and lines. B should be:
+   We copy matrix A and append some columns and lines. B should be
    
          /                                 \
          | A_NN   A_NI   A_NS      0       |
@@ -522,54 +480,78 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
          |    0      0    N_A      0     0 |
          \                                /
    
-   The line | 0 0 N_A 0 0 | has row indices in [total+n_I+n_A, total+n_I+2*n_A)
+   In TWO DIMENSIONS THIS IS SQUARE as a scalar matrix!!!!
    */
 
-  BlockMatrix B;
-  B.setBuildMode (BlockMatrix::row_wise);
-  B.setSize (n_T+n_I+2*n_A, n_T+n_I+n_A);
-  cout << " B is " << n_T+n_I+2*n_A << " x " << n_T+n_I+n_A << "\n";
+  ScalarMatrix B;
+  B.setBuildMode (ScalarMatrix::row_wise);
+  B.setSize (total*dim, total*dim);
+    //cout << " B is " << B.N() << " x " << B.M() << "\n";
+
+    // Flatten the adjacency pattern of A to scalar entries
+  std::vector<std::set<int> > adjacencyPattern (total*dim);
+  for (auto row = A.begin(); row != A.end(); ++row) {
+    for (auto col = (*row).begin(); col != (*row).end(); ++col) {
+      auto r = row.index();
+      auto c = col.index();
+      for (int i = 0; i < dim; ++i)
+        for (int j = 0; j < dim; ++j)
+          if (A[r][c][i][j] != 0.0)
+            adjacencyPattern[r*dim+i].insert((int)c*dim+j);
+    }
+  }
   
-    // Build an adjacency pattern for the rows in B below A
-  std::vector<std::set<int> > adjacencyPattern (n_I+2*n_A);
+    // Build the adjacency pattern for the entries in B to the right of and below A
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     IdType id = gids.id (*it);
     if (inactive.find (id) != inactive.end()) {
       int ii = aiMapper->mapInBoundary (id);
-      adjacencyPattern[ii].insert (ii+n_T);  // Id_I
+      for (int i = 0; i < dim; ++i) {
+        adjacencyPattern[(n_T+ii)*dim+i].insert ((n_T+ii)*dim+i);  // Id_I
+        adjacencyPattern[(n_N+ii)*dim+i].insert ((n_T+ii)*dim+i);  // D_I
+      }
     } else if (active.find (id) != active.end()) {
-      int ii = aiMapper->mapInActive (id);
-      adjacencyPattern[n_I+ii].insert (n_T + aiMapper->mapInBoundary (id)); // T_A
-      adjacencyPattern[n_I+n_A+ii].insert (aiMapper->map (id)); // N_A
+      int ia = aiMapper->mapInActive (id);
+      for (int i = 0; i < dim; ++i)
+        adjacencyPattern[(n_N+n_I+ia)*dim+i].insert((n_T+n_I+ia)*dim+i); // D_A
+
+      int ii = (n_T+n_I)*dim + ia;
+       // T_A
+      adjacencyPattern[ii].insert ((n_T+aiMapper->mapInBoundary (id))*dim);
+      adjacencyPattern[ii].insert ((n_T+aiMapper->mapInBoundary (id))*dim+1);
+        // N_A
+      adjacencyPattern[ii+n_A].insert (aiMapper->map (id)*dim);
+      adjacencyPattern[ii+n_A].insert (aiMapper->map (id)*dim+1);
     }
   }
     //cout << "Adjacency computed.\n";
   
-  for (auto row = B.createbegin(); row != B.createend(); ++row) {
-    auto r = row.index();
-    if (r < n_T) {
-      for (auto col = A[r].begin(); col != A[r].end(); ++col)
-        row.insert (col.index());
-      if (r >= n_N)  // D_I and D_A
-        row.insert (r+n_I+n_A);
-    } else if (r < B.N()) {
-      for (const auto& it : adjacencyPattern[r - n_T])
-        row.insert (it);
-    }
-  }
+  for (auto row = B.createbegin(); row != B.createend(); ++row)
+    for (const auto& col : adjacencyPattern[row.index()])
+        row.insert (col);
   
   B = 0.0;
 
-  for (auto row = B.begin(); row != B.end(); ++row) {
+    // Copy A
+  for (auto row = A.begin(); row != A.end(); ++row) {
     auto r = row.index();
-    if (r < n_T) {
-      for (auto col = A[r].begin(); col != A[r].end(); ++col)
-        B[r][col.index()] = A[r][col.index()];
-      if (r >= n_N)
-        B[r][r+n_A+n_I] = D[r-n_N][r-n_N];
-    } else if (row.index() < n_T+n_I+n_A)
-      B[r][r] = I;
+    for (auto col = A[r].begin(); col != A[r].end(); ++col) {
+      auto c = col.index();
+      for (int i = 0; i < dim; ++i)
+        for (int j = 0; j < dim; ++j)
+          if (A[r][c][i][j] != 0.0)
+            B[r*dim+i][c*dim+j] = A[r][c][i][j];
+    }
   }
+    // Copy D
+  for (int r = 0; r < n_I+n_A; ++r)
+    for (int i = 0; i < dim; ++i)
+      B[(r+n_N)*dim+i][(r+n_T)*dim+i] = D[r][r][i][i];
+
+    // Copy Id_I
+  for (int r = 0; r < n_I; ++r)
+    for (int i = 0; i < dim; ++i)
+      B[(r+n_T)*dim+i][(r+n_T)*dim+i] = 1.0;
   
     //cout << "B initialized (1/2).\n";
 
@@ -589,46 +571,34 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
           for (int i = 0 ; i < vnum; ++i) {
             int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids.subId (*it, subi, dim);
-            int kk = aiMapper->mapInBoundary (id);
+            int ib = aiMapper->mapInBoundary (id);
             coord_t   nr = is->centerUnitOuterNormal();
-            coord_t D_nr = FMatrixHelp::mult (D[kk][kk], nr);
-              //cout << "kk= " << kk << ", nr= " << nr << "\n";
-            n_d[kk] += D_nr*(1.0/vnum); // FIXME: we shouldn't compute this here
+            coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
+              //cout << "ib= " << ib << ", nr= " << nr << "\n";
+            n_d[ib] += D_nr;//*(1.0/vnum); // FIXME: we shouldn't compute this here
             
             if (active.find (id) != active.end()) {
-                //cout << "Found active: " << id << " -> " << kk << "\n";
+              int ia = aiMapper->mapInActive (id);
+                //cout << "Found active: " << id << " -> " << ia << "\n";
               auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
-
-                // HACK: Build temporary matrices with repeated elements.
-                // We could flatten the whole matrix B instead to scalar blocks.
-                // The problem is that some rows must be matrices, some vectors.
               
               coord_t tg;
-              tg[0] = -nr[1]; tg[1] = nr[0];
-              for (int r=2; r<dim; ++r)
-                tg[r] = 0;
-              
-              block_t T, N;
-              T=0;
-              N=0;
-                //for (int k=0; k<dim; ++k) {
-                for (int l=0; l<dim; ++l) {
-                  T[0][l] = tg[l];
-                  N[0][l] = D_nr[l];
-                }
-                //}
-                // first the tangential stuff for the multipliers.
-              int ii = n_T + kk;
-              B[ii][ii] += T*(1.0/vnum);
-              c[ii] = 0.0;
+              tg[0] = -nr[1]; tg[1] = nr[0]; for (int r=2; r<dim; ++r) tg[r] = 0;
 
+                // first the tangential stuff for the multipliers.
+              int ii = (n_T + n_I)*dim + ia;
+                //cout << "ii= " << ii << "\n";
+              for (int j = 0; j < dim; ++j)
+                B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
+              c[ii] = 0.0;
+              
                 // now the last rows
-              ii = n_T + n_A + n_I + aiMapper->mapInActive (id);
-              int jj = aiMapper->map (id);
+              ii = (n_T + n_I)*dim + n_A + ia;
+              int jj = aiMapper->map (id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
-              B[ii][jj] += N*(1.0/vnum);
-                //c[ii] = gap(ipos);  // copies the scalar dim times (part of HACK)
-              c[ii][0] = gap(ipos);
+              for (int j = 0; j < dim; ++j)
+                B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
+              c[ii] = gap(ipos);
             }
           }
         }
@@ -645,46 +615,57 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
 
   bench().report ("Stepping", "Solving", false);
 
-    //HACK: multiply the system by transpose(B) by the left to make it square.
-  BlockMatrix BB;
-  BB.setSize (n_T+n_I+2*n_A, n_T+n_I+2*n_A);
+    //HACK: multiply the system by transpose(B) by the left to make it symmetric.
+    // and remove zeroes from the diagonal or ILUn will hang
+  ScalarMatrix BB;
+  BB.setSize (total*dim, total*dim);
   transposeMatMultMat(BB, B, B);
-  CoordVector cc;
-  cc.resize (n_T+n_I+n_A, false);
+  ScalarVector cc;
+  cc.resize (total*dim, false);
   B.mtv (c, cc);
-  
+ 
   writeMatrixToMatlab (BB, "/tmp/BB");
   writeVectorToFile (cc, "/tmp/cc");
-  
-  InverseOperatorResult stats;
-  MatrixAdapter<BlockMatrix, CoordVector, CoordVector> op (BB);
 
-  /*
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.95);
-  RestartedGMResSolver<CoordVector> rgmres (op, ssor, 1e-8, n_T/2, 200, 0);
-  rgmres.apply (uu, cc, stats);
-  */
-  /*
-    // This one seems to work
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.96);
-  LoopSolver<CoordVector> lsol (op, ssor, 1e-8, 200, 1);
-  lsol.apply (uu, cc, stats);
-  */
+  try {
+    InverseOperatorResult stats;
+    MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (BB);
+    
+      //DummyPreconditioner<ScalarMatrix, ScalarVector, ScalarVector> pre;
+      //SeqSSOR<BlockMatrix, ScalarVector, ScalarVector> ssor (BB, 1, 0.95);
+      //BiCGSTABSolver<ScalarVector> bcgs (op, ilu, 1e-9, 400, 1);
+    SeqILUn<ScalarMatrix, ScalarVector, ScalarVector> ilu (BB, 1, 0.90);
+    CGSolver<ScalarVector> cgs (op, ilu, 1e-10, 50000, 1);
+    cgs.apply (uu, cc, stats);
+    /*
+     InverseOperatorResult stats;
+     MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
+     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.95);
+     BiCGSTABSolver<ScalarVector> bcgs (op, ssor, 1e-17, 300, 2);
+     bcgs.apply (uu, c, stats);
+     */
+    /*
+     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.95);
+     RestartedGMResSolver<ScalarVector> rgmres (op, ssor, 1e-8, n_T/2, 200, 0);
+     rgmres.apply (uu, c, stats);
+     */
+    /*
+     // This one seemed to work for a while
+     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.96);
+     LoopSolver<ScalarVector> lsol (op, ssor, 1e-8, 200, 1);
+     lsol.apply (uu, c, stats);
+     */
+    
+    /*
+     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.96);
+     CGSolver<ScalarVector> cgs (op, ssor, 1e-8, 200, 2);
+     cgs.apply (uu, c, stats);
+     */
+  } catch (Exception& e) {
+    cout << "DEAD! " << e.what() << "\n";
+    exit(1);
+  }
 
-   //DummyPreconditioner<BlockMatrix, CoordVector, CoordVector> pre;
-  SeqILUn<BlockMatrix, CoordVector, CoordVector> ilu (BB, 1, 0.95);
-   //BiCGSTABSolver<CoordVector> bcgs (op, ilu, 1e-9, 400, 1);
-   //SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.95);
-  CGSolver<CoordVector> cgs (op, ilu, 1e-17, 300, 2);
-  cgs.apply (uu, cc, stats);
-  
-  /*
-    //This solver produces lots of NaNs as soon as any node is active
-  SeqSSOR<BlockMatrix, CoordVector, CoordVector> ssor (BB, 1, 0.96);
-  CGSolver<CoordVector> cgs (op, ssor, 1e-8, 200, 2);
-  cgs.apply (uu, cc, stats);
-  */
-  
   bench().report ("Stepping", " done.");
 
     //// FIXME: the following stuff doesn't belong here.
@@ -694,26 +675,22 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     if (gap.isSupported (it->geometry()))
       g[aiMapper->mapInBoundary (gids.id (*it))] = gap (it->geometry().center());
   
-  u = uu;
+  for (int i = 0; i < total; ++i)
+    for (int j = 0; j < dim; ++j)
+      u[i][j] = uu[i*dim+j];
+
   for (const auto& x : inactive) {
     int i = aiMapper->mapInBoundary(x);
     int j = aiMapper->map(x);
-    n_u[i] = n_d[i] * uu[j];
-    n_m[i] = n_d[i] * uu[n_T+i];
+    n_u[i] = n_d[i] * u[j];
+    n_m[i] = n_d[i] * u[n_T+i];
   }
   for (const auto& x : active) {
     int i = aiMapper->mapInBoundary(x);
     int j = aiMapper->map(x);
-    n_u[i] = n_d[i] * uu[j];
-    n_m[i] = n_d[i] * uu[n_T+i];
+    n_u[i] = n_d[i] * u[j];
+    n_m[i] = n_d[i] * u[n_T+i];
   }
-  
-  /* This must be wrong:
-  for (int i = 0; i < n_I+n_A; ++i) {
-    n_u[i] = n_d[i] * uu[n_N+i];
-    n_m[i] = n_d[i] * uu[total+i];
-  }
-   */
     //printvector (cout, n_d, "D * Normal", "");
   printvector (cout, n_u, "Solution Normal", "");
   printvector (cout, n_m, "Multiplier Normal", "");
@@ -723,8 +700,9 @@ template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
 {
   PostProcessor<TGV, TET, AIMapper, TSS> post (gv, *aiMapper, a);
-
-  for (int cnt = 0; cnt < 5; ++cnt) {
+  const int maxiter = 20;
+  int cnt=0;
+  while (true && ++cnt < maxiter) {
     bench().start ("Active set initialization", false);
     determineActive();  // needs g, n_u, n_m computed from last iteration or =0
     bench().stop ("Active set initialization");
@@ -738,11 +716,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
     step();
     bench().stop ("Stepping");
     bench().start ("Postprocessing", false);
-    /*
-    double error = post.computeError (u);
+    (void) post.computeError (u);
     post.computeVonMisesSquared ();
     (void) post.writeVTKFile ("/tmp/SignoriniFEM", cnt);
-     */
     bench().stop ("Postprocessing");
   }
 }

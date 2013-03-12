@@ -197,19 +197,24 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
   VTKWriter<typename TGV::Grid::LeafGridView> vtkwriter (gv.grid().leafView());
   
-  FlatVector* uu, *vvmm;
-  
+  FlatVector* uu;//, *vvmm;
+
   if (u != NULL) {
     uu = asVector(u);
     vtkwriter.addVertexData (*uu, "u", dim);
   }
+
+  /* For some reason, THIS CRASHES 
   if (vm != NULL) {
     vvmm = asVector(vm);
     vtkwriter.addVertexData (*vvmm, "vm", 1);
   }
+   */
+
   vtkwriter.write (oss.str(), VTKOptions::binaryappended);
+
   if (u != NULL) delete uu;
-  if (vm != NULL) delete vvmm;
+    //  if (vm != NULL) delete vvmm;
 
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();

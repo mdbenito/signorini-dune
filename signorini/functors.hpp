@@ -113,7 +113,7 @@ public:
       //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
       //ret <<= zero; return ret;                               // [HW05]
       //ret[0] = 0; ret[1] = -10; return ret * 1.0e7;           // DATA3
-    ret[0] = 0; ret[1] = -10; return ret * 1.0e7;  // DATA4
+    ret[0] = 0; ret[1] = -10; return ret;// * 1.0e7;  // DATA4
   }
 };
 
@@ -158,10 +158,10 @@ public:
     return ret*1.0e7;
     */
     
-      //ret[0] = (0.5-x[0])*30; ret[1] = 6.5; return ret; // [HW05]
+    ret[0] = (0.5-x[0])*30; ret[1] = 6.5; return ret; // [HW05]
       //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
       //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
-    ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;       // DATA5
+      //ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;   // DATA5
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -184,7 +184,12 @@ public:
 };
 
 
-/*! A boundary scalar functor. */
+/*! A boundary scalar functor.
+ 
+ WARNING! This is the *normalized* normal gap (d'oh!). It's not clear to me what
+ the correct order of magnitude is or how to relate it with the size of the grid,
+ etc.
+ */
 template <typename ctype, int dim>
 class NormalGap {  
   typedef FieldVector<ctype, dim> coord_t;
@@ -241,8 +246,9 @@ public:
   
   inline bool isSupported (int i) const
   {
-      //cout << "ActiveSetFunctor::isSupported(" << i << ")= "
-      //<< multipliers[i]+c*(solution[i]-gap[i]) << "\n";
+    cout << "ActiveSetFunctor::isSupported(" << i << ")= "
+         << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
+         << ") = " << multipliers[i]+c*(solution[i]-gap[i]) << "\n";
     return multipliers[i]+c*(solution[i]-gap[i]) > 0;
   }
 };

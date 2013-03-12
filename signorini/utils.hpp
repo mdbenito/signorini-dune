@@ -9,6 +9,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
+#include <dune/istl/preconditioners.hh>
 
 #include <iostream>
 #include <cmath>
@@ -191,6 +192,21 @@ public:
     
       // 2. Fill from M
   }
+};
+
+
+template<class M, class X, class Y, int l=1>
+class DummyPreconditioner : public Preconditioner<X,Y> {
+public:
+  typedef typename Dune::remove_const<M>::type matrix_type;
+  typedef X domain_type;
+  typedef Y range_type;
+  typedef typename X::field_type field_type;
+  enum { category=SolverCategory::sequential };
+  DummyPreconditioner () { }
+  virtual void pre (X& x, Y& b) { }
+  virtual void apply (X& v, const Y& d) { v = d; }
+  virtual void post (X& x) { }
 };
 
 

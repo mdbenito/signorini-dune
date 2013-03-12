@@ -51,14 +51,13 @@ using std::string;
 int main (int argc, char** argv)
 {
   const int          dim = 2;
-  const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
-  const double        nu = 0.3;         // Poisson's ratio         [FV05, p.35]
-  const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
-    //const double         E = 200;         // See [HW04, p.3154]
-    //const double        nu = 0.3;         // See [HW04, p.3154]
-    //const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
-  const double tolerance = 1.0e-5;      // For the iterative penalty method
-  const int     maxsteps = 10;
+    //const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
+  const double         E = 200;         // See [HW04, p.3154]
+  const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW04]
+  //const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
+  //const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
+  //const double tolerance = 1.0e-5;      // For the iterative penalty method
+  //const int     maxsteps = 10;
 
     //// Grid setup (SGrid, test)
 
@@ -72,7 +71,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (3);
+  grid.globalRefine (4);
 
   const GV& gv = grid.leafView();
 
