@@ -199,7 +199,7 @@ public:
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-    return 0.015;                       // [HW05] uses 0.05
+    return 0.012;                       // [HW05] uses 0.05
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
       //return std::abs (sin (x[0]*4*M_PI) / 20.0);   // DATA5
   }
