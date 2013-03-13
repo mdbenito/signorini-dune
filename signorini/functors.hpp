@@ -199,9 +199,9 @@ public:
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-    return 0.012;                       // [HW05] uses 0.05
+      //return 0.05;                       // [HW05] uses 0.05
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
-      //return std::abs (sin (x[0]*4*M_PI) / 20.0);   // DATA5
+    return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -232,24 +232,26 @@ class ActiveSetFunctor {
   const ScalarVector& solution;
   const ScalarVector& multipliers;
   ctype c;
- 
-public:
+  ctype d;
   
+public:
+    /// Parameter d achieves nothing, has no theoretical justification I know of
+    /// and should be left alone as 1.0
   ActiveSetFunctor (const ScalarVector& _gap, const ScalarVector& _sol,
-                    const ScalarVector& _mul, ctype _c)
-    : gap (_gap), solution (_sol), multipliers (_mul), c (_c) { }
+                    const ScalarVector& _mul, ctype _c=1.0, ctype _d=1.0)
+  : gap (_gap), solution (_sol), multipliers (_mul), c (_c), d (_d) { }
   
   inline ctype operator() (int i) const
   {
-    return multipliers[i]+c*(solution[i]-gap[i]);
+    return d*multipliers[i]+c*(solution[i]-gap[i]);
   }
   
   inline bool isSupported (int i) const
   {
-    cout << "ActiveSetFunctor::isSupported(" << i << ")= "
+    cout << "ActiveSetFunctor::isSupported(" << i << ")= d * "
          << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
-         << ") = " << multipliers[i]+c*(solution[i]-gap[i]) << "\n";
-    return multipliers[i]+c*(solution[i]-gap[i]) > 0;
+         << ") = " << (*this)(i) << "\n";
+    return (d*multipliers[i]+c*(solution[i]-gap[i])) > 0;
   }
 };
 

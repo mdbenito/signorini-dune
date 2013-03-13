@@ -42,6 +42,7 @@ pdo.SetPoints(newPoints)
 #include "shapefunctions.hpp"
 #include "penaltymethod.hpp"
 #include "activeset.hpp"
+  //#include "twobodies.hpp"
 
   //// stdlib includes
 
@@ -71,7 +72,7 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t grid (N, origin, topright);
-  grid.globalRefine (4);
+  grid.globalRefine (7);
 
   const GV& gv = grid.leafView();
 
@@ -108,6 +109,9 @@ int main (int argc, char** argv)
           PMSolver;
   typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
           IASolver;
+    // typedef TwoBodiesIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
+    //    TwoSolver;
+
     //Should be:
     //SignoriniIASet<GV, ProblemData, ShapeSet> IASolver;
   

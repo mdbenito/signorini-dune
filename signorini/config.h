@@ -1,3 +1,10 @@
+  // [MBD] For dune-grid-glue
+#define HAVE_PSURFACE 1
+  // [MBD] For SuperLU 4.3 in ~/Devel/Dune/SuperLU_4.3
+#define HAVE_SUPERLU 1
+#define SUPERLU_POST_2005_VERSION 1
+#define SUPERLU_MIN_VERSION_4_3 1
+
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 

@@ -26,6 +26,8 @@
 #include <dune/istl/solvers.hh>
 #include <dune/istl/preconditioners.hh>
 #include <dune/istl/io.hh>
+#include <dune/istl/superlu.hh>
+
 
 #include "utils.hpp"
 #include "benchmark.hpp"
@@ -232,7 +234,8 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::determineActive ()
 {
-  AIFunctor contact (g, n_u, n_m, 1.0); // all nodes inactive for initial values == 0
+   // all nodes inactive for initial values == 0
+  AIFunctor contact (g, n_u, n_m);
   
   active.clear();
   inactive.clear();
@@ -503,23 +506,27 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     IdType id = gids.id (*it);
     if (inactive.find (id) != inactive.end()) {
-      int ii = aiMapper->mapInBoundary (id);
+      int im = aiMapper->mapInBoundary (id);
       for (int i = 0; i < dim; ++i) {
-        adjacencyPattern[(n_T+ii)*dim+i].insert ((n_T+ii)*dim+i);  // Id_I
-        adjacencyPattern[(n_N+ii)*dim+i].insert ((n_T+ii)*dim+i);  // D_I
+        adjacencyPattern[(n_T+im)*dim+i].insert ((n_T+im)*dim+i);  // Id_I
+        adjacencyPattern[(n_N+im)*dim+i].insert ((n_T+im)*dim+i);  // D_I
       }
     } else if (active.find (id) != active.end()) {
+      int im = aiMapper->map (id);
       int ia = aiMapper->mapInActive (id);
       for (int i = 0; i < dim; ++i)
         adjacencyPattern[(n_N+n_I+ia)*dim+i].insert((n_T+n_I+ia)*dim+i); // D_A
 
-      int ii = (n_T+n_I)*dim + ia;
+      int ii = (n_T+n_I)*dim;
        // T_A
-      adjacencyPattern[ii].insert ((n_T+aiMapper->mapInBoundary (id))*dim);
-      adjacencyPattern[ii].insert ((n_T+aiMapper->mapInBoundary (id))*dim+1);
+      adjacencyPattern[ii+ia].insert (ii + ia*dim);
+      adjacencyPattern[ii+ia].insert (ii + ia*dim + 1);
+        //adjacencyPattern[ii+ia].insert (ii + ia);  // diagonal
+      
         // N_A
-      adjacencyPattern[ii+n_A].insert (aiMapper->map (id)*dim);
-      adjacencyPattern[ii+n_A].insert (aiMapper->map (id)*dim+1);
+      adjacencyPattern[ii+n_A+ia].insert (im*dim);
+      adjacencyPattern[ii+n_A+ia].insert (im*dim + 1);
+        //adjacencyPattern[ii+n_A+ia].insert (ii + n_A + ia);  // diagonal
     }
   }
     //cout << "Adjacency computed.\n";
@@ -557,6 +564,8 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
   
+    // (disabled) HACK: Add epsilon to the diagonal to use ILU
+  
   const auto& multBasis = TLM::instance();
   g = 0.0;
 
@@ -578,7 +587,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
               //cout << "ib= " << ib << ", nr= " << nr << "\n";
             
               // FIXME: we shouldn't compute this here
-            n_d[ib] += D_nr;//*(1.0/vnum);
+            n_d[ib] += D_nr*(1.0/vnum);
             
               // nor this:
               // Gap at boundary for the computation of the active index set
@@ -588,9 +597,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
               const auto& global = igeo.global (x.position ());
               const auto&  local = it->geometry().local (global);
               g[ib] += gap (global) *
-              multBasis[subi].evaluateFunction (local) *
-              x.weight () *
-              igeo.integrationElement (x.position ());
+                       multBasis[subi].evaluateFunction (local) *
+                       x.weight () *
+                       igeo.integrationElement (x.position ());
             }
             
             if (active.find (id) != active.end()) {
@@ -601,19 +610,31 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
               coord_t tg;
               tg[0] = -nr[1]; tg[1] = nr[0]; for (int r=2; r<dim; ++r) tg[r] = 0;
 
+              
                 // first the tangential stuff for the multipliers.
+              
+              /* WATCH OUT! this is correct in TWO DIMENSIONS ONLY:
+               because vectors have two entries, appending N_A and T_A to the 
+               final matrix results in an increase in size of 2*n_A in each
+               direction. This won't be the case for three dimensions though, were
+               I suspect one would have to use two tangential vectors (to determine
+               a plane orthogonal to the normal) for each node in the active set;
+               then the increase would be 3*n_A in each direction of the matrix B.
+               */
               int ii = (n_T + n_I)*dim + ia;
                 //cout << "ii= " << ii << "\n";
+                //B[ii][ii] = 1e-9;  // HACK HACK HACK! Avoid zeroes in the diagonal
               for (int j = 0; j < dim; ++j)
-                B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
+                B[ii][(n_T+ib)*dim+j] += tg[j]*(1.0/vnum);
               c[ii] = 0.0;
               
                 // now the last rows
               ii = (n_T + n_I)*dim + n_A + ia;
+                //B[ii][ii] = 1e-9;  // HACK HACK HACK! Avoid zeroes in the diagonal
               int jj = aiMapper->map (id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               for (int j = 0; j < dim; ++j)
-                B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
+                B[ii][jj+j] += D_nr[j]*(1.0/vnum);
               c[ii] = gap(ipos);
             }
           }
@@ -631,6 +652,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
 
   bench().report ("Stepping", "Solving", false);
 
+  /*
     //HACK: multiply the system by transpose(B) by the left to make it symmetric.
     // and remove zeroes from the diagonal or ILUn will hang
   ScalarMatrix BB;
@@ -642,8 +664,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
  
   writeMatrixToMatlab (BB, "/tmp/BB");
   writeVectorToFile (cc, "/tmp/cc");
+   */
 
   try {
+    InverseOperatorResult stats;
+      //MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
+    SuperLU<ScalarMatrix> slu (B, true);
+    slu.apply (uu, c, stats);
+    
+    /*
     InverseOperatorResult stats;
     MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (BB);
     
@@ -653,12 +682,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     SeqILUn<ScalarMatrix, ScalarVector, ScalarVector> ilu (BB, 1, 0.90);
     CGSolver<ScalarVector> cgs (op, ilu, 1e-10, 50000, 1);
     cgs.apply (uu, cc, stats);
+     */
+
     /*
-     InverseOperatorResult stats;
-     MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
-     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.95);
-     BiCGSTABSolver<ScalarVector> bcgs (op, ssor, 1e-17, 300, 2);
-     bcgs.apply (uu, c, stats);
+    InverseOperatorResult stats;
+    MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
+      //SeqGS<ScalarMatrix, ScalarVector, ScalarVector> sgs (B, 1, 0.96);
+    SeqILUn<ScalarMatrix, ScalarVector, ScalarVector> ilu (B, 1, 0.96);
+    BiCGSTABSolver<ScalarVector> bcgs (op, ilu, 1e-8, 50000, 1);
+    bcgs.apply (uu, c, stats);
      */
     /*
      SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.95);

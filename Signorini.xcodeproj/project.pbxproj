@@ -43,6 +43,8 @@
 		49C47D2E16343A2000D38056 /* functors.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = functors.hpp; sourceTree = "<group>"; };
 		49C47D2F16343B1D00D38056 /* integration.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = integration.hpp; sourceTree = "<group>"; };
 		49C47D3016343F4B00D38056 /* traverse.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = traverse.hpp; sourceTree = "<group>"; };
+		49FDFA5C16EFACC6002B830A /* twobodies.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = twobodies.hpp; sourceTree = "<group>"; };
+		49FDFA5F16EFBA1D002B830A /* twobodymapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = twobodymapper.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +90,8 @@
 				4909D1E016B445A6004D1959 /* postprocessor.hpp */,
 				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
 				49C47D3016343F4B00D38056 /* traverse.hpp */,
+				49FDFA5C16EFACC6002B830A /* twobodies.hpp */,
+				49FDFA5F16EFBA1D002B830A /* twobodymapper.hpp */,
 				4909D1E316B588F8004D1959 /* utils.cpp */,
 				491132E11674009F009F1A5C /* utils.hpp */,
 			);
@@ -211,11 +215,21 @@
 		49C47D161632FF8B00D38056 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"DUNE_FMatrix_WITH_CHECKING=yesplease",
+					"$(inherited)",
+				);
 				GCC_UNROLL_LOOPS = YES;
 				GCC_VERSION = "";
-				HEADER_SEARCH_PATHS = /usr/local/include;
+				HEADER_SEARCH_PATHS = (
+					/usr/local/include,
+					/Users/miguel/Devel/Dune/SuperLU_4.3/SRC,
+				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -224,6 +238,9 @@
 					"-ldunecommon",
 					"-ldunegrid",
 					"-ldunegeometry",
+					/Users/miguel/Devel/Dune/SuperLU_4.3/lib/libsuperlu_4.3.a,
+					"-llapack",
+					"-lblas",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
@@ -233,12 +250,17 @@
 		49C47D171632FF8B00D38056 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_UNROLL_LOOPS = YES;
 				GCC_VERSION = "";
-				HEADER_SEARCH_PATHS = /usr/local/include;
+				HEADER_SEARCH_PATHS = (
+					/usr/local/include,
+					/Users/miguel/Devel/Dune/SuperLU_4.3/SRC,
+				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -247,6 +269,9 @@
 					"-ldunecommon",
 					"-ldunegrid",
 					"-ldunegeometry",
+					/Users/miguel/Devel/Dune/SuperLU_4.3/lib/libsuperlu_4.3.a,
+					"-llapack",
+					"-lblas",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
