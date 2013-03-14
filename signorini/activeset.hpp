@@ -42,6 +42,8 @@ using std::cout;
  
  This implements the algorithm described in [HW05].
  
+ FIXMEEEEE!!!!!!! All this needs dim=2 !!!
+ 
  Template type names:
     TGV: TGridView
     TET: TElasticityTensor
@@ -131,6 +133,8 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
 : gv (_gv), gids(_gv.grid().globalIdSet()), a (_a), f (_f), p (_p), gap(_gap),
   quadratureOrder(_quadratureOrder)
 {
+  assert (dim == 2);
+
   I = 0.0;
   for (int i=0; i < dim; ++i)
     I[i][i] = 1.0;
@@ -270,8 +274,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
   
     //// Stiffness matrix:
 
-  bench().report ("Assembly", "Feeding gremlins...", false);
-  std::set<int> boundaryVisited;
+    //bench().report ("Assembly", "Feeding gremlins...", false);
   
   /*
    We compute the stiffness matrix in an unintuitive way: for each entry A_ij one
@@ -340,7 +343,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
             int   ii = aiMapper->map (*it, subi, dim);
               //auto   v = it->template subEntity<dim> (subi)->geometry().center();
               //cout << "Neumann'ing node: " << ii << " at " << v << "\n";
-            boundaryVisited.insert (ii);
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
                 // Transform relative (dim-1)-dimensional coord. in local coord.
               const auto& global = igeo.global (x.position ());
@@ -376,7 +378,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
           int ii = aiMapper->map (*it, subi , dim);
           if (v[1]==1 && v[0]>0 && v[0]<1) {  // HACK! replace with functor!!
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
-            boundaryVisited.insert(ii);
             A[ii] = 0.0;
             A[ii][ii] = I;
             b[ii] = dirichlet;
@@ -386,10 +387,11 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
     }
   }
   
-  g = 0.0;
     //// Calculate submatrix D and  the gap at boundary for the computation of
     //// the active index set
-    
+  
+  g = 0.0;
+  
     // Recall that the integral is over the gap boundary, so we need not integrate
     // the basis functions of nodes outside it.
   
@@ -403,11 +405,11 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
         
         if (gap.isSupported (igeo)) {
           for (int i = 0 ; i < vnum; ++i) {
-            int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids.subId (*it, subi, dim);
-            int kk = aiMapper->mapInBoundary (id);
+            int    ib = aiMapper->mapInBoundary (id);
               //auto   v = it->template subEntity<dim> (subi)->geometry().center();
-              //cout << "Setting index for D: " << kk << " at " << v << "\n";
+              //cout << "Setting index for D: " << ib << " at " << v << "\n";
             for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
                 // Transform relative (dim-1)-dimensional coord. in local coord.
               const auto& global = igeo.global (x.position ());
@@ -419,15 +421,14 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
                    << "\n" << "       multbasis eval[" << subi
                    << "]= " << multBasis[subi].evaluateFunction (local) << "\n";
                */
-              D[kk][kk] += I * basis[subi].evaluateFunction (local) *
+              D[ib][ib] += I * basis[subi].evaluateFunction (local) *
                            multBasis[subi].evaluateFunction (local) *
                            x.weight () *
                            igeo.integrationElement (x.position ());
-              g[kk] += gap (global) *
+              g[ib] += gap (global) *
                        multBasis[subi].evaluateFunction (local) *
                        x.weight () *
                        igeo.integrationElement (x.position ());
-              boundaryVisited.insert (aiMapper->map (id));
             }
           }
         }
@@ -435,8 +436,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
     }
   }
  
-  bench().report ("Assembly", "\tdone.");
+    //bench().report ("Assembly", "\tdone.");
     //printmatrix (cout, D, "D", "");
+    //printvector(std::cout, g, "normalized gap", "");
 }
 
 /*! HACK of the HACKS...
@@ -466,8 +468,12 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   for (int i = 0; i < n_T*dim; ++i)
     for (int j = 0; j < dim; ++j)
       c[i*dim+j] = b[i][j];
-  for (int i = n_T*dim; i < total*dim; ++i)
-    c[i] = 0.0; // we initialize the last n_A elements to gap() later.
+    // Rest of entries.
+  for (int i = n_T*dim; i < (n_T+n_I)*dim; ++i)
+    c[i] = 0.0;
+
+  for (int i = 0; i < n_A; ++i)
+    c[i+n_A+(n_T+n_I)*dim] = g[i+n_I];  // recall that g[] uses aiMapper.inBoundary() ordering.
 
   /*
    We copy matrix A and append some columns and lines. B should be
@@ -493,12 +499,12 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   std::vector<std::set<int> > adjacencyPattern (total*dim);
   for (auto row = A.begin(); row != A.end(); ++row) {
     for (auto col = (*row).begin(); col != (*row).end(); ++col) {
-      auto r = row.index();
-      auto c = col.index();
+      auto ri = row.index();
+      auto ci = col.index();
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
-          if (A[r][c][i][j] != 0.0)
-            adjacencyPattern[r*dim+i].insert((int)c*dim+j);
+          if (A[ri][ci][i][j] != 0.0)
+            adjacencyPattern[ri*dim+i].insert((int)ci*dim+j);
     }
   }
   
@@ -566,9 +572,6 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   
     // (disabled) HACK: Add epsilon to the diagonal to use ILU
   
-  const auto& multBasis = TLM::instance();
-  g = 0.0;
-
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
@@ -584,40 +587,26 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
             int ib = aiMapper->mapInBoundary (id);
             coord_t   nr = is->centerUnitOuterNormal();
             coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
-              //cout << "ib= " << ib << ", nr= " << nr << "\n";
             
-              // FIXME: we shouldn't compute this here
-            n_d[ib] += D_nr*(1.0/vnum);
-            
-              // nor this:
-              // Gap at boundary for the computation of the active index set
-              // FIXME: yet another stupid recomputation. Should reorder instead.
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
-                // Transform relative (dim-1)-dimensional coord. in local coord.
-              const auto& global = igeo.global (x.position ());
-              const auto&  local = it->geometry().local (global);
-              g[ib] += gap (global) *
-                       multBasis[subi].evaluateFunction (local) *
-                       x.weight () *
-                       igeo.integrationElement (x.position ());
-            }
+              // FIXME: for nodes at the boundary of the gap the division by vnum
+              // will be wrong since there won't be as many sums
+            n_d[ib] += D_nr*(1.0/vnum); // FIXME: we shouldn't compute this here
+            //cout << "ib= " << ib << ", nr= " << nr << "\n";
             
             if (active.find (id) != active.end()) {
               int ia = aiMapper->mapInActive (id);
-                //cout << "Found active: " << id << " -> " << ia << "\n";
-              auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
+              //cout << "Found active: " << id << " -> " << ia << "\n";
               
               coord_t tg;
-              tg[0] = -nr[1]; tg[1] = nr[0]; for (int r=2; r<dim; ++r) tg[r] = 0;
+              tg[0] = -nr[1]; tg[1] = nr[0];
 
-              
                 // first the tangential stuff for the multipliers.
               
               /* WATCH OUT! this is correct in TWO DIMENSIONS ONLY:
                because vectors have two entries, appending N_A and T_A to the 
                final matrix results in an increase in size of 2*n_A in each
                direction. This won't be the case for three dimensions though, were
-               I suspect one would have to use two tangential vectors (to determine
+               I guess one would have to use two tangential vectors (to determine
                a plane orthogonal to the normal) for each node in the active set;
                then the increase would be 3*n_A in each direction of the matrix B.
                */
@@ -625,8 +614,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
                 //cout << "ii= " << ii << "\n";
                 //B[ii][ii] = 1e-9;  // HACK HACK HACK! Avoid zeroes in the diagonal
               for (int j = 0; j < dim; ++j)
-                B[ii][(n_T+ib)*dim+j] += tg[j]*(1.0/vnum);
-              c[ii] = 0.0;
+                B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
               
                 // now the last rows
               ii = (n_T + n_I)*dim + n_A + ia;
@@ -634,8 +622,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
               int jj = aiMapper->map (id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               for (int j = 0; j < dim; ++j)
-                B[ii][jj+j] += D_nr[j]*(1.0/vnum);
-              c[ii] = gap(ipos);
+                B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
             }
           }
         }
@@ -667,11 +654,12 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
    */
 
   try {
+    dinfo.attach (cout);
     InverseOperatorResult stats;
       //MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
     SuperLU<ScalarMatrix> slu (B, true);
     slu.apply (uu, c, stats);
-    
+    dinfo.flush();
     /*
     InverseOperatorResult stats;
     MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (BB);
@@ -713,7 +701,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     cout << "DEAD! " << e.what() << "\n";
     exit(1);
   }
-
+  
   bench().report ("Stepping", " done.");
 
     //// FIXME: the following stuff doesn't belong here.
@@ -735,15 +723,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     n_m[i] = n_d[i] * u[n_T+i];
   }
     //printvector (cout, n_d, "D * Normal", "");
-  printvector (cout, n_u, "Solution Normal", "");
-  printvector (cout, n_m, "Multiplier Normal", "");
+    //printvector (cout, n_u, "Solution Normal", "");
+    //printvector (cout, n_m, "Multiplier Normal", "");
 }
 
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
 {
   PostProcessor<TGV, TET, AIMapper, TSS> post (gv, *aiMapper, a);
-  const int maxiter = 20;
+  const int maxiter = 10;
   int cnt=0;
   while (true && ++cnt < maxiter) {
     bench().start ("Active set initialization", false);
@@ -752,7 +740,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
     bench().start ("Adjacency computation", false);
     setupMatrices();  // resets sparse matrix info according to new active/inactive sets
     bench().stop ("Adjacency computation");
-    bench().start ("Assembly");
+    bench().start ("Assembly", false);
     assemble();  // reassembles matrices FIXME: should just reorder.
     bench().stop ("Assembly");
     bench().start ("Stepping");
