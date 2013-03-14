@@ -248,9 +248,11 @@ public:
   
   inline bool isSupported (int i) const
   {
+    /*
     cout << "ActiveSetFunctor::isSupported(" << i << ")= d * "
          << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
          << ") = " << (*this)(i) << "\n";
+     */
     return (d*multipliers[i]+c*(solution[i]-gap[i])) > 0;
   }
 };

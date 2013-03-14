@@ -204,14 +204,27 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
     vtkwriter.addVertexData (*uu, "u", dim);
   }
 
-  /* For some reason, THIS CRASHES 
+  std::vector<int> indices (gv.size(dim));
+  std::vector<int> mapped (gv.size(dim));
+  VertexMapper defaultMapper (gv.grid());
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    int from = mapper.map (*it);
+    int to = defaultMapper.map (*it);
+      //cout << "Mapping vertex " << from << " to " << to << "\n";
+    mapped[to] = from;
+    indices[to] = to;
+  }
+  vtkwriter.addVertexData (indices, "idx", 1);
+  vtkwriter.addVertexData (mapped, "map", 1);
+
+  /* For some reason, THIS CRASHES
   if (vm != NULL) {
     vvmm = asVector(vm);
     vtkwriter.addVertexData (*vvmm, "vm", 1);
   }
    */
 
-  vtkwriter.write (oss.str(), VTKOptions::binaryappended);
+  vtkwriter.write (oss.str(), VTK::appendedraw);
 
   if (u != NULL) delete uu;
     //  if (vm != NULL) delete vvmm;
