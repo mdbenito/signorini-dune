@@ -52,10 +52,13 @@ using std::string;
 int main (int argc, char** argv)
 {
   const int          dim = 2;
+
+  const double         E = 500;         // See [HW05, p.3159]
+  const double        E2 = 500;         // See [HW05, p.3159]
+  const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
+  const double       nu2 = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
+  
   //const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
-  const double         E = 200;         // See [HW04, p.3154]
-  const double        E2 = 2000;         // See [HW04, p.3154]
-  const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW04]
   //const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
   //const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
   //const double tolerance = 1.0e-5;      // For the iterative penalty method
@@ -73,12 +76,12 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t gridSlave (N, origin, topright);
-  gridSlave.globalRefine (3);
+  gridSlave.globalRefine (5);
   
-  origin[1] -= 1.05;
-  topright[1] -= 1.05;
+  origin[1] -= 1.01;
+  topright[1] -= 1.01;
   grid_t gridMaster (N, origin, topright);
-  gridMaster.globalRefine (3);
+  gridMaster.globalRefine (5);
 
   /* This won't work... (AluGrid seems not to be properly configured)
 
@@ -124,14 +127,14 @@ int main (int argc, char** argv)
     //exit(1);
 
   HookeT    a (E, nu);
-  HookeT    a2 (E2, nu);
+  HookeT    a2 (E2, nu2);
   VolumeF   f (0, 10);
-  Dirichlet d (0, -1.02);
-  Dirichlet d2 (0, -0.07);
-  BoundaryF p (40, 5);
-  BoundaryF p2 (30, 6.5);
-  Gap       g (-0.05);
-  Gap       g2 (0.0);
+  Dirichlet d (0, 0);
+  Dirichlet d2 (0, 0);
+  BoundaryF p (25, 8);
+  BoundaryF p2 (25, -8);
+  Gap       g (-0.01, 0.01);
+  Gap       g2 (0.0, 0.01);
 
   
   

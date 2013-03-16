@@ -188,8 +188,7 @@ public:
       //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
       //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
       //ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;   // DATA5
-    
-    ret[0] = cx*(0.5-x[0]);
+    ret[0] = cx *(0.5-x[0]);
     ret[1] = cy;
     return ret; // [HW05]
   }
@@ -224,13 +223,14 @@ template <typename ctype, int dim>
 class NormalGap {  
   typedef FieldVector<ctype, dim> coord_t;
   ctype ySupport;
+  ctype ret;
 public:
-  NormalGap (ctype y=0.0) : ySupport(y) { }
+  NormalGap (ctype y=0.0, ctype r=0.05) : ySupport(y), ret(r) { }
   
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-    return 0.05;                       // [HW05] uses 0.05
+    return ret;                       // [HW05] uses 0.05
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
       //return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
   }
