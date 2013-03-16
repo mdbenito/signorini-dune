@@ -181,22 +181,29 @@ void TwoBodyMapper<codim, TGV>::update (const IdSet* active,
   int cnt = 0;
   DOBOTH (body) {
     indices[body].clear();
-    sizeOther[body] = other[body].size();
+    sizeOther[body] = static_cast<int> (other[body].size());
+//    cout << "sizeOther[" << body << "]= " << sizeOther[body] << LF;
     offsetBody[body] = cnt;
+//    cout << "offsetBody[" << body << "]= " << offsetBody[body] << LF;
     for (auto x : other[body])
       indices[body][x] = cnt++;
   }
 
   DOBOTH (body) {
     offsetInner[body] = cnt;
+//    cout << "offsetInner[" << body << "]= " << offsetInner[body] << LF;
     for (auto x : inactive[body])
       indices[body][x] = cnt++;
     offsetActive[body] = cnt;
-    
+//    cout << "offsetActive[" << body << "]= " << offsetActive[body] << LF;
     for (auto x : active[body])
       indices[body][x] = cnt++;
   }
 }
+
+/* Take a mapped index for the given body and substract offsets in order to
+   make it an index for one body
+ */
 template <int codim, class TGV>
 int TwoBodyMapper<codim, TGV>::calcOffset (int body, int idx) const
 {
@@ -207,9 +214,14 @@ int TwoBodyMapper<codim, TGV>::calcOffset (int body, int idx) const
   return idx - offsetBody[body];
 }
 
+
 /* Quick hack to return to the original mapper interface, for use in the
- Postprocessor. Maybe I should keep the references to this inside the 
- TwoBodyMapper and return them with operator[] there.
+ Postprocessor. Maybe I should keep two references to this inside the 
+ TwoBodyMapper and return them with operator[] there, e.g.:
+
+   twoMapper[SLAVE].map(id) would be the same as twoMapper.mapInBody(body, id)
+ 
+ but maybe this would just be confusing.
  */
 template <int codim, class TGV>
 class TwoToOneBodyMapper
@@ -228,7 +240,7 @@ class TwoToOneBodyMapper
 
 public:
   TwoToOneBodyMapper (int _body, const TwoBodyMapper<codim, TGV>& _mapper)
-  : body(_body), mapper(_mapper) {}
+    : body(_body), mapper(_mapper) {}
   
   template<class EntityType> int map (const EntityType& e) const {
     return mapper.mapInBody (body, e);

@@ -241,13 +241,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
   const int n_Is = static_cast<int>(inactive[SLAVE].size());
   const auto ingap_m = n_Am + n_Im;
   const auto ingap_s = n_As + n_Is;
-
     //cout << "total= " << n_T << ", ingap= " << ingap << "\n";
   
+  bench().start ("Adjacency for stiffness matrix", false);
   std::vector<std::set<int> > adjacencyPattern (n_T);
-  
-    //For each element we traverse all its vertices and set them as adjacent
   DOBOTH (body) {
+      //For each element we traverse all its vertices and set them as adjacent
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
       const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type ());
       int vnum = ref.size (dim);
@@ -260,16 +259,37 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
       }
     }
   }
-  
+  bench().stop ("Adjacency for stiffness matrix");
+
     /* Adjacency pattern for M: the mindless approach.
 
      Traverse the boundary of the slave, and at each boundary element in the gap
      traverse the boundary of the master looking for basis functions whose support
-     ntersects.
+     intersects.
+     
      FIXME: we check whether the support of a basis function in the master side
      contains the coordinates of a node in the slave side, but we should rather
      check at the *quadrature points* in the slave side to avoid marking pairs
      slave node / master node which actually won't count
+     
+     FIXME: what happens when the gap is smaller than the mesh size? In the
+     following situation, everything is fine: (slave to the left, master to the
+     right)
+     
+             ^  |\
+            /|\ | \ φ
+        Ψ  / | \|  \
+          /  |  \   \
+         /   |  |\   \
+        /    |  | \   \
+     --*-----*  *------*------*---
+         h_s             h_m
+             |__|
+              |
+              gap
+     
+     But if the gap where larger than h_s, then the support of Ψ wouldn't
+     intersect the boundary of the master and the matrix M would be empty.
      
      NOTE: for regular SGrids we could simply traverse all nodes of the slave
      then all of the master and if h is the grid width parameter, then
@@ -278,7 +298,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
      
      Should be the same.
      
-     NOTE2: We should be able to exploit this computation later when actually
+     NOTE2: I should be able to exploit this computation later when actually
      building M in order not to have to traverse all the grid (squared) again, 
      but I just don't feel like it...
      */
@@ -691,6 +711,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   assert (A.N() == n_T);
   assert (D.N() == D.M());
   assert (D.N() == n_S);
+  assert (n_M > 0);
 
   cout << "n_T= " << n_T << ", n_N= " << n_N << ", n_M= " << n_M
        << ", n_S= " << n_S << ", n_I= " << n_I << ", n_A= " << n_A << LF;
@@ -704,7 +725,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
   BlockMatrix MT;
   transpose (MT, M);
-  cout << "Tranposed MT is " << MT.N() << " x " << MT.M() << LF;
+//  cout << "Tranposed MT is " << MT.N() << " x " << MT.M() << LF;
   BlockMatrix Q;
   Q.setSize (n_T, n_T);
   Q.setBuildMode (BlockMatrix::row_wise);
@@ -735,8 +756,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   BlockMatrix AA;
   matMultTransposeMat(AA, A, Q);
   matMultMat(A, Q, AA);  // A is now the new Â.
+//  cout << "We have Â\n";
   
-  cout << "We have Â\n";
   ScalarVector uu, c;
   c.resize (total*dim, false);
   uu.resize (total*dim, false);
@@ -758,13 +779,13 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     c[i] = 0.0;
     // recall that g[] uses twoMapper.inBoundary(SLAVE,...) ordering.
   for (int i = 0; i < n_A; ++i) {
-    cout << " c[" << (n_T+n_I)*dim + n_A + i << "]= g[" << i+n_I << "]= " << g[i+n_I] << LF;
+//    cout << " c[" << (n_T+n_I)*dim + n_A + i << "]= g[" << i+n_I << "]= " << g[i+n_I] << LF;
     c[(n_T+n_I)*dim + n_A + i] = g[i+n_I];
   }
   ScalarMatrix B;
   B.setBuildMode (ScalarMatrix::row_wise);
   B.setSize (total*dim, total*dim);
-  cout << " B is " << B.N() << " x " << B.M() << "\n";
+//  cout << " B is " << B.N() << " x " << B.M() << "\n";
   
     // Flatten the adjacency pattern of A to scalar entries
   std::vector<std::set<int> > adjacencyPattern (total*dim);
@@ -875,7 +896,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
               int ii = (n_T + n_I)*dim + ia;
                 //cout << "ii= " << ii << "\n";
               for (int j = 0; j < dim; ++j)
-                B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
+                B[ii][(n_T+ib)*dim+j] += tg[j]; // *(1.0/vnum);
               c[ii] = 0.0;
               
                 // now the last rows
@@ -883,7 +904,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
               int jj = twoMapper->map (SLAVE, id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               for (int j = 0; j < dim; ++j)
-                B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
+                B[ii][jj+j] += D_nr[j]; // *(1.0/vnum);
             }
           }
         }
@@ -915,9 +936,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     for (int j = 0; j < dim; ++j)
       u[i][j] = uu[i*dim+j];
 
-  CoordVector tu(u);
-  Q.mtv (tu, u);
-  
+    //// Copy results
   for (const auto& x : inactive[SLAVE]) {
     int i = twoMapper->mapInBoundary (SLAVE, x);
     int j = twoMapper->map (SLAVE, x);
@@ -933,23 +952,32 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     //printvector (cout, n_d, "D * Normal", "");
   printvector (cout, n_u, "Solution Normal", "");
   printvector (cout, n_m, "Multiplier Normal", "");
+  
+    //// Transform back to original coordinates
+
+    // Is this the same as the code below with the loops?
+//    CoordVector tu(u);
+//    Q.mtv (tu, u);
+
+  CoordVector tu(n_T);
+  for (int i = 0; i < n_T; ++i) tu[i] = u[i];
+  CoordVector tu2(tu);
+  Q.mtv (tu, tu2);
+  for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
 }
 
 
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGF, class TSS, class TLM>
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
 {
-  typedef TwoToOneBodyMapper<dim, TGV> MapperAdater;
-  MapperAdater mapper_m (MASTER, *twoMapper);
-  MapperAdater mapper_s (SLAVE, *twoMapper);
-  PostProcessor<TGV, TET, MapperAdater, TSS> post_m (gv[MASTER], mapper_m, a[MASTER]);
-  PostProcessor<TGV, TET, MapperAdater, TSS> post_s (gv[SLAVE], mapper_s, a[SLAVE]);
-    //TwoRefs<PostProcessor<TGV, TET, MapperAdater, TSS> > post(post_m, post_s);
-  
-  VertexMapper defaultMapper_m (gv[MASTER].grid());
-  VertexMapper defaultMapper_s (gv[SLAVE].grid());
-  TwoRefs<VertexMapper> defaultMapper (defaultMapper_m, defaultMapper_s);
-  
+  typedef TwoToOneBodyMapper<dim, TGV> MapperAdapter;
+  MapperAdapter mapper_m (MASTER, *twoMapper);
+  MapperAdapter mapper_s (SLAVE, *twoMapper);
+
+  PostProcessor<TGV, TET, MapperAdapter, TSS> post_m (gv[MASTER], mapper_m, a[MASTER]);
+  PostProcessor<TGV, TET, MapperAdapter, TSS> post_s (gv[SLAVE], mapper_s, a[SLAVE]);
+    //TwoRefs<PostProcessor<TGV, TET, MapperAdapter, TSS> > post(post_m, post_s);
+
   std::string filename[2];
   filename[MASTER] = "/tmp/TwoBodiesIA_MASTER";
   filename[SLAVE] = "/tmp/TwoBodiesIA_SLAVE";
@@ -959,9 +987,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
     cu[body].resize(gv[body].size(dim));
   }
   
-  const int maxiter = 10;
+  const int maxiter = 5;
   int cnt=0;
-  while (true && ++cnt < maxiter) {
+  while (true && ++cnt <= maxiter) {
     bench().start ("Active set initialization", false);
     determineActive();  // needs g, n_u, n_m computed from last iteration or =0
     bench().stop ("Active set initialization");
@@ -980,9 +1008,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
       cu[body] = 0.0;
       for (auto it = gv[body].template begin<dim>(); it != gv[body].template end<dim>(); ++it) {
         int from = twoMapper->map (body, *it);
-        int to = defaultMapper[body].map (*it);
-          //cout << "Mapping vertex " << from << " to " << to << LF;
-        cu[body][to] = u[from];  // FIXMMEEEEEE: is this ok?
+        int to = twoMapper->mapInBody (body, *it);
+        cu[body][to] = u[from]; 
       }
     }
     (void) post_m.computeError (cu[MASTER]);
