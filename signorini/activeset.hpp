@@ -675,7 +675,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
   PostProcessor<TGV, TET, AIMapper, TSS> post (gv, *aiMapper, a);
   const int maxiter = 10;
   int cnt=0;
-  while (true && ++cnt < maxiter) {
+  while (true && ++cnt <= maxiter) {
     bench().start ("Active set initialization", false);
     determineActive();  // needs g, n_u, n_m computed from last iteration or =0
     bench().stop ("Active set initialization");
