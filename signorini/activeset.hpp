@@ -471,15 +471,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     // Rest of entries.
   for (int i = n_T*dim; i < (n_T+n_I)*dim; ++i)
     c[i] = 0.0;
-
+    // recall that g[] uses aiMapper.inBoundary() ordering.
   for (int i = 0; i < n_A; ++i)
-    c[i+n_A+(n_T+n_I)*dim] = g[i+n_I];  // recall that g[] uses aiMapper.inBoundary() ordering.
+    c[i+n_A+(n_T+n_I)*dim] = g[i+n_I];
 
   /*
    We copy matrix A and append some columns and lines. B should be
    
          /                                 \
-         | A_NN   A_NI   A_NS      0       |
+         | A_NN   A_NI   A_NS      0     0 |
          | A_IN   A_II   A_IA    D_I     0 |
          | A_AN   A_AI   A_AA      0   D_A |
      B = |    0      0      0   Id_I     0 |
@@ -569,9 +569,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     // Fill the lines:
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
-  
-    // (disabled) HACK: Add epsilon to the diagonal to use ILU
-  
+
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (is->boundary ()) {
@@ -612,14 +610,12 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
                */
               int ii = (n_T + n_I)*dim + ia;
                 //cout << "ii= " << ii << "\n";
-                //B[ii][ii] = 1e-9;  // HACK HACK HACK! Avoid zeroes in the diagonal
               for (int j = 0; j < dim; ++j)
                 B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
               
                 // now the last rows
               ii = (n_T + n_I)*dim + n_A + ia;
-                //B[ii][ii] = 1e-9;  // HACK HACK HACK! Avoid zeroes in the diagonal
-              int jj = aiMapper->map (id)*dim;
+                int jj = aiMapper->map (id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               for (int j = 0; j < dim; ++j)
                 B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
@@ -632,71 +628,17 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     //cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
 
-    //printmatrix(cout, B, "B", "");
-    //printvector(cout, c, "c", "");
   writeMatrixToMatlab (B, "/tmp/B");
   writeVectorToFile (c, "/tmp/c");
 
   bench().report ("Stepping", "Solving", false);
 
-  /*
-    //HACK: multiply the system by transpose(B) by the left to make it symmetric.
-    // and remove zeroes from the diagonal or ILUn will hang
-  ScalarMatrix BB;
-  BB.setSize (total*dim, total*dim);
-  transposeMatMultMat(BB, B, B);
-  ScalarVector cc;
-  cc.resize (total*dim, false);
-  B.mtv (c, cc);
- 
-  writeMatrixToMatlab (BB, "/tmp/BB");
-  writeVectorToFile (cc, "/tmp/cc");
-   */
-
   try {
     dinfo.attach (cout);
     InverseOperatorResult stats;
-      //MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
     SuperLU<ScalarMatrix> slu (B, true);
     slu.apply (uu, c, stats);
     dinfo.flush();
-    /*
-    InverseOperatorResult stats;
-    MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (BB);
-    
-      //DummyPreconditioner<ScalarMatrix, ScalarVector, ScalarVector> pre;
-      //SeqSSOR<BlockMatrix, ScalarVector, ScalarVector> ssor (BB, 1, 0.95);
-      //BiCGSTABSolver<ScalarVector> bcgs (op, ilu, 1e-9, 400, 1);
-    SeqILUn<ScalarMatrix, ScalarVector, ScalarVector> ilu (BB, 1, 0.90);
-    CGSolver<ScalarVector> cgs (op, ilu, 1e-10, 50000, 1);
-    cgs.apply (uu, cc, stats);
-     */
-
-    /*
-    InverseOperatorResult stats;
-    MatrixAdapter<ScalarMatrix, ScalarVector, ScalarVector> op (B);
-      //SeqGS<ScalarMatrix, ScalarVector, ScalarVector> sgs (B, 1, 0.96);
-    SeqILUn<ScalarMatrix, ScalarVector, ScalarVector> ilu (B, 1, 0.96);
-    BiCGSTABSolver<ScalarVector> bcgs (op, ilu, 1e-8, 50000, 1);
-    bcgs.apply (uu, c, stats);
-     */
-    /*
-     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.95);
-     RestartedGMResSolver<ScalarVector> rgmres (op, ssor, 1e-8, n_T/2, 200, 0);
-     rgmres.apply (uu, c, stats);
-     */
-    /*
-     // This one seemed to work for a while
-     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.96);
-     LoopSolver<ScalarVector> lsol (op, ssor, 1e-8, 200, 1);
-     lsol.apply (uu, c, stats);
-     */
-    
-    /*
-     SeqSSOR<ScalarMatrix, ScalarVector, ScalarVector> ssor (B, 1, 0.96);
-     CGSolver<ScalarVector> cgs (op, ssor, 1e-8, 200, 2);
-     cgs.apply (uu, c, stats);
-     */
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
     exit(1);

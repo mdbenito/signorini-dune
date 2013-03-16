@@ -105,42 +105,70 @@ public:
 template <typename ctype, int dim>
 class VolumeLoad {
   typedef FieldVector<ctype, dim> coord_t;
-
+  ctype cx, cy;
 public:
+  VolumeLoad (ctype x=0, ctype y=-10) : cx (x), cy(y) { }
+
   coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
+    ret[0] = cx; ret[1] = cy; return ret;
+    
       //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
       //ret <<= zero; return ret;                               // [HW05]
       //ret[0] = 0; ret[1] = -10; return ret * 1.0e7;           // DATA3
-    ret[0] = 0; ret[1] = -10; return ret;// * 1.0e7;  // DATA4
   }
 };
 
 
-/*! A functor to model Dirichlet data */
+/*! A functor to model Dirichlet data
+ 
+ This just makes no sense. Some stuff hardcoded, some not...
+ */
 template <typename ctype, int dim>
 class DirichletFunctor {
   typedef FieldVector<ctype, dim> coord_t;
-  
+  ctype cx, cy;
+  coord_t ret;
 public:
+  DirichletFunctor (const ctype x=0.0, const ctype y=-0.07) : cx(x), cy(y) {
+    ret[0] = cx;
+    ret[1] = cy;
+  }
   coord_t operator() (const coord_t& x) const
   {
-    coord_t ret;
-    ret <<= zero; return ret;                    // [FV05, p.36]
-      //ret[0] = 0; ret[1] = -0.07; return ret;      // [HW05]
-      //ret[0] = 0; ret[1] = -.02; return ret;       // DATAxx
+    return ret;
   }
+  
+  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
+  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
+  {
+    for (int i = 0; i < geo.corners(); ++i)
+      if (! isSupported (geo.corner (i)))
+        return false;
+    
+    return true;
+  }
+  
+  inline bool isSupported (const coord_t& x) const
+  {
+    return (x[0]>0 && x[0] < 1) && (x[1]==1 || x[1]<=-1.049);
+  }
+
 };
 
 
 
-/*! A boundary vectorial functor. Implements isSupported() */
+/*! A boundary vectorial functor. Implements isSupported()
+ Hackish hackish
+ */
 template <typename ctype, int dim>
 class Tractions {
   typedef FieldVector<ctype, dim> coord_t;
-
+  ctype cx, cy;
 public:
+  Tractions (const ctype x=30, const ctype y=6.5) : cx(x), cy(y) { }
+
   inline coord_t operator() (const coord_t& x) const
   {
     coord_t ret;
@@ -157,11 +185,13 @@ public:
     
     return ret*1.0e7;
     */
-    
-    ret[0] = (0.5-x[0])*30; ret[1] = 6.5; return ret; // [HW05]
       //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
       //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
       //ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;   // DATA5
+    
+    ret[0] = cx*(0.5-x[0]);
+    ret[1] = cy;
+    return ret; // [HW05]
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -193,15 +223,16 @@ public:
 template <typename ctype, int dim>
 class NormalGap {  
   typedef FieldVector<ctype, dim> coord_t;
-
+  ctype ySupport;
 public:
-
+  NormalGap (ctype y=0.0) : ySupport(y) { }
+  
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-      //return 0.05;                       // [HW05] uses 0.05
+    return 0.05;                       // [HW05] uses 0.05
       //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
-    return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
+      //return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -210,14 +241,20 @@ public:
     for (int i = 0; i < geo.corners(); ++i)
       if (! isSupported (geo.corner(i)))
         return false;
-
     return true;
   }
-  
+
+  /* Why do I need the check with epsilon()? ctype is a double and literals are
+   double by default, so if I construct with NormalGap(-0.05) the check here
+   should work. But it does not!!!
+   */
   inline bool isSupported (const coord_t& x) const
   {
       //return false;   // [FV05]
-    return x[1] == 0;
+    bool ret = (std::abs(x[1] - ySupport) <= std::numeric_limits<ctype>::epsilon());
+//    cout << "   isSupported(" << x << ") with ySupport= " << ySupport << ": "
+//         << (ret ? "YES" : "NO") << LF;
+    return ret && (x[0] != 0.0) && (x[0] != 1.0);
   }
 };
 

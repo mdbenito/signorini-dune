@@ -174,6 +174,14 @@ public:
     return r;
   }
   
+  inline bool isSupported (const coord_t& local) const
+  {
+    double tmp = 0.0;
+    for (int i = 0; i < dim; ++i)
+      tmp += std::abs((mask & (1u<<i))*1.0 - local[i]);
+    return tmp <= 1.0;  // +- machine eps?
+  }
+  
 private:
   unsigned long mask;  //!< Would break for dim > ulong bitsize
 };
@@ -362,6 +370,14 @@ public:
         r[i] += monome (copy);
 
     return r;
+  }
+
+  inline bool isSupported (const coord_t& local) const
+  {
+    double tmp = 0.0;
+    for (int i = 0; i < dim; ++i)
+      tmp += std::abs((mask & (1u<<i))*1.0 - local[i]);
+    return tmp <= 1.0;  // +- machine eps?
   }
   
 private:

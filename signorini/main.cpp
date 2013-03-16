@@ -42,7 +42,7 @@ pdo.SetPoints(newPoints)
 #include "shapefunctions.hpp"
 #include "penaltymethod.hpp"
 #include "activeset.hpp"
-  //#include "twobodies.hpp"
+#include "twobodies.hpp"
 
   //// stdlib includes
 
@@ -52,8 +52,9 @@ using std::string;
 int main (int argc, char** argv)
 {
   const int          dim = 2;
-    //const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
+  //const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
   const double         E = 200;         // See [HW04, p.3154]
+  const double        E2 = 2000;         // See [HW04, p.3154]
   const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW04]
   //const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
   //const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
@@ -71,10 +72,13 @@ int main (int argc, char** argv)
   coord_t       origin (0.0);
   coord_t     topright (1.0);
   
-  grid_t grid (N, origin, topright);
-  grid.globalRefine (7);
-
-  const GV& gv = grid.leafView();
+  grid_t gridSlave (N, origin, topright);
+  gridSlave.globalRefine (3);
+  
+  origin[1] -= 1.05;
+  topright[1] -= 1.05;
+  grid_t gridMaster (N, origin, topright);
+  gridMaster.globalRefine (3);
 
   /* This won't work... (AluGrid seems not to be properly configured)
 
@@ -109,8 +113,8 @@ int main (int argc, char** argv)
           PMSolver;
   typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
           IASolver;
-    // typedef TwoBodiesIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
-    //    TwoSolver;
+  typedef TwoBodiesIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
+          TwoSolver;
 
     //Should be:
     //SignoriniIASet<GV, ProblemData, ShapeSet> IASolver;
@@ -119,28 +123,35 @@ int main (int argc, char** argv)
     //testShapes<ctype, dim, ShapeSet>();
     //exit(1);
 
-  HookeT a (E, nu);
-  VolumeF        f;
-  BoundaryF      p;
-  Gap            g;
-    //Dirichlet      d;
-  
-    //PMSolver  fem (gv, a, f, p, g, d, eps);
-  IASolver fem2 (gv, a, f, p, g);
+  HookeT    a (E, nu);
+  HookeT    a2 (E2, nu);
+  VolumeF   f (0, 10);
+  Dirichlet d (0, -1.02);
+  Dirichlet d2 (0, -0.07);
+  BoundaryF p (40, 5);
+  BoundaryF p2 (30, 6.5);
+  Gap       g (-0.05);
+  Gap       g2 (0.0);
 
-    //// Misc.
-
-    //  PostProcessor<GV, HookeT, ShapeSet> post (gv, a);
   
+  
+    //PMSolver  fem (grid.leafView(), a, f, p, g, d, eps);
+    //IASolver fem2 (grid.leafView(), a, f, p, g);
+  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
+                    a, a2, f, f, d, d2, p, p2, g, g2, 4);
+
     //// Solution
   
-  try {   // Pokemon Exception Handling!!
-    cout << "Gremlin population: " << grid.size(dim) << "\n";
+  try {   // Pokemon Exception Handling
+    cout << "Gremlin population: " << gridSlave.size(dim) << "\n";
+    /* Penalty method, one body
       //fem.initialize();
       //fem.solve (maxsteps, tolerance);
-      //fem2.initialize ();  // not needed anymore
-    fem2.solve ();
-
+     */
+    /* Active/inactive, one body
+      //fem2.solve ();
+     */
+    twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

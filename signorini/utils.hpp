@@ -10,6 +10,7 @@
 #include <dune/common/fmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/preconditioners.hh>
+#include <dune/common/exceptions.hh>
 
 #include <iostream>
 #include <cmath>
@@ -17,6 +18,8 @@
 #include <fstream>
 #include <set>
 #include <vector>
+
+#define LF std::endl
 
 using namespace Dune;
 using std::cout;
@@ -132,69 +135,6 @@ std::string operator+ (const std::string& a, T b)
   return oss.str();
 }
 
-/*! Wrap a BCRSMatrix class and offer a window into it.
- 
- Simply wraps operator[] and adds offsets.
- */
-template <class T>
-class MatrixWindow : public T
-{
-  typedef typename T::row_type row_type;
-  typedef typename T::size_type size_type;
-
-  class RowWindow : public row_type
-  {
-  public:
-    int offset;
-    row_type* r;
-
-    RowWindow () : offset(0) { }
-    T& operator[] (size_type i) { return (*r)[i+offset]; }
-    const T& operator[] (size_type i) const { return (*r)[i+offset]; }
-  };
-
-  const T& M;
-  const int roffset;
-  const int coffset;
-  
-  mutable RowWindow row;
-
-public:
-  MatrixWindow (const T& m, int r, int c) : M(m), roffset(r), coffset(c)
-  {
-    row.offset = coffset;
-  }
-  
-  RowWindow& operator[] (size_type i)
-  {
-    row.r = &M[i + roffset];
-    return *row;
-  }
-  
-  const RowWindow& operator[] (size_type i) const
-  {
-    row.r = &M[i + roffset];
-    return *row;
-  }
-};
-
-template <class ctype, int R, int C>
-class MatrixFlattener : BCRSMatrix<ctype>
-{
-  typedef BCRSMatrix<FieldMatrix<ctype, R, C> > BaseMatrix;
-  const BaseMatrix& M;
-
-public:
-  MatrixFlattener (const BaseMatrix& from) : M(from)
-  {
-    setSize (M.rows() * R, M.columns() * C);
-      // 1. Set sparsity pattern from M
-    
-      // 2. Fill from M
-  }
-};
-
-
 template<class M, class X, class Y, int l=1>
 class DummyPreconditioner : public Preconditioner<X,Y> {
 public:
@@ -209,5 +149,183 @@ public:
   virtual void post (X& x) { }
 };
 
+/* Now, THIS is ugly... */
+template <class T>
+class TwoRefs {
+  const T& a;
+  const T& b;
+  
+public:
+  TwoRefs (const T& _a, const T& _b) : a(_a), b(_b) { }
+    //TwoRefs (T& _a, T& _b) : a(_a), b(_b) { }
+  TwoRefs (const TwoRefs<T>& other) : a(other.a), b(other.b) { }
+  TwoRefs& operator= (const T& other) { a = other.a; b = other.b; return *this;}
+
+  const T& operator[] (int idx) const throw (Exception) {
+    if (idx == 0) return a;
+    if (idx == 1) return b;
+    throw (new Exception ());
+  }
+/*
+  T& operator[] (int idx) throw (Exception) {
+    if (idx == 0) return a;
+    if (idx == 1) return b;
+    throw (new Exception ());
+  }
+*/
+};
+
+  // Flatten a BCRSMatrix<B> to a BCRSMatrix<B::field_type>
+template <class B, class BB>
+void flattenMatrix (const BCRSMatrix<B>& A, BCRSMatrix<BB>& dest)
+{
+  int roff = 0;
+  int coff = 0;
+
+    // Flatten the adjacency pattern
+  std::map<int, std::set<int> > adjacencyPattern;
+  
+  for (int r = 0; r < A.N(); ++r) {
+//    cout << "At row: " << r << LF;
+    int rtmp = 0;
+    coff = 0;
+    for (int c = 0; c < A.M(); ++c) {
+//      cout << "   At column: " << c << LF;
+      if (! A.exists(r, c)) {    // Empty entry. Traverse the column to find its width
+        bool done=false;
+        int l = 0;
+        for (; l < A.N(); ++l) if (A.exists (l,c)) { done = true; break; }
+        if (done) {
+          coff += A[l][c].M();
+//          cout << "   EMPTY entry. Colum offset is now: " << coff << LF;
+        } else {
+          cout << "WTF?! empty column in A" << LF;
+          exit (1);
+        }
+      } else {
+        rtmp = A[r][c].N();
+        for (int rr = 0; rr < A[r][c].N(); ++rr) {
+//          cout << "      At sub-row: " << rr << LF;
+          for (int cc = 0; cc < A[r][c].M(); ++cc) {
+//            cout << "         At sub-column: " << cc << LF;
+            if (A[r][c].exists(rr, cc)) {
+//              cout << "         Inserting (" << roff+rr << ", " << coff+cc << ")" << LF;
+              adjacencyPattern[roff+rr].insert((int)coff+cc);
+            }
+          }
+        }   // End sub-block in current row
+        coff += A[r][c].M();
+//        cout << "   Column offset is now: " << coff << LF;
+      }
+    } // End row
+    roff += rtmp;
+//    cout << "Row offset is now: " << roff << LF;
+  }
+  
+//  cout << "Size: (" << roff << ", " << coff << ")\n";
+  dest.setBuildMode (BCRSMatrix<BB>::row_wise);
+  dest.setSize (roff, coff);
+  
+  for (auto row = dest.createbegin(); row != dest.createend(); ++row)
+    for (const auto& col : adjacencyPattern[row.index()])
+      row.insert (col);
+
+    // Copy A
+
+  roff = 0;
+  coff = 0;
+  for (int r = 0; r < A.N(); ++r) {
+//    cout << "At row: " << r << LF;
+    int rtmp = 0;
+    coff = 0;
+    for (int c = 0; c < A.M(); ++c) {
+//      cout << "   At column: " << c << LF;
+      if (! A.exists(r, c)) {    // Empty entry. Traverse the column to find its width
+        bool done=false;
+        int l = 0;
+        for (; l < A.N(); ++l) if (A.exists (l,c)) { done = true; break; }
+        if (done) {
+          coff += A[l][c].M();
+//          cout << "   EMPTY entry. Colum offset is now: " << coff << LF;
+        } else {
+          cout << "WTF?! empty column in A" << LF;
+          exit (1);
+        }
+      } else {
+        rtmp = A[r][c].N();
+        for (int rr = 0; rr < A[r][c].N(); ++rr) {
+//          cout << "      At sub-row: " << rr << LF;
+          for (int cc = 0; cc < A[r][c].M(); ++cc) {
+//            cout << "         At sub-column: " << cc << LF;
+            if (A[r][c].exists(rr, cc)) {
+//              cout << "         Copying (" << roff+rr << ", " << coff+cc << ")" << LF;
+              dest[roff+rr][coff+cc] = A[r][c][rr][cc];
+            }
+          }
+        }   // End sub-block in current row
+        coff += A[r][c].M();
+//        cout << "   Column offset is now: " << coff << LF;
+      }
+    } // End row
+    roff += rtmp;
+//    cout << "Row offset is now: " << roff << LF;
+  }
+}
+
+
+template <class B>
+void subMatrix (const BCRSMatrix<B>& A, BCRSMatrix<B>& dest, int r, int c, int n, int m)
+{
+  dest.setBuildMode (BCRSMatrix<B>::random);
+  dest.setSize (n, m);
+  
+  for (int i = 0; i < n; ++i) {
+    int nz = 0;
+    for (int j = 0; j < m; ++j) {
+      if (A.exists (r+i, c+j))
+        ++nz;
+    }
+    dest.setrowsize (i, nz);
+  }
+  dest.endrowsizes();
+  
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < m; ++j)
+      if (A.exists (r+i, c+j))
+        dest.addindex (i, j);
+  dest.endindices();
+  
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < m; ++j)
+      if (A.exists (r+i, c+j))
+        dest[i][j] = A[r+i][c+j];
+}
+
+template <class B>
+void transpose (BCRSMatrix<B>& dest, const BCRSMatrix<B>& A) {
+  dest.setBuildMode (BCRSMatrix<B>::random);
+  dest.setSize (A.M(), A.N());
+
+  for (int col = 0; col < A.M(); ++col) {
+    int nz = 0;
+    for (int row = 0; row < A.N(); ++row) {
+      if (A.exists (row, col))
+        ++nz;
+    }
+    dest.setrowsize (col, nz);
+  }
+  dest.endrowsizes();
+
+  for (int col = 0; col < A.M(); ++col)
+    for (int row = 0; row < A.N(); ++row)
+      if (A.exists (row, col))
+        dest.addindex (col, row);
+  dest.endindices();
+  
+  for (int col = 0; col < A.M(); ++col)
+    for (int row = 0; row < A.N(); ++row)
+      if (A.exists (row, col))
+        dest[col][row] = A[row][col];
+}
 
 #endif  // SIGNORINI_UTILS_HPP
