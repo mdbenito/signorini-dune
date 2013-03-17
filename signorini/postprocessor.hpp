@@ -89,7 +89,6 @@ template<class TGV, class TET, class TMP, class TSS>
 void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
 {
   delete u;
-  cout << "============= u deleted\n";
   u = new CoordVector (v);
   bench().report ("Postprocessing", string("New solution has size: ") + u->size());
 }
@@ -156,7 +155,6 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
-//    const auto&   pt = it->geometry().local (it->geometry().center());
     const int   vnum = ref.size (dim);
 
     double r;

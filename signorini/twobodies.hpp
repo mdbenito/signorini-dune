@@ -421,9 +421,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::determineActive ()
   twoMapper->update (active, inactive, other);
   
   cout << "\nInactive: " << inactive[SLAVE].size() << ": ";
-  for (auto x : inactive[SLAVE]) cout << twoMapper->map (SLAVE, x) << " ";
+    //for (auto x : inactive[SLAVE]) cout << twoMapper->map (SLAVE, x) << " ";
   cout << "\nActive: " << active[SLAVE].size() << ": ";
-  for (auto x : active[SLAVE])   cout << twoMapper->map (SLAVE, x) << " ";
+    //for (auto x : active[SLAVE])   cout << twoMapper->map (SLAVE, x) << " ";
   cout << "\n";
 }
 
@@ -604,10 +604,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
   
   /* FIXME: because we traverse intersections, nodes in the master contribute 
    four times (one if the node is at the boundary of the gap) to each node in
-   the slave. We use the hack with std::set<int> visited to fix this.
+   the slave. Using the hack with std::set<int> visited to fix this seems not to
+   work very well
    */
-
-  std::set<int> visited;
   for (auto it_s = gv[SLAVE].template begin<0>(); it_s != gv[SLAVE].template end<0>(); ++it_s) {
     for (auto is_s = gv[SLAVE].ibegin (*it_s) ; is_s != gv[SLAVE].iend (*it_s) ; ++is_s) {
       if (is_s->boundary ()) {
@@ -647,9 +646,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
 //                          << "    multbasis[" << subi_s
 //                          << "]= " << multBasis[subi_s].evaluateFunction (local_s) << LF;
                           if (basis[subi_m].isSupported (local_v_m)) {
-//                              && (visited.find(ii_s) == visited.end())) {
-                            visited.insert(ii_s);
-
                           MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_m) *
                                            multBasis[subi_s].evaluateFunction (local_s) *
                                            x.weight () *
@@ -690,7 +686,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
 /*! HACK of the HACKS...
  
  This is terrible: we assembled a block matrix and now we flatten it. Should've
- started with a scalar matrix!!!
+ started with a scalar matrix!!! Also, instead of using Q we should carry out the
+ multiplication by blocks. Currently, with a mesh of ~20000 nodes each of the
+ matMultMats involving A and Q require ~30 sec!!!
  
  At step k=0, the system matrix (without boundary conditions) is
  
@@ -749,8 +747,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   assert (D.N() == n_S);
   assert (n_M > 0);
 
-  cout << "n_T= " << n_T << ", n_N= " << n_N << ", n_M= " << n_M
-       << ", n_S= " << n_S << ", n_I= " << n_I << ", n_A= " << n_A << LF;
+//  cout << "n_T= " << n_T << ", n_N= " << n_N << ", n_M= " << n_M
+//       << ", n_S= " << n_S << ", n_I= " << n_I << ", n_A= " << n_A << LF;
   
     // M = D^-1*MM
   BlockMatrix M;
@@ -761,7 +759,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
   BlockMatrix MT;
   transpose (MT, M);
-  cout << "M was transposed.\n";
+//  cout << "M was transposed.\n";
   BlockMatrix Q;
   Q.setSize (n_T, n_T);
   Q.setBuildMode (BlockMatrix::row_wise);
@@ -797,7 +795,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   matMultMat(A, Q, AA);  // A is now the new Â.
   
   writeMatrixToMatlab(A, "/tmp/AA");
-  cout << "We have Â\n";
+//  cout << "We have Â\n";
   
   ScalarVector uu, c;
   c.resize (total*dim, false);
@@ -867,7 +865,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       adjacencyPattern[ii+n_A].insert (twoMapper->map (SLAVE, id)*dim+1);
     }
   }
-  cout << "Adjacency computed.\n";
+//  cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row)
     for (const auto& col : adjacencyPattern[row.index()])
@@ -890,7 +888,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     }
   }
   
-  cout << "A was copied.\n";
+//  cout << "A was copied.\n";
   
     // Copy D
   for (int r = 0; r < n_I+n_A; ++r)
@@ -900,7 +898,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     }
   
   
-  cout << "D was copied.\n";
+//  cout << "D was copied.\n";
   
     // Copy Id_I
   for (int r = 0; r < n_I; ++r)
@@ -967,7 +965,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       }
     }
   }
-  cout << "B initialized (2/2).\n";
+//  cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
   
   /*
@@ -1031,8 +1029,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
   
   writeVectorToFile (u, "/tmp/u");
-  writeVectorToFile (tu, "/tmp/tu");
-  writeVectorToFile (tu2, "/tmp/tu2");
 }
 
 
@@ -1058,6 +1054,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
   
   const int maxiter = 10;
   int cnt=0;
+  bench().start ("Solving");
   while (true && ++cnt <= maxiter) {
     bench().start ("Active set initialization", false);
     determineActive();  // needs g, n_u, n_m computed from last iteration or =0
@@ -1084,14 +1081,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
     }
     (void) post_m.computeError (cu[MASTER]);
     post_m.computeVonMisesSquared ();
-    (void) post_m.writeVTKFile (filename[MASTER], cnt);
+    post_m.writeVTKFile (filename[MASTER], cnt);
     (void) post_s.computeError (cu[SLAVE]);
     post_s.computeVonMisesSquared ();
-    (void) post_s.writeVTKFile (filename[SLAVE], cnt);
+    post_s.writeVTKFile (filename[SLAVE], cnt);
 
     bench().stop ("Postprocessing");
-
   }
+  bench().stop ("Solving");
 }
 #endif /* defined (TWOBODIES_ACTIVESET_HPP) */
 
