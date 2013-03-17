@@ -53,8 +53,8 @@ int main (int argc, char** argv)
 {
   const int          dim = 2;
 
-  const double         E = 500;         // See [HW05, p.3159]
-  const double        E2 = 500;         // See [HW05, p.3159]
+  const double         E = 800;         // See [HW05, p.3159]
+  const double        E2 = 800;         // See [HW05, p.3159]
   const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
   const double       nu2 = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
   
@@ -76,13 +76,13 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t gridSlave (N, origin, topright);
-  gridSlave.globalRefine (5);
+  gridSlave.globalRefine (6);
   
     // Careful changing this! Check the supports of the boundary functors!!
   origin[1] -= 1;
   topright[1] -= 1;
   grid_t gridMaster (N, origin, topright);
-  gridMaster.globalRefine (5);
+  gridMaster.globalRefine (6);
 
   /* This won't work... (AluGrid seems not to be properly configured)
 
@@ -133,8 +133,8 @@ int main (int argc, char** argv)
   VolumeF   f2 (0, 0);
   Dirichlet d (0, 0);
   Dirichlet d2 (0, 0);
-  BoundaryF p (-4, -12);
-  BoundaryF p2 (4, -8);
+  BoundaryF p (-3, -7);
+  BoundaryF p2 (3, -4);
   Gap       g (-0.0, 0.0);
   Gap       g2 (0.0, 0.0);
 
