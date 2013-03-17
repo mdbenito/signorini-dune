@@ -118,7 +118,17 @@ private:
  linear on the restriction to each edge originating at the vertex where they are
  one, since they are polynomes of order N with N-1 components fixed.
  
- ...
+ We extend the basis functions out of the reference element as "huts", i.e.
+ flipping the slope:
+ 
+        ^
+       /|\
+      / | \
+     /  |  \
+      --*---*-
+        ^   ^
+        |   |
+        element nodes
  
  The mask data member is actually just the coordinates of the vertex where this
  shape function is 1, i.e. we use the bits:
@@ -142,9 +152,16 @@ public:
 
   ctype evaluateFunction (const coord_t& local) const
   {
+    if (!isSupported(local)) return 0.0;
     ctype r = 1.0;
-    for (int i = 0; i < dim; ++i)
-      r *= (mask & (1u<<i)) ? local[i] : (1-local[i]);
+    for (int i = 0; i < dim; ++i) {
+      if (local[i]<0)
+        r *= (mask & (1u<<i)) ? local[i] : (1.0 + local[i]);
+      else if (local[i]>1)
+        r *= 2.0 - local[i];
+      else
+        r *= (mask & (1u<<i)) ? local[i] : (1.0 - local[i]);
+    }
     
       //std::cout << "Evaluating shape #" << mask << " on " << local
       //          << " returns " << r << "\n";
@@ -152,8 +169,13 @@ public:
     return r;
   }
   
+  
+    /////// TODO!!!!!!!!!! implement extension of the gradient!!!
+  
+  
   inline coord_t evaluateGradient (const coord_t& local) const
   {
+      //if (!isSupported(local)) return coord_t(0.0);
     coord_t r;
     for (int i = 0; i < dim; ++i) {
       ctype t = 1.0;
@@ -176,10 +198,10 @@ public:
   
   inline bool isSupported (const coord_t& local) const
   {
-    double tmp = 0.0;
     for (int i = 0; i < dim; ++i)
-      tmp += std::abs((mask & (1u<<i))*1.0 - local[i]);
-    return tmp <= 1.0;  // +- machine eps?
+      if (std::abs(((mask & (1u<<i)) ? 1.0 : 0) - local[i]) > 1)
+        return false;
+    return true;
   }
   
 private:
@@ -347,19 +369,50 @@ public:
    */  
   ctype evaluateFunction (const coord_t& local) const
   {
-    ctype r = 0.0;
-    coord_t copy (local);
-    for (int i = 0; i < dim; ++i)
-      copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
+    if (!isSupported(local)) return 0.0;
     
-    for (auto& monome : poly)
-      r += monome (copy);
-
-    return r;
+    coord_t c (local);
+    /*
+     ctype r=0.0;
+     for (int i = 0; i < dim; ++i)
+     copy[i] = (mask & (1u<<i)) ? (1 - local[i]) : local[i];
+     
+     for (auto& monome : poly)
+     r += monome (copy);
+     */
+    
+      // HACK: quick solution to extend the support. The thing with the polynomes
+      // sucked anyway
+    switch (mask) {
+      case 0:  // node x=0, y=0
+        if (c[0]<0) c[0] *= -1.0;
+        if (c[1]<0) c[1] *= -1.0;
+        break;
+      case 1:  // node x=1, y=0
+        if (c[0]>1) c[0] -= 1.0;
+        else        c[0] = 1.0 - c[0];
+        if (c[1]<0) c[1] *= -1.0;
+        break;
+      case 2:  // node x=0, y=1
+        if (c[0]<0) c[0] *= -1.0;
+        if (c[1]>1) c[1] -= 1.0;
+        else        c[1] = 1.0 - c[1];
+        break;
+      case 3:  // node x=1, y=1
+        if (c[0]>1) c[0] -= 1.0;
+        else        c[0] = 1.0 - c[0];
+        if (c[1]>1) c[1] -= 1.0;
+        else        c[1] = 1.0 - c[1];
+        break;
+      default:
+        throw (new Exception());
+    }
+    return -3.0 * c[0] - 3.0 * c[1] + 3.0 * c[0] * c[1] + 2.0;
   }
   
   inline coord_t evaluateGradient (const coord_t& local) const
   {
+//    if (!isSupported(local)) return coord_t(0.0);
     coord_t r(0);
     coord_t copy (local);
     for (int i = 0; i < dim; ++i)
@@ -374,10 +427,10 @@ public:
 
   inline bool isSupported (const coord_t& local) const
   {
-    double tmp = 0.0;
     for (int i = 0; i < dim; ++i)
-      tmp += std::abs((mask & (1u<<i))*1.0 - local[i]);
-    return tmp <= 1.0;  // +- machine eps?
+      if (std::abs(((mask & (1u<<i)) ? 1.0 : 0) - local[i]) > 1)
+        return false;
+    return true;
   }
   
 private:
@@ -473,12 +526,13 @@ template <class C, int D, class TS>
 Q1ShapeFunctionSet<C, D, TS>* Q1ShapeFunctionSet<C, D, TS>::_instance = 0;
 
 template <class ctype, int dim, class ShapeSet>
-bool testShapes()
+bool testShapes(const std::string& filename)
 {
   const auto& basis = ShapeSet::instance ();
   GeometryType gt (basis.basicType, dim);
   const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
-  FieldVector<ctype, dim> x;
+  typedef FieldVector<ctype, dim> coord_t;
+  coord_t x;
   
   cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
   cout << "Testing vertices:\n";
@@ -488,6 +542,22 @@ bool testShapes()
       cout << "   Basis[" << i << "](" << x << ") = "
            << basis[i].evaluateFunction (x) << "\n";
     }
+  }
+  
+  cout << "Testing grid:\n";
+  FieldMatrix<ctype, 401, 401> r;
+
+  for (int i=0; i < basis.N; ++i) {
+    for (int x = -200; x <= 200; ++x) {
+      for (int y = -200; y <= 200; ++y) {
+        coord_t v;
+        v <<= x*0.01 , y*0.01;
+        r[x+200][y+200] = basis[i].evaluateFunction (v);
+//        cout << "   Basis[" << i << "](" << x << ", " << y << ") = "
+//            << basis[i].evaluateFunction (v) << "\n";
+      }
+    }
+      writeMatrixToMatlab(r, filename + i);
   }
   
   cout << "Testing gradient:\n";
