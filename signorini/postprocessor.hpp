@@ -59,7 +59,7 @@ private:
   
   
   CoordVector* u;      //!< Solution
-  ScalarVector* vm;    //!< Von Mises stress of solution
+  ScalarVector vm;    //!< Von Mises stress of solution
 
 public:
   PostProcessor (const TGV& _gv, const TMP& _m, const TET& _a);
@@ -72,8 +72,6 @@ public:
 protected:
   void check (const CoordVector& v) const;
   void setSolution (const CoordVector& v);
-  
-  template<class V> FlatVector* asVector(const V* u) const;
 };
 
 template<class TGV, class TET, class TMP, class TSS>
@@ -82,13 +80,16 @@ PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
                                                   const TET& _a)
   : gv (_gv), mapper(_m), a (_a), u (NULL), vm (NULL)
 {
-
+  VertexMapper defaultMapper (gv.grid());
+  const auto totalVertices = defaultMapper.size ();
+  vm.resize(totalVertices);
 }
 
 template<class TGV, class TET, class TMP, class TSS>
 void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
 {
   delete u;
+  cout << "============= u deleted\n";
   u = new CoordVector (v);
   bench().report ("Postprocessing", string("New solution has size: ") + u->size());
 }
@@ -131,10 +132,11 @@ double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
   return r;
 }
 
-/*! Returns the *squared* von Mises stress
-
- Brute force!
+/*! Returns the *squared* von Mises stress. (brute force)
  
+ FIXME: the discontinuity of the gradients of the basis functions at the nodes
+ leads to very weird results. How can I fix it?
+
  Also: shouldn't I normalize the contribution of each vertex?
  */
 template<class TGV, class TET, class TMP, class TSS>
@@ -143,30 +145,23 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
   bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
   VertexMapper defaultMapper (gv.grid());
-    //std::set<int> visited;
   
   const auto totalVertices = defaultMapper.size ();
   
   if (u == NULL || u->size() < totalVertices)
     DUNE_THROW (Exception, "call PostProcessor::computeError() first");
 
-  delete vm;
-  vm = new ScalarVector (totalVertices, totalVertices);
-
-  for (auto& p : *vm)
-    p = FieldVector<ctype,1>(0.0);
+  vm = 0;
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
+//    const auto&   pt = it->geometry().local (it->geometry().center());
     const int   vnum = ref.size (dim);
 
     double r;
     for (int i = 0; i < vnum; ++i) {
       auto ii = defaultMapper.map (*it, i, dim);
-        //if (visited.count(ii) != 0)
-        //break;
-        //visited.insert (ii);
       auto iipos = ref.position (i, dim);
       block_t  s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
       double   t = trace(s);
@@ -180,7 +175,7 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
         }
       }
        */
-      (*vm)[ii] += r / vnum;
+      vm[ii] += r / vnum;
     }
   }
   
@@ -189,6 +184,7 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 
 
   /// This is about the ugliest code I've written in a while...
+  /// UPD: scrap that. I just wrote something far worse. :(((((
 
 template<class TGV, class TET, class TMP, class TSS>
 std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, int step) const
@@ -197,59 +193,38 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
   VTKWriter<typename TGV::Grid::LeafGridView> vtkwriter (gv.grid().leafView());
   
-  FlatVector* uu;//, *vvmm;
-
-  if (u != NULL) {
-    uu = asVector(u);
-    vtkwriter.addVertexData (*uu, "u", dim);
-  }
-
   std::vector<int> indices (gv.size(dim));
   std::vector<int> mapped (gv.size(dim));
   VertexMapper defaultMapper (gv.grid());
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int from = mapper.map (*it);
     int to = defaultMapper.map (*it);
-      //cout << "Mapping vertex " << from << " to " << to << "\n";
     mapped[to] = from;
     indices[to] = to;
   }
+
   vtkwriter.addVertexData (indices, "idx", 1);
   vtkwriter.addVertexData (mapped, "map", 1);
 
-  /* For some reason, THIS CRASHES
-  if (vm != NULL) {
-    vvmm = asVector(vm);
-    vtkwriter.addVertexData (*vvmm, "vm", 1);
+  FlatVector uu (gv.size(dim) * CoordVector::block_type::dimension);
+  FlatVector vvmm (gv.size(dim));
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    int from = mapper.map (*it);
+    int to = defaultMapper.map (*it);
+    for (int c = 0; c < CoordVector::block_type::dimension; ++c) {
+      uu[to*dim+c] = (*u)[from][c];
+      vvmm[to*dim] = vm[from];
+    }
   }
-   */
 
+  vtkwriter.addVertexData (uu, "u", dim);
+  vtkwriter.addVertexData (vvmm, "vm", 1);
+  
   vtkwriter.write (oss.str(), VTK::appendedraw);
-
-  if (u != NULL) delete uu;
-    //  if (vm != NULL) delete vvmm;
-
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
 }
 
-/*! Copies the solution remapping to the VertexMapper
- 
- */
-template<class TGV, class TET, class TMP, class TSS>
-template <class V>
-std::vector<typename TGV::ctype>*   // FlatVector*
-PostProcessor<TGV, TET, TMP, TSS>::asVector (const V* v) const {
-  auto ret = new FlatVector (gv.size(dim)*V::block_type::dimension);
-  VertexMapper defaultMapper (gv.grid());
-  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
-    int from = mapper.map (*it);
-    int to = defaultMapper.map (*it);
-    for (int c = 0; c < V::block_type::dimension; ++c)
-      (*ret)[to*dim+c] = ((*v)[from])[c];
-  }
-  return ret;
-}
 
 /*! Old sanity check.
  Wrong setup of the stiffness matrix would lead to NaN results in some places.
