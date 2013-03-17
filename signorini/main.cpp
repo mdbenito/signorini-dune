@@ -78,8 +78,9 @@ int main (int argc, char** argv)
   grid_t gridSlave (N, origin, topright);
   gridSlave.globalRefine (5);
   
-  origin[1] -= 1.01;
-  topright[1] -= 1.01;
+    // Careful changing this! Check the supports of the boundary functors!!
+  origin[1] -= 1;
+  topright[1] -= 1;
   grid_t gridMaster (N, origin, topright);
   gridMaster.globalRefine (5);
 
@@ -122,26 +123,27 @@ int main (int argc, char** argv)
     //Should be:
     //SignoriniIASet<GV, ProblemData, ShapeSet> IASolver;
   
-    //testShapes<ctype, dim, LSShapeSet>();
-    //testShapes<ctype, dim, ShapeSet>();
-    //exit(1);
+//  testShapes<ctype, dim, ShapeSet>("/tmp/basis");
+//  testShapes<ctype, dim, LSShapeSet>("/tmp/multbasis");
+//  exit(1);
 
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
-  VolumeF   f (0, 10);
+  VolumeF   f (0, 0);
+  VolumeF   f2 (0, 0);
   Dirichlet d (0, 0);
   Dirichlet d2 (0, 0);
-  BoundaryF p (25, 8);
-  BoundaryF p2 (25, -8);
-  Gap       g (-0.01, 0.01);
-  Gap       g2 (0.0, 0.01);
+  BoundaryF p (-4, -12);
+  BoundaryF p2 (4, -8);
+  Gap       g (-0.0, 0.0);
+  Gap       g2 (0.0, 0.0);
 
   
   
-    //PMSolver  fem (grid.leafView(), a, f, p, g, d, eps);
-    //IASolver fem2 (grid.leafView(), a, f, p, g);
+    //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
+    //IASolver fem2 (gridSlave.leafView(), a, f, p, g);
   TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
-                    a, a2, f, f, d, d2, p, p2, g, g2, 4);
+                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   

@@ -152,11 +152,10 @@ public:
   
   inline bool isSupported (const coord_t& x) const
   {
-    return (x[0]>0 && x[0] < 1) && (x[1]==1 || x[1]<=-1.049);
+    return /* (x[0]>0 && x[0] < 1) && */ (x[1]==1.0 || x[1]<=-1.0);
   }
 
 };
-
 
 
 /*! A boundary vectorial functor. Implements isSupported()
@@ -188,9 +187,23 @@ public:
       //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
       //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
       //ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;   // DATA5
+    /* // [HW05]
     ret[0] = cx *(0.5-x[0]);
     ret[1] = cy;
-    return ret; // [HW05]
+     */
+    
+      // HACK
+    if (cx>0 && x[0]==0) {
+      ret[0] = cx; ret[1] = cy;
+    } else if (cx>0 && x[0] == 1) {
+      ret[0] = 0; ret[1] = 0;
+    } else if (cx<0 && x[0] == 0) {
+      ret[0] = 0; ret[1] = 0;
+    } else {
+      ret[0] = cx; ret[1] = cy;
+    }
+
+    return ret;
   }
 
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
@@ -254,7 +267,7 @@ public:
     bool ret = (std::abs(x[1] - ySupport) <= std::numeric_limits<ctype>::epsilon());
 //    cout << "   isSupported(" << x << ") with ySupport= " << ySupport << ": "
 //         << (ret ? "YES" : "NO") << LF;
-    return ret && (x[0] != 0.0) && (x[0] != 1.0);
+    return ret;// && (x[0] != 0.0) && (x[0] != 1.0);
   }
 };
 
