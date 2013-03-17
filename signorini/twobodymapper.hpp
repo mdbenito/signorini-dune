@@ -207,11 +207,14 @@ void TwoBodyMapper<codim, TGV>::update (const IdSet* active,
 template <int codim, class TGV>
 int TwoBodyMapper<codim, TGV>::calcOffset (int body, int idx) const
 {
-    //cout << "idx= " << idx;
+//  cout << "idx= " << idx;
   if (idx >= offsetInner[body])
     idx = idx + sizeOther[body] - offsetInner[body];
-    //cout << " --> " << idx - offsetBody[body] << " (" << body << ")" << LF;
-  return idx - offsetBody[body];
+  else
+    idx -= offsetBody[body];
+  
+//  cout << " --> " << idx  << " (" << body << ")" << LF;
+  return idx;
 }
 
 

@@ -230,7 +230,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::TwoBodiesIASet (const TG
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGF, class TSS, class TLM>
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
 {
-  const auto& multBasis = TLM::instance();
+  const auto& basis = TSS::instance();
   
   const int n_Tm = gv[MASTER].size (dim);
   const int n_Ts = gv[SLAVE].size (dim);
@@ -267,12 +267,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
      traverse the boundary of the master looking for basis functions whose support
      intersects.
      
+     ****
+     
      FIXME: we check whether the support of a basis function in the master side
      contains the coordinates of a node in the slave side, but we should rather
      check at the *quadrature points* in the slave side to avoid marking pairs
      slave node / master node which actually won't count
      
-     FIXME: what happens when the gap is smaller than the mesh size? In the
+     FIXME: what happens when the gap is bigger than the mesh size? In the
      following situation, everything is fine: (slave to the left, master to the
      right)
      
@@ -288,15 +290,15 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
               |
               gap
      
-     But if the gap where larger than h_s, then the support of Ψ wouldn't
+     But if the gap were larger than h_s, then the support of Ψ wouldn't
      intersect the boundary of the master and the matrix M would be empty.
+     
+     ****
      
      NOTE: for regular SGrids we could simply traverse all nodes of the slave
      then all of the master and if h is the grid width parameter, then
      if |x_0-x_1|+|y_0-y_1| <= h, (the supports of the basis functions intersect)
-     add the entry.
-     
-     Should be the same.
+     add the entry. This should be the same, right?
      
      NOTE2: I should be able to exploit this computation later when actually
      building M in order not to have to traverse all the grid (squared) again, 
@@ -310,12 +312,13 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
         const auto& igeo_s = is_s->geometry ();
         if (gap[SLAVE].isSupported (igeo_s)) {
           const auto& ref_s = GenericReferenceElements<ctype, dim>::general (it_s->type());
-          
+//          cout << " ********\n";
           for (auto it_m = gv[MASTER].template begin<0>(); it_m != gv[MASTER].template end<0>(); ++it_m) {
             for (auto is_m = gv[MASTER].ibegin (*it_m) ; is_m != gv[MASTER].iend (*it_m) ; ++is_m) {
               if (is_m->boundary ()) {
                 const auto& igeo_m = is_m->geometry();
                 if (gap[MASTER].isSupported (igeo_m)) {
+//                  cout << " ------\n";
                   const auto& ref_m = GenericReferenceElements<ctype, dim>::general (it_m->type());
                   
                   const int ivnum_s = ref_s.size (is_s->indexInInside (), 1, dim);
@@ -323,16 +326,19 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
                   
                   for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
                     int subi_s = ref_s.subEntity (is_s->indexInInside (), 1, i_s, dim);
-                    
+                    auto   v_s = it_s->template subEntity<dim> (subi_s)->geometry().center();
+
                     for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
                       int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
-                      auto   v_s = it_s->template subEntity<dim> (subi_s)->geometry().center();
-                        //const auto& global = igeo_s.global (v_s); // center() is already global?
-                      const auto& local_s = it_s->geometry().local (v_s);
-                      if (multBasis[subi_m].isSupported (local_s)) {
+                      const auto& local_m = it_m->geometry().local (v_s);
+//                      auto   v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
+
+                      if (basis[subi_m].isSupported (local_m)) {
+//                        cout << "*** " << v_s << " *** Supported by *** " << subi_m
+//                             << " *** at " << v_m << "\n";
                         const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s, subi_s, dim);
                         const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m, subi_m, dim);
-                        couplingPattern[ii_s].insert(ii_m);
+                        couplingPattern[ii_s].insert (ii_m);
                       }
                     }
                   }
@@ -414,10 +420,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::determineActive ()
   
   twoMapper->update (active, inactive, other);
   
-  cout << "\nInactive: " << inactive[SLAVE].size();
-    //for (auto x : inactive) cout << x << "->" << aiMapper->map(x) << " ";
-  cout << "\nActive: " << active[SLAVE].size();
-    //for (auto x : active)   cout << x << "->" << " " << aiMapper->map(x) << " ";
+  cout << "\nInactive: " << inactive[SLAVE].size() << ": ";
+  for (auto x : inactive[SLAVE]) cout << twoMapper->map (SLAVE, x) << " ";
+  cout << "\nActive: " << active[SLAVE].size() << ": ";
+  for (auto x : active[SLAVE])   cout << twoMapper->map (SLAVE, x) << " ";
   cout << "\n";
 }
 
@@ -596,6 +602,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
   
     //// Compute mortar coupling matrix MM
   
+  /* FIXME: because we traverse intersections, nodes in the master contribute 
+   four times (one if the node is at the boundary of the gap) to each node in
+   the slave. We use the hack with std::set<int> visited to fix this.
+   */
+
+  std::set<int> visited;
   for (auto it_s = gv[SLAVE].template begin<0>(); it_s != gv[SLAVE].template end<0>(); ++it_s) {
     for (auto is_s = gv[SLAVE].ibegin (*it_s) ; is_s != gv[SLAVE].iend (*it_s) ; ++is_s) {
       if (is_s->boundary ()) {
@@ -615,21 +627,29 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
                   
                   for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
                     int subi_s = ref_s.subEntity (is_s->indexInInside (), 1, i_s, dim);
-                    
+                    auto   v_s = it_s->template subEntity<dim> (subi_s)->geometry().center();
+                    const auto& local_v_m = it_m->geometry().local (v_s);
+                    const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s, subi_s, dim);
                     for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
                       int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
-                      auto   v_s = it_s->template subEntity<dim> (subi_s)->geometry().center();
-                        //const auto& global = igeo_s.global (v_s); // center() is already global?
-                      const auto& local_s = it_s->geometry().local (v_s);
-                      if (multBasis[subi_m].isSupported (local_s)) {
-                        const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s, subi_s, dim);
-                        const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m, subi_m, dim);
+                      const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m, subi_m, dim);
+                      
                         for (auto& x : QuadratureRules<ctype, dim-1>::rule (is_s->type(), quadratureOrder)) {
                           const auto&   global = igeo_s.global (x.position ());
                           const auto&  local_s = it_s->geometry().local (global);
                           const auto&  local_m = it_m->geometry().local (global);
-                            //cout << "    local_s= " << local_s
-                            // << "    local_m= " << local_m << LF;
+                          
+//                          cout << " global= " << global
+//                          << "    local_m= " << local_m
+//                          << "         local_s= " << local_s << LF
+//                          << "    basis[" << subi_m
+//                          << "]= " << basis[subi_m].evaluateFunction (local_m)
+//                          << "    multbasis[" << subi_s
+//                          << "]= " << multBasis[subi_s].evaluateFunction (local_s) << LF;
+                          if (basis[subi_m].isSupported (local_v_m)) {
+//                              && (visited.find(ii_s) == visited.end())) {
+                            visited.insert(ii_s);
+
                           MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_m) *
                                            multBasis[subi_s].evaluateFunction (local_s) *
                                            x.weight () *
@@ -647,6 +667,22 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
     }
   }
   
+  /* This won't work: how do I integrate? If I don't have an intersection, how would
+   I use a QuadratureRule?
+   
+  for (auto it_s = gv[SLAVE].template begin<dim>(); it_s != gv[SLAVE].template end<dim>(); ++it_s) {
+    const auto& v_s = it_s->geometry().center();
+    if (gap[SLAVE].isSupported(v_s)) {
+      for (auto it_m = gv[MASTER].template begin<dim>(); it_m != gv[MASTER].template end<dim>(); ++it_m) {
+        const auto& v_m = it_m->geometry().center();
+        if (gap[MASTER].isSupported(v_m)) {
+          const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m);
+          const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s);
+
+      }
+    }
+  }
+*/
     //printmatrix (cout, D, "D", "");
 }
 
@@ -725,7 +761,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
   BlockMatrix MT;
   transpose (MT, M);
-//  cout << "Tranposed MT is " << MT.N() << " x " << MT.M() << LF;
+  cout << "M was transposed.\n";
   BlockMatrix Q;
   Q.setSize (n_T, n_T);
   Q.setBuildMode (BlockMatrix::row_wise);
@@ -737,6 +773,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       for (auto col = MT[r-n_N].begin(); col != MT[r-n_N].end(); ++col)
         row.insert (col.index()+n_N+n_M);
   }
+
+  Q = 0.0;  // necessary?
 
   for (int r = 0; r < n_T; ++r) {
     Q[r][r] = I;
@@ -753,14 +791,18 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   writeMatrixToMatlab(MM, "/tmp/MM");
   writeMatrixToMatlab(MT, "/tmp/MT");
 
+    // The brute force approach:
   BlockMatrix AA;
   matMultTransposeMat(AA, A, Q);
   matMultMat(A, Q, AA);  // A is now the new Â.
-//  cout << "We have Â\n";
+  
+  writeMatrixToMatlab(A, "/tmp/AA");
+  cout << "We have Â\n";
   
   ScalarVector uu, c;
   c.resize (total*dim, false);
   uu.resize (total*dim, false);
+  c   = 0.0;
   uu  = 0.0;
   n_d = 0.0;
   n_m = 0.0;
@@ -775,8 +817,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       c[i*dim+j] = b[i][j];
   
     // Rest of entries.
-  for (int i = n_T*dim; i < (n_T+n_I)*dim; ++i)
-    c[i] = 0.0;
+    // No need for this loops since we already set c = 0.0.
+//  for (int i = n_T*dim; i < (n_T+n_I)*dim+n_A; ++i)
+//    c[i] = 0.0;
+  
     // recall that g[] uses twoMapper.inBoundary(SLAVE,...) ordering.
   for (int i = 0; i < n_A; ++i) {
 //    cout << " c[" << (n_T+n_I)*dim + n_A + i << "]= g[" << i+n_I << "]= " << g[i+n_I] << LF;
@@ -829,7 +873,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     for (const auto& col : adjacencyPattern[row.index()])
       row.insert (col);
   
-    //B = 0.0;  // necessary?
+  B = 0.0; // Careful! we will be using operator+= later, so this is important.
   
     // Copy A
   for (auto row = A.begin(); row != A.end(); ++row) {
@@ -838,8 +882,11 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       auto c = col.index();
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
-          if (A[r][c][i][j] != 0.0)
+          if (A[r][c][i][j] != 0.0) {
+//            adjacencyPattern[r*dim+i].erase (c*dim+j);
             B[r*dim+i][c*dim+j] = A[r][c][i][j];
+          }
+      
     }
   }
   
@@ -847,15 +894,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
     // Copy D
   for (int r = 0; r < n_I+n_A; ++r)
-    for (int i = 0; i < dim; ++i)
+    for (int i = 0; i < dim; ++i) {
+//      adjacencyPattern[(r+n_N+n_M)*dim+i].erase ((r+n_T)*dim+i);
       B[(r+n_N+n_M)*dim+i][(r+n_T)*dim+i] = D[r][r][i][i];
+    }
+  
   
   cout << "D was copied.\n";
   
     // Copy Id_I
   for (int r = 0; r < n_I; ++r)
-    for (int i = 0; i < dim; ++i)
+    for (int i = 0; i < dim; ++i) {
+//      adjacencyPattern[(r+n_T)*dim+i].erase ((r+n_T)*dim+i);
       B[(r+n_T)*dim+i][(r+n_T)*dim+i] = 1.0;
+    }
   
   cout << "B initialized (1/2).\n";
   
@@ -895,16 +947,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
                 // first the tangential stuff for the multipliers.
               int ii = (n_T + n_I)*dim + ia;
                 //cout << "ii= " << ii << "\n";
-              for (int j = 0; j < dim; ++j)
+              for (int j = 0; j < dim; ++j) {
+//                adjacencyPattern[ii].erase ((n_T+ib)*dim+j);
                 B[ii][(n_T+ib)*dim+j] += tg[j]; // *(1.0/vnum);
+              }
               c[ii] = 0.0;
               
                 // now the last rows
               ii = (n_T + n_I)*dim + n_A + ia;
               int jj = twoMapper->map (SLAVE, id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
-              for (int j = 0; j < dim; ++j)
+              for (int j = 0; j < dim; ++j) {
+//                adjacencyPattern[ii].erase (jj+j);
                 B[ii][jj+j] += D_nr[j]; // *(1.0/vnum);
+              }
             }
           }
         }
@@ -914,6 +970,16 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
   
+  /*
+  for (int i = 0; i < total*dim; ++i) {
+    if (adjacencyPattern[i].size() > 0) {
+      cout << "WTF?!?!? Columns not filled at row " << i << ": ";
+      for (const auto& x : adjacencyPattern[i])
+        cout << " " << x;
+      cout << LF;
+    }
+  }
+  */
   writeMatrixToMatlab (B, "/tmp/B");
   writeVectorToFile (c, "/tmp/c");
   
@@ -950,8 +1016,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     n_m[i] = n_d[i] * u[n_T+i];
   }
     //printvector (cout, n_d, "D * Normal", "");
-  printvector (cout, n_u, "Solution Normal", "");
-  printvector (cout, n_m, "Multiplier Normal", "");
+    //printvector (cout, n_u, "Solution Normal", "");
+    //printvector (cout, n_m, "Multiplier Normal", "");
   
     //// Transform back to original coordinates
 
@@ -959,11 +1025,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
 //    CoordVector tu(u);
 //    Q.mtv (tu, u);
 
-  CoordVector tu(n_T);
+  CoordVector tu (n_T), tu2 (n_T);
   for (int i = 0; i < n_T; ++i) tu[i] = u[i];
-  CoordVector tu2(tu);
   Q.mtv (tu, tu2);
   for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
+  
+  writeVectorToFile (u, "/tmp/u");
+  writeVectorToFile (tu, "/tmp/tu");
+  writeVectorToFile (tu2, "/tmp/tu2");
 }
 
 
@@ -987,7 +1056,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
     cu[body].resize(gv[body].size(dim));
   }
   
-  const int maxiter = 5;
+  const int maxiter = 10;
   int cnt=0;
   while (true && ++cnt <= maxiter) {
     bench().start ("Active set initialization", false);
@@ -1009,7 +1078,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
       for (auto it = gv[body].template begin<dim>(); it != gv[body].template end<dim>(); ++it) {
         int from = twoMapper->map (body, *it);
         int to = twoMapper->mapInBody (body, *it);
-        cu[body][to] = u[from]; 
+//        cout << "from: " << from << ", to: " << to << LF;
+        cu[body][to] = u[from];
       }
     }
     (void) post_m.computeError (cu[MASTER]);
