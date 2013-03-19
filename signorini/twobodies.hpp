@@ -602,10 +602,13 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
   
     //// Compute mortar coupling matrix MM
   
-  /* FIXME: because we traverse intersections, nodes in the master contribute 
+  /**********   FIXME FIXME FIXME FIXME FIXME *********
+
+   because we traverse intersections, nodes in the master contribute
    four times (one if the node is at the boundary of the gap) to each node in
    the slave. Using the hack with std::set<int> visited to fix this seems not to
-   work very well
+   work very well. Instead I just multiply by 1/2 except at the corner.
+   
    */
   for (auto it_s = gv[SLAVE].template begin<0>(); it_s != gv[SLAVE].template end<0>(); ++it_s) {
     for (auto is_s = gv[SLAVE].ibegin (*it_s) ; is_s != gv[SLAVE].iend (*it_s) ; ++is_s) {
@@ -632,7 +635,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
                     for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
                       int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
                       const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m, subi_m, dim);
-                      
+
                         for (auto& x : QuadratureRules<ctype, dim-1>::rule (is_s->type(), quadratureOrder)) {
                           const auto&   global = igeo_s.global (x.position ());
                           const auto&  local_s = it_s->geometry().local (global);
@@ -646,10 +649,11 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
 //                          << "    multbasis[" << subi_s
 //                          << "]= " << multBasis[subi_s].evaluateFunction (local_s) << LF;
                           if (basis[subi_m].isSupported (local_v_m)) {
-                          MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_m) *
-                                           multBasis[subi_s].evaluateFunction (local_s) *
-                                           x.weight () *
-                                           igeo_s.integrationElement (x.position ());
+                            double c = (v_s[0] == 0.0) ? 1.0 : 0.5;  // HACK HACK HACK
+                            MM[ii_s][ii_m] += I * c * basis[subi_m].evaluateFunction (local_m) *
+                                              multBasis[subi_s].evaluateFunction (local_s) *
+                                              x.weight () *
+                                              igeo_s.integrationElement (x.position ());
                         }
                       }
                     }
@@ -1078,6 +1082,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
 //        cout << "from: " << from << ", to: " << to << LF;
         cu[body][to] = u[from];
       }
+      writeVectorToFile(cu[body], string("/tmp/cu-")+body);
     }
     (void) post_m.computeError (cu[MASTER]);
     post_m.computeVonMisesSquared ();
