@@ -53,8 +53,8 @@ int main (int argc, char** argv)
 {
   const int          dim = 2;
 
-  const double         E = 800;         // See [HW05, p.3159]
-  const double        E2 = 800;         // See [HW05, p.3159]
+  const double         E = 8e9;         // See [HW05, p.3159]
+  const double        E2 = 8e9;         // See [HW05, p.3159]
   const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
   const double       nu2 = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
   
@@ -79,8 +79,8 @@ int main (int argc, char** argv)
   gridSlave.globalRefine (6);
   
     // Careful changing this! Check the supports of the boundary functors!!
-  origin[1] -= 1;
-  topright[1] -= 1;
+  origin[1] = -1;
+  topright[1] = 0;
   grid_t gridMaster (N, origin, topright);
   gridMaster.globalRefine (6);
 
@@ -133,8 +133,8 @@ int main (int argc, char** argv)
   VolumeF   f2 (0, 0);
   Dirichlet d (0, 0);
   Dirichlet d2 (0, 0);
-  BoundaryF p (-3, -7);
-  BoundaryF p2 (3, -4);
+  BoundaryF p (-3e6, -7e6);
+  BoundaryF p2 (3e6, -4e6);
   Gap       g (-0.0, 0.0);
   Gap       g2 (0.0, 0.0);
 
