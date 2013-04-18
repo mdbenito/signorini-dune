@@ -12,6 +12,7 @@
 		4909D1E416B588F8004D1959 /* utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1E316B588F8004D1959 /* utils.cpp */; };
 		4909D1EB16B5A932004D1959 /* penaltymethod.hpp in Sources */ = {isa = PBXBuildFile; fileRef = 4909D1EA16B5A932004D1959 /* penaltymethod.hpp */; };
 		49C47D101632FF8B00D38056 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 49C47D0F1632FF8B00D38056 /* main.cpp */; };
+		BFF87BC78E98109C56CBBF31 /* activeset.hpp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4909D1E616B5A13F004D1959 /* activeset.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -21,6 +22,7 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
+				BFF87BC78E98109C56CBBF31 /* activeset.hpp in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -228,7 +230,8 @@
 				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include,
-					/Users/miguel/Devel/Dune/SuperLU_4.3/SRC,
+					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
+					/usr/local/include/serial,
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
@@ -238,9 +241,10 @@
 					"-ldunecommon",
 					"-ldunegrid",
 					"-ldunegeometry",
-					/Users/miguel/Devel/Dune/SuperLU_4.3/lib/libsuperlu_4.3.a,
+					"/Users/miguel/Devel/dune-project/SuperLU_4.3/lib/libsuperlu_4.3.a",
 					"-llapack",
 					"-lblas",
+					"-lalugrid",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
@@ -259,7 +263,8 @@
 				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include,
-					/Users/miguel/Devel/Dune/SuperLU_4.3/SRC,
+					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
+					/usr/local/include/serial,
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
@@ -269,9 +274,10 @@
 					"-ldunecommon",
 					"-ldunegrid",
 					"-ldunegeometry",
-					/Users/miguel/Devel/Dune/SuperLU_4.3/lib/libsuperlu_4.3.a,
+					"/Users/miguel/Devel/dune-project/SuperLU_4.3/lib/libsuperlu_4.3.a",
 					"-llapack",
 					"-lblas",
+					"-lalugrid",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
