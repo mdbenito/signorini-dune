@@ -141,22 +141,23 @@ int main (int argc, char** argv)
   
   
     //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
-    //IASolver fem2 (gridSlave.leafView(), a, f, p, g);
-  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
-                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
+  IASolver fem2 (gridSlave.leafView(), a, f, p, g);
+//  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
+//                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
   try {   // Pokemon Exception Handling
     cout << "Gremlin population: " << gridSlave.size(dim) << "\n";
-    /* Penalty method, one body
-      //fem.initialize();
-      //fem.solve (maxsteps, tolerance);
-     */
-    /* Active/inactive, one body
-      //fem2.solve ();
-     */
-    twoFem.solve();
+      // Penalty method, one body
+//    fem.initialize();
+//    fem.solve (maxsteps, tolerance);
+    
+      // Active/inactive, one body
+    fem2.solve ();
+    
+      // Active/inactive, two bodies
+//    twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
