@@ -105,14 +105,13 @@ public:
 template <typename ctype, int dim>
 class VolumeLoad {
   typedef FieldVector<ctype, dim> coord_t;
-  ctype cx, cy;
+  coord_t ret;
 public:
-  VolumeLoad (ctype x=0, ctype y=-10) : cx (x), cy(y) { }
+  VolumeLoad (const coord_t& _ret) : ret(_ret) { }
 
   coord_t operator() (const coord_t& x) const
   {
-    coord_t ret;
-    ret[0] = cx; ret[1] = cy; return ret;
+    return ret;
     
       //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
       //ret <<= zero; return ret;                               // [HW05]
@@ -131,10 +130,8 @@ class DirichletFunctor {
   ctype cx, cy;
   coord_t ret;
 public:
-  DirichletFunctor (const ctype x=0.0, const ctype y=-0.07) : cx(x), cy(y) {
-    ret[0] = cx;
-    ret[1] = cy;
-  }
+  DirichletFunctor (const coord_t& _ret) : ret(_ret) { }
+  
   coord_t operator() (const coord_t& x) const
   {
     return ret;
@@ -164,14 +161,12 @@ public:
 template <typename ctype, int dim>
 class Tractions {
   typedef FieldVector<ctype, dim> coord_t;
-  ctype cx, cy;
+  coord_t ret;
 public:
-  Tractions (const ctype x=30, const ctype y=6.5) : cx(x), cy(y) { }
+  Tractions (const coord_t& _ret) : ret(_ret) { }
 
   inline coord_t operator() (const coord_t& x) const
   {
-    coord_t ret;
-
       // Values from [FV05, p.36]
     /*
     if (x[1] == 1.0) {
@@ -193,15 +188,8 @@ public:
      */
     
       // HACK
-    if (cx>0 && x[0]==0) {
-      ret[0] = cx; ret[1] = cy;
-    } else if (cx>0 && x[0] == 1) {
-      ret[0] = 0; ret[1] = 0;
-    } else if (cx<0 && x[0] == 0) {
-      ret[0] = 0; ret[1] = 0;
-    } else {
-      ret[0] = cx; ret[1] = cy;
-    }
+    if ((ret[0]>0 && x[0] == 1) || (ret[0]<0 && x[0] == 0))
+      return coord_t(0.0);
 
     return ret;
   }
