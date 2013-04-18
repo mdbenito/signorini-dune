@@ -25,8 +25,7 @@ class ActiveInactiveMapper
 {
   typedef typename TGV::template Codim<0>::Entity Element;
   typedef typename TGV::template Codim<codim>::Entity Entity;
-  typedef std::vector<const Entity*> EntityVector;
-  
+
   typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
   typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
   typedef std::set<IdType>                           IdSet;
