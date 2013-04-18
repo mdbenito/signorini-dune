@@ -49,8 +49,8 @@ public:
   typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
   typedef std::vector<ctype>                   FlatVector;
 
-  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
-                                                  MCMGVertexLayout> VertexMapper;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper
+          <typename TGV::Grid, MCMGVertexLayout> VertexMapper;
   
 private:
   const TGV& gv;      //!< Grid view
@@ -64,7 +64,7 @@ private:
 public:
   PostProcessor (const TGV& _gv, const TMP& _m, const TET& _a);
 
-  double computeError (const CoordVector& v);
+  long double computeError (const CoordVector& v);
   void   computeVonMisesSquared ();
   
   std::string writeVTKFile (std::string base, int step) const;
@@ -104,7 +104,7 @@ void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
  In case no previous solution was set, returns 1, but still copies the data.
  */
 template<class TGV, class TET, class TMP, class TSS>
-double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
+long double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
 {
   check (v);
 
@@ -200,7 +200,7 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
     mapped[to] = from;
     indices[to] = to;
   }
-
+  cout << "Adding vertex data" << LF;
   vtkwriter.addVertexData (indices, "idx", 1);
   vtkwriter.addVertexData (mapped, "map", 1);
 
@@ -214,10 +214,11 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
       vvmm[to*dim] = vm[from];
     }
   }
-
+  cout << "Adding more vertex data" << LF;
   vtkwriter.addVertexData (uu, "u", dim);
   vtkwriter.addVertexData (vvmm, "vm", 1);
   
+  cout << "Writing vertex data" << LF;
   vtkwriter.write (oss.str(), VTK::appendedraw);
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
