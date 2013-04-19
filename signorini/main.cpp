@@ -51,10 +51,10 @@ pdo.SetPoints(newPoints)
 
 int main (int argc, char** argv)
 {
-  const int          dim = 2;
+  const int          dim = 3;
 
-  const double         E = 8.0e10;
-  const double        E2 = 8.0e10;
+  const double         E = 8.0e9;
+  const double        E2 = 8.0e9;
   const double        nu = 0.3;
   const double       nu2 = 0.3;
   
@@ -123,24 +123,25 @@ int main (int argc, char** argv)
 
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
-//  VolumeF   f (coord3 (0.0, 0.0, 0.0));
-//  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
-//  Dirichlet d (coord3 (0.0, -0.07, 0.0));
-//  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
-//  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
-//  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
-////  Gap       g (0.0, 0.0);
-////  Gap       g2 (0.0, 0.0);
-//  Gap g (0.0, 0.05);
-  VolumeF   f (coord2 (0.0, 0.0));
-  VolumeF   f2 (coord2 (0.0, 0.0));
-  Dirichlet d (coord2 (0.0, -0.07));
-  Dirichlet d2 (coord2 (0.0, 0.0));
-  BoundaryF p (coord2 (-3e6, -7e6));
-  BoundaryF p2 (coord2 (3e6, -4e6));
-    //  Gap       g (0.0, 0.0);
-    //  Gap       g2 (0.0, 0.0);
+  VolumeF   f (coord3 (0.0, 0.0, 0.0));
+  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
+  Dirichlet d (coord3 (0.0, -0.07, 0.0));
+  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
+  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
+  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
+//  Gap       g (0.0, 0.0);
+//  Gap       g2 (0.0, 0.0);
   Gap g (0.0, 0.05);
+
+//  VolumeF   f (coord2 (0.0, 0.0));
+//  VolumeF   f2 (coord2 (0.0, 0.0));
+//  Dirichlet d (coord2 (0.0, -0.07));
+//  Dirichlet d2 (coord2 (0.0, 0.0));
+//  BoundaryF p (coord2 (-3e6, -7e6));
+//  BoundaryF p2 (coord2 (3e6, -4e6));
+//    //  Gap       g (0.0, 0.0);
+//    //  Gap       g2 (0.0, 0.0);
+//  Gap g (0.0, 0.05);
   
   
     //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
