@@ -194,8 +194,9 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
   D.setSize (ingap, ingap);
   D.setBuildMode (BlockMatrix::random);
   
-  b.resize (n_T + n_I + n_A, false);
-  u.resize (n_T + n_I + n_A, false);
+  b.resize (n_T, false);
+  u.resize (n_T + n_I + n_A, false); // we use the extended size (+n_I+n_A) below
+                                     // while copying the results back from uu inside step()
 
   for (int i = 0; i < n_T; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());

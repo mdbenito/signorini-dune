@@ -244,6 +244,7 @@ class LagrangeSpaceShapeFunction
     }
 
     void differentiate (int which) {
+      assert (which >=0 && which < dim);
       if (indices[which] == 0) {
         clear();
         coeff = 0;
@@ -454,7 +455,7 @@ public:
   inline coord_t evaluateGradient (const coord_t& local) const
   {
 //    if (!isSupported(local)) return coord_t(0.0);
-    coord_t r(0);
+    coord_t r (0.0);
     coord_t copy (local);
     for (int i = 0; i < dim; ++i)
       copy[i] = (mask & (1u<<i)) ? 1-local[i] : local[i];
@@ -490,7 +491,7 @@ class Q1ShapeFunctionSet
 
 public:
   const GeometryType::BasicType basicType = GeometryType::cube;
-  enum { N = 1 << dim};
+  enum { N = (1 << dim)};
 
   static const Q1ShapeFunctionSet& instance()
   {

@@ -82,7 +82,7 @@ PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
 {
   VertexMapper defaultMapper (gv.grid());
   const auto totalVertices = defaultMapper.size ();
-  vm.resize(totalVertices);
+  vm.resize (totalVertices);
 }
 
 template<class TGV, class TET, class TMP, class TSS>
