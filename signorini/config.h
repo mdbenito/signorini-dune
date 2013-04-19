@@ -5,6 +5,8 @@
 #define SUPERLU_POST_2005_VERSION 1
 #define SUPERLU_MIN_VERSION_4_3 1
 
+#define ENABLE_ALUGRID 1
+
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
