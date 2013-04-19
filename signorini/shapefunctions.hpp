@@ -503,7 +503,7 @@ private:
       // when did I change the shape functions' evaluation?
     for (int i=0; i < N; ++i) {
       unsigned int mask = i; //mapDuneIndex(i);
-      cout << "Creating shape function " << i << " with mask " << mask << "\n";
+//      cout << "Creating shape function " << i << " with mask " << mask << "\n";
       f[i] = new ShapeFunction (mask);
     }
     atexit (this->atExit);
