@@ -53,8 +53,8 @@ int main (int argc, char** argv)
 {
   const int          dim = 2;
 
-  const double         E = 8.0e10;
-  const double        E2 = 8.0e10;
+  const double         E = 8.0e9;
+  const double        E2 = 8.0e9;
   const double        nu = 0.3;
   const double       nu2 = 0.3;
   
@@ -77,13 +77,13 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t gridSlave (N, origin, topright);
-  gridSlave.globalRefine (3);
+  gridSlave.globalRefine (6);
   
     // Careful changing this! Check the supports of the boundary functors!!
   origin[1] = -1;
   topright[1] = 0;
   grid_t gridMaster (N, origin, topright);
-  gridMaster.globalRefine (3);
+  gridMaster.globalRefine (6);
 
   /*
   std::string path ("/Users/miguel/Universidad/Two bodies/");
@@ -138,15 +138,15 @@ int main (int argc, char** argv)
   Dirichlet d2 (coord2 (0.0, 0.0));
   BoundaryF p (coord2 (-3e6, -7e6));
   BoundaryF p2 (coord2 (3e6, -4e6));
-    //  Gap       g (0.0, 0.0);
-    //  Gap       g2 (0.0, 0.0);
-  Gap g (0.0, 0.05);
+  Gap       g (0.0, 0.0);
+  Gap       g2 (0.0, 0.0);
+//  Gap g (0.0, 0.05);
   
   
     //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
-  IASolver fem2 (gridSlave.leafView(), a, f, p, g);
-//  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
-//                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
+//  IASolver fem2 (gridSlave.leafView(), a, f, p, g);
+  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
+                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
@@ -157,9 +157,9 @@ int main (int argc, char** argv)
 //      fem.solve (maxsteps, tolerance);
 //    
       // Active / inactive, one body
-      fem2.solve ();
+//      fem2.solve ();
 //      // Active / inactive, two bodies
-//      twoFem.solve();
+      twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

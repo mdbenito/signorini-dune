@@ -381,33 +381,74 @@ public:
      r += monome (copy);
      */
     
-      // HACK: quick solution to extend the support. The thing with the polynomes
-      // sucked anyway
     switch (mask) {
-      case 0:  // node x=0, y=0
+      case 0:  // node x=0, y=0 (, z=0)
         if (c[0]<0) c[0] *= -1.0;
         if (c[1]<0) c[1] *= -1.0;
+        if (dim == 3 && c[2]<0) c[2] *= -1.0;   // FIXME: guessing
         break;
-      case 1:  // node x=1, y=0
+      case 1:  // node x=1, y=0 (, z=0)
         if (c[0]>1) c[0] -= 1.0;
         else        c[0] = 1.0 - c[0];
         if (c[1]<0) c[1] *= -1.0;
+        if (dim == 3 && c[2]<0) c[2] *= -1.0;   // FIXME: guessing
         break;
-      case 2:  // node x=0, y=1
+      case 2:  // node x=0, y=1 (, z=0)
         if (c[0]<0) c[0] *= -1.0;
         if (c[1]>1) c[1] -= 1.0;
         else        c[1] = 1.0 - c[1];
+        if (dim == 3 && c[2]<0) c[2] *= -1.0;   // FIXME: guessing
         break;
-      case 3:  // node x=1, y=1
+      case 3:  // node x=1, y=1 (, z=0)
         if (c[0]>1) c[0] -= 1.0;
         else        c[0] = 1.0 - c[0];
         if (c[1]>1) c[1] -= 1.0;
         else        c[1] = 1.0 - c[1];
+        if (dim == 3 && c[2]<0) c[2] *= -1.0;   // FIXME: guessing
+        break;
+      case 4:  // node x=0, y=0, z=1
+        if (c[0]<0) c[0] *= -1.0;
+        if (c[1]<0) c[1] *= -1.0;
+        if (dim == 3) {    // FIXME: guessing
+          if (c[2]>1) c[2] -= 1.0;
+          else        c[2] = 1.0 - c[2];
+        }
+        break;
+      case 5:  // node x=1, y=0, z=1
+        if (c[0]>1) c[0] -= 1.0;
+        else        c[0] = 1.0 - c[0];
+        if (c[1]<0) c[1] *= -1.0;
+        if (dim == 3) {    // FIXME: guessing
+          if (c[2]>1) c[2] -= 1.0;
+          else        c[2] = 1.0 - c[2];
+        }
+        break;
+      case 6:  // node x=0, y=1, z=1
+        if (c[0]<0) c[0] *= -1.0;
+        if (c[1]>1) c[1] -= 1.0;
+        else        c[1] = 1.0 - c[1];
+        if (dim == 3) {    // FIXME: guessing
+          if (c[2]>1) c[2] -= 1.0;
+          else        c[2] = 1.0 - c[2];
+        }
+        break;
+      case 7:  // node x=1, y=1, z=1
+        if (c[0]>1) c[0] -= 1.0;
+        else        c[0] = 1.0 - c[0];
+        if (c[1]>1) c[1] -= 1.0;
+        else        c[1] = 1.0 - c[1];
+        if (dim == 3) {    // FIXME: guessing
+          if (c[2]>1) c[2] -= 1.0;
+          else        c[2] = 1.0 - c[2];
+        }
         break;
       default:
         throw (new Exception());
     }
-    return -3.0 * c[0] - 3.0 * c[1] + 3.0 * c[0] * c[1] + 2.0;
+    if (dim==2)
+      return -3.0 * c[0] - 3.0 * c[1] + 3.0 * c[0] * c[1] + 2.0;
+    else if (dim==3)
+      return -3.0 * c[0] - 3.0 * c[1] - 3.0 * c[2] + 3.0 * c[0] * c[1] + 3.0 * c[1] * c[2] + 3.0 * c[0] * c[2] - 3.0 * c[0] * c[1] * c[2] + 2.0;    // FIXME: guessing (seems ok)
   }
   
   inline coord_t evaluateGradient (const coord_t& local) const
@@ -551,7 +592,10 @@ bool testShapes(const std::string& filename)
     for (int x = -200; x <= 200; ++x) {
       for (int y = -200; y <= 200; ++y) {
         coord_t v;
-        v <<= x*0.01 , y*0.01;
+        if (dim == 2)      v <<= x*0.01 , y*0.01;
+        else if (dim == 3) v <<= x*0.01 , y*0.01, 0.5;
+        else throw (new Exception());
+        
         r[x+200][y+200] = basis[i].evaluateFunction (v);
 //        cout << "   Basis[" << i << "](" << x << ", " << y << ") = "
 //            << basis[i].evaluateFunction (v) << "\n";
@@ -579,6 +623,5 @@ bool testShapes(const std::string& filename)
   
   return true;
 }
-
 
 #endif  // defined (SIGNORINI_SHAPEFUNCTIONS_HPP)
