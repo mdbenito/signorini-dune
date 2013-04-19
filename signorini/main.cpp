@@ -33,7 +33,7 @@ pdo.SetPoints(newPoints)
 #include <dune/common/exceptions.hh>
 
 #include <dune/grid/io/file/gmshreader.hh>
-//#include <dune/grid/alugrid.hh>
+#include <dune/grid/alugrid.hh>
 
   //// Project includes
 
@@ -46,17 +46,17 @@ pdo.SetPoints(newPoints)
 
   //// stdlib includes
 
-#include <string>
-using std::string;
+//#include <string>
+//using std::string;
 
 int main (int argc, char** argv)
 {
   const int          dim = 2;
 
-  const double         E = 8e9;         // See [HW05, p.3159]
-  const double        E2 = 8e9;         // See [HW05, p.3159]
-  const double        nu = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
-  const double       nu2 = 0.3;         // Poisson's ratio [FV05, p.35] and [HW05]
+  const double         E = 8.0e10;
+  const double        E2 = 8.0e10;
+  const double        nu = 0.3;
+  const double       nu2 = 0.3;
   
   //const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
   //const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
@@ -64,9 +64,10 @@ int main (int argc, char** argv)
   //const double tolerance = 1.0e-5;      // For the iterative penalty method
   //const int     maxsteps = 10;
 
-    //// Grid setup (SGrid, test)
+    //// Grid setup
 
   typedef SGrid<dim, dim>          grid_t;
+//  typedef ALUSimplexGrid<dim, dim> grid_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
   typedef grid_t::LeafGridView         GV;
@@ -76,30 +77,22 @@ int main (int argc, char** argv)
   coord_t     topright (1.0);
   
   grid_t gridSlave (N, origin, topright);
-  gridSlave.globalRefine (6);
+  gridSlave.globalRefine (3);
   
     // Careful changing this! Check the supports of the boundary functors!!
   origin[1] = -1;
   topright[1] = 0;
   grid_t gridMaster (N, origin, topright);
-  gridMaster.globalRefine (6);
+  gridMaster.globalRefine (3);
 
-  /* This won't work... (AluGrid seems not to be properly configured)
-
-  typedef AluGrid<3, 3> grid_t;
-  typedef grid_t::ctype             ctype;
-  typedef FieldVector<ctype, dim> coord_t;
-  typedef grid_t::LeafGridView         GV;
-  
-  grid_t grid;
-  std::string gridName = "/Users/miguel/cube-fine.msh";
+  /*
+  std::string path ("/Users/miguel/Universidad/Two bodies/");
+  grid_t gridMaster, gridSlave;
   GmshReader<grid_t> gmshReader;
-  gmshReader.read (gridName);
   
-  gridName.erase (0 , gridName . rfind ("/")+1);
-  gridName.erase(gridName.find(".",0), gridName.length());
+  gmshReader.read (gridMaster, path * "cylinder master.msh");
+  gmshReader.read (gridSlave, path * "cylinder slave.msh");
   */
-
     //// Problem setup
 
   typedef VolumeLoad<ctype, dim>          VolumeF;
@@ -125,19 +118,29 @@ int main (int argc, char** argv)
   
 //  testShapes<ctype, dim, ShapeSet>("/tmp/basis");
 //  testShapes<ctype, dim, LSShapeSet>("/tmp/multbasis");
+//  test_basisOfPlaneNormalTo<ctype, dim>();
 //  exit(1);
 
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
-  VolumeF   f (0, 0);
-  VolumeF   f2 (0, 0);
-  Dirichlet d (0, 0);
-  Dirichlet d2 (0, 0);
-  BoundaryF p (-3e6, -7e6);
-  BoundaryF p2 (3e6, -4e6);
-  Gap       g (-0.0, 0.0);
-  Gap       g2 (0.0, 0.0);
-
+//  VolumeF   f (coord3 (0.0, 0.0, 0.0));
+//  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
+//  Dirichlet d (coord3 (0.0, -0.07, 0.0));
+//  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
+//  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
+//  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
+////  Gap       g (0.0, 0.0);
+////  Gap       g2 (0.0, 0.0);
+//  Gap g (0.0, 0.05);
+  VolumeF   f (coord2 (0.0, 0.0));
+  VolumeF   f2 (coord2 (0.0, 0.0));
+  Dirichlet d (coord2 (0.0, -0.07));
+  Dirichlet d2 (coord2 (0.0, 0.0));
+  BoundaryF p (coord2 (-3e6, -7e6));
+  BoundaryF p2 (coord2 (3e6, -4e6));
+    //  Gap       g (0.0, 0.0);
+    //  Gap       g2 (0.0, 0.0);
+  Gap g (0.0, 0.05);
   
   
     //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
@@ -149,15 +152,14 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling
     cout << "Gremlin population: " << gridSlave.size(dim) << "\n";
-      // Penalty method, one body
-//    fem.initialize();
-//    fem.solve (maxsteps, tolerance);
-    
-      // Active/inactive, one body
-    fem2.solve ();
-    
-      // Active/inactive, two bodies
-//    twoFem.solve();
+//      // Penalty method, one body
+//      fem.initialize();
+//      fem.solve (maxsteps, tolerance);
+//    
+      // Active / inactive, one body
+      fem2.solve ();
+//      // Active / inactive, two bodies
+//      twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
