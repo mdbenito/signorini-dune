@@ -28,7 +28,6 @@
 #include <dune/istl/io.hh>
 #include <dune/istl/superlu.hh>
 
-
 #include "utils.hpp"
 #include "benchmark.hpp"
 #include "shapefunctions.hpp"
@@ -41,8 +40,6 @@ using std::cout;
 /*! Solve the one body Signorini problem with an active-inactive set strategy.
  
  This implements the algorithm described in [HW05].
- 
- FIXMEEEEE!!!!!!! All this needs dim=2 !!!
  
  Template type names:
     TGV: TGridView
@@ -70,14 +67,15 @@ public:
   typedef FieldMatrix<ctype, dim, dim>             block_t;
   typedef FieldMatrix<ctype, 1, 1>             scalarmat_t;
   typedef BCRSMatrix<scalarmat_t>             ScalarMatrix;
+    //typedef BCRSMatrix<coord_t>                 VectorMatrix; // WRONG
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
   typedef ActiveSetFunctor<ctype, dim, ScalarVector>  AIFunctor;
   typedef ActiveInactiveMapper<dim, TGV>               AIMapper;
   typedef LeafMultipleCodimMultipleGeomTypeMapper
-          <typename TGV::Grid, MCMGVertexLayout>   VertexMapper;
-  typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
+            <typename TGV::Grid, MCMGVertexLayout> VertexMapper;
+  typedef FunctorSupportMapper<dim, TGV, TGF> GapVertexMapper;
 
 private:
   const TGV& gv;    //!< Grid view
@@ -132,8 +130,6 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
 : gv (_gv), gids(_gv.grid().globalIdSet()), a (_a), f (_f), p (_p), gap(_gap),
   quadratureOrder(_quadratureOrder)
 {
-  assert (dim == 2);
-
   I = 0.0;
   for (int i=0; i < dim; ++i)
     I[i][i] = 1.0;
@@ -437,9 +433,8 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
     }
   }
  
-    //bench().report ("Assembly", "\tdone.");
-    //printmatrix (cout, D, "D", "");
-    //printvector(std::cout, g, "normalized gap", "");
+  bench().report ("Assembly", "\tdone.");
+  writeMatrixToMatlab(A, "/tmp/A");
 }
 
 /*! HACK of the HACKS...
@@ -453,7 +448,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   const int n_N = (int)other.size();
   const int n_A = (int)active.size();
   const int n_I = (int)inactive.size();
-  const int total = n_T + n_I + n_A;
+  const int total = n_T + n_I + n_A;  // number of dim*dim blocks
   
   assert (n_T == n_N + n_A + n_I);
   assert (A.M() == A.N());
@@ -469,17 +464,21 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   n_m = 0.0;
   n_u = 0.0;
 
+  std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
+  int i;
     // Copy RHS vector
-  for (int i = 0; i < n_T*dim; ++i)
+  for (i = 0; i < n_T*dim; ++i)
     for (int j = 0; j < dim; ++j)
       c[i*dim+j] = b[i][j];
-    // Rest of entries.
-  for (int i = n_T*dim; i < (n_T+n_I)*dim; ++i)
+  cout << "*i= " << i << LF;
+    // Rest of entries:
+  for (i = n_T*dim; i < (n_T+n_I)*dim+n_A*(dim-1); ++i)  // Rows corresponding to Id_I and T_A
     c[i] = 0.0;
+  cout << "**i= " << i << LF;
+  for (i = 0; i < n_A; ++i)                  // Rows corresponding to N_A
     // recall that g[] uses aiMapper.inBoundary() ordering.
-  for (int i = 0; i < n_A; ++i)
-    c[i+n_A+(n_T+n_I)*dim] = g[i+n_I];
-
+    c[i+(n_T+n_I)*dim+n_A*(dim-1)] = g[i+n_I];
+  cout << "***i= " << i << LF;
   /*
    We copy matrix A and append some columns and lines. B should be
    
@@ -492,19 +491,23 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
          |    0      0    N_A      0     0 |
          \                                /
    
-   In TWO DIMENSIONS THIS IS SQUARE as a scalar matrix!!!!
+   Recall that T_A and N_A are *not* block matrices but scalar, and that B is
+   a square scalar matrix! In three dimensions this is achieved by inserting
+   two rows per node in T_A, one per vector in an orthonormal basis
+   of the plane whose normal is the unit outer normal vector.
    */
 
   ScalarMatrix B;
   B.setBuildMode (ScalarMatrix::row_wise);
   B.setSize (total*dim, total*dim);
-    //cout << " B is " << B.N() << " x " << B.M() << "\n";
-
+  cout << " B is " << B.N() << " x " << B.M() << "\n";
+  cout << " A is " << A.N() << " x " << A.M() << "\n";
+  
     // Flatten the adjacency pattern of A to scalar entries
   std::vector<std::set<int> > adjacencyPattern (total*dim);
   for (auto row = A.begin(); row != A.end(); ++row) {
+    auto ri = row.index();
     for (auto col = (*row).begin(); col != (*row).end(); ++col) {
-      auto ri = row.index();
       auto ci = col.index();
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
@@ -512,7 +515,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
             adjacencyPattern[ri*dim+i].insert((int)ci*dim+j);
     }
   }
-  
+
     // Build the adjacency pattern for the entries in B to the right of and below A
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     IdType id = gids.id (*it);
@@ -529,18 +532,20 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
         adjacencyPattern[(n_N+n_I+ia)*dim+i].insert((n_T+n_I+ia)*dim+i); // D_A
 
       int ii = (n_T+n_I)*dim;
-       // T_A
-      adjacencyPattern[ii+ia].insert (ii + ia*dim);
-      adjacencyPattern[ii+ia].insert (ii + ia*dim + 1);
-        //adjacencyPattern[ii+ia].insert (ii + ia);  // diagonal
-      
+       // T_A: dim-1 tangent vectors to determine the tangent hyperplane at each node
+      for (int j = 0; j < dim - 1; ++j)
+        for (int k = 0; k < dim; ++k)
+          adjacencyPattern[ii + (dim-1)*ia + j].insert (ii + ia*dim + k);   // FIXME: offsets ok??? <==========================
+      assert (ii + ia*(dim-1) + dim-2 < total*dim);
+      assert (ii + ia*dim + dim-1 < total*dim);
         // N_A
-      adjacencyPattern[ii+n_A+ia].insert (im*dim);
-      adjacencyPattern[ii+n_A+ia].insert (im*dim + 1);
-        //adjacencyPattern[ii+n_A+ia].insert (ii + n_A + ia);  // diagonal
+      for (int k = 0; k < dim; ++k)
+        adjacencyPattern[ii+(dim-1)*n_A+ia].insert (im*dim + k);
+      assert (ii + (dim-1)*n_A + ia < total*dim);
+      assert ((im+1)*dim < total*dim);
     }
   }
-    //cout << "Adjacency computed.\n";
+  cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row)
     for (const auto& col : adjacencyPattern[row.index()])
@@ -569,7 +574,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
     for (int i = 0; i < dim; ++i)
       B[(r+n_T)*dim+i][(r+n_T)*dim+i] = 1.0;
   
-    //cout << "B initialized (1/2).\n";
+  cout << "B initialized (1/2).\n";
 
     // Fill the lines:
     //             |    0      0      0      0   T_A |
@@ -587,50 +592,54 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
           for (int i = 0 ; i < vnum; ++i) {
             int subi  = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids.subId (*it, subi, dim);
-            int ib = aiMapper->mapInBoundary (id);
+            int    ib = aiMapper->mapInBoundary (id);
             coord_t   nr = is->centerUnitOuterNormal();
             coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
             
-              // FIXME: for nodes at the boundary of the gap the division by vnum
-              // will be wrong since there won't be as many sums
-            n_d[ib] += D_nr*(1.0/vnum); // FIXME: we shouldn't compute this here
-            //cout << "ib= " << ib << ", nr= " << nr << "\n";
+            n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
+            n_d_count[ib] += 1;
+            
+              //cout << "ib= " << ib << ", nr= " << nr << "\n";
             
             if (active.find (id) != active.end()) {
               int ia = aiMapper->mapInActive (id);
-              //cout << "Found active: " << id << " -> " << ia << "\n";
+//              cout << "Found active: " << id << " -> " << ia << "\n";
               
-              coord_t tg;
-              tg[0] = -nr[1]; tg[1] = nr[0];
-
                 // first the tangential stuff for the multipliers.
-              
-              /* WATCH OUT! this is correct in TWO DIMENSIONS ONLY:
-               because vectors have two entries, appending N_A and T_A to the 
-               final matrix results in an increase in size of 2*n_A in each
-               direction. This won't be the case for three dimensions though, were
-               I guess one would have to use two tangential vectors (to determine
-               a plane orthogonal to the normal) for each node in the active set;
-               then the increase would be 3*n_A in each direction of the matrix B.
-               */
-              int ii = (n_T + n_I)*dim + ia;
+              std::vector<coord_t> tg = basisOfPlaneNormalTo (nr);  // dim-1 items
+//              cout << "nr= " << nr << LF;
+//              for (int i=0; i<dim-1; ++i)
+//                cout << "\t\t tg[" << i << "]= " << tg[i]
+//                     << ", norm= " << tg[i].two_norm() << LF;
+
+              int ii = (n_T + n_I)*dim + ia*(dim-1);
                 //cout << "ii= " << ii << "\n";
-              for (int j = 0; j < dim; ++j)
-                B[ii][(n_T+ib)*dim+j] += tg[j];//*(1.0/vnum);
+              for (int j = 0; j < dim - 1; ++j)
+                for (int k = 0; k < dim; ++k)
+                  B[ii+j][(n_T+ib)*dim+k] += tg[j][k]; //FIXME: why a sum?!
               
                 // now the last rows
-              ii = (n_T + n_I)*dim + n_A + ia;
-                int jj = aiMapper->map (id)*dim;
+              ii = (n_T + n_I)*dim + n_A*(dim-1) + ia;
+              int jj = aiMapper->map (id)*dim;
                 //cout << "ii= " << ii << ", jj= " << jj << "\n";
               for (int j = 0; j < dim; ++j)
-                B[ii][jj+j] += D_nr[j];//*(1.0/vnum);
+                B[ii][jj+j] += D_nr[j]; //FIXME: why a sum?!
             }
           }
         }
       }
     }
   }
-    //cout << "B initialized (2/2).\n";
+
+  cout << "Scaling n_d.\n";
+  
+    // Fix the computation of n_d averaging through the number of vertices
+    // contributing to each node.
+  for (int i = 0; i < n_d.size(); ++i)
+    if (n_d_count[i] > 1)
+      n_d[i] /= static_cast<double> (n_d_count[i]);
+
+  cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
 
   writeMatrixToMatlab (B, "/tmp/B");

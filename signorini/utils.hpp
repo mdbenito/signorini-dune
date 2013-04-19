@@ -18,6 +18,8 @@
 #include <fstream>
 #include <set>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 
 #define LF std::endl
 
@@ -44,6 +46,18 @@ K trace (const FieldMatrix<K, R, C>& m)
 
   return ret;
 }
+
+template<class K, int C>
+bool operator== (const FieldVector<K, C>& v, const K& m)
+{
+  for (int i=0; i < C; ++i)
+//    if (std::abs(v[i] - m) <= std::numeric_limits<ctype>::epsilon())
+    if (v[i] != m)
+      return false;
+
+  return true;
+}
+
 
 template<class K, int R, int C>
 FieldVector<K, C> operator* (const FieldVector<K, C>& v, const FieldMatrix<K, R, C>& m)
@@ -326,6 +340,67 @@ void transpose (BCRSMatrix<B>& dest, const BCRSMatrix<B>& A) {
     for (int row = 0; row < A.N(); ++row)
       if (A.exists (row, col))
         dest[col][row] = A[row][col];
+}
+
+/* Gram-Schmidt (sort of)
+ Returns a vector of v_1, ..., v_{dim-1} of orthonormal vectors determining the
+ plane whose normal is this functions argument.
+ 
+ FIXME: avoid the idiotic copy and removal of the argument.
+ */
+template <class ctype, int dim>
+std::vector<FieldVector<ctype, dim> > basisOfPlaneNormalTo (const FieldVector<ctype, dim>& vec) {
+  typedef FieldVector<ctype, dim> coord_t;
+
+  std::vector<coord_t> v (dim);
+  std::srand (static_cast<unsigned int> (std::time (0)));
+  v[0] = vec;
+  for (int i = 1; i < dim; ++i) {
+    for (int j = 0; j < dim; ++j) {
+      v[i][j] = (double)(std::rand() % 1000) * 1e-3;
+    }
+  }
+  
+  for (int i = 0; i < dim; ++i) {
+    v[i] /= v[i].two_norm();
+    for (int j = i+1; j < dim; ++j) {
+      v[j] -= v[i] * (v[j] * v[i]); // v[i] * <v[j], v[i]>
+      if (v[j] == 0.0)
+        return basisOfPlaneNormalTo (vec);
+    }
+  }
+  
+  v.erase (v.begin ());
+  return v;
+}
+
+  // FINISH THIS! (check orthonormality)
+template <class ctype, int dim>
+bool test_basisOfPlaneNormalTo () {
+  typedef FieldVector<ctype, dim> coord_t;
+  coord_t n(0); n[0] = n[1] = 1.0;
+  auto r = basisOfPlaneNormalTo (n);
+  cout << "n= " << n << LF;
+
+  for (int i=0; i<dim-1; ++i)
+    cout << "\t\tr[" << i << "]= " << r[i] << ", norm= " << r[i].two_norm() << LF;
+  
+  return true;
+}
+
+  // More hacks...
+template <class K>
+FieldVector<K, 2> coord2 (K x, K y) {
+  FieldVector<K, 2> ret;
+  ret[0] = x; ret[1] = y;
+  return ret;
+}
+
+template <class K>
+FieldVector<K, 3> coord3 (K x, K y, K z) {
+  FieldVector<K, 3> ret;
+  ret[0] = x; ret[1] = y; ret[2] = z;
+  return ret;
 }
 
 #endif  // SIGNORINI_UTILS_HPP
