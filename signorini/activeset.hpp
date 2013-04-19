@@ -109,7 +109,7 @@ public:
   void setupMatrices ();
   void assemble ();
   void determineActive ();
-  void step ();
+  void step (int cnt);
   void solve ();
 
   const CoordVector& solution() const { return u; }
@@ -440,7 +440,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
 /*! HACK of the HACKS...
  */
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
-void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
+void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step (int cnt)
 {
 
   bench().report ("Stepping", "Gluing", false);
@@ -470,15 +470,15 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   for (i = 0; i < n_T*dim; ++i)
     for (int j = 0; j < dim; ++j)
       c[i*dim+j] = b[i][j];
-  cout << "*i= " << i << LF;
+//  cout << "*i= " << i << LF;
     // Rest of entries:
   for (i = n_T*dim; i < (n_T+n_I)*dim+n_A*(dim-1); ++i)  // Rows corresponding to Id_I and T_A
     c[i] = 0.0;
-  cout << "**i= " << i << LF;
+//  cout << "**i= " << i << LF;
   for (i = 0; i < n_A; ++i)                  // Rows corresponding to N_A
     // recall that g[] uses aiMapper.inBoundary() ordering.
     c[i+(n_T+n_I)*dim+n_A*(dim-1)] = g[i+n_I];
-  cout << "***i= " << i << LF;
+//  cout << "***i= " << i << LF;
   /*
    We copy matrix A and append some columns and lines. B should be
    
@@ -642,8 +642,8 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
 
-  writeMatrixToMatlab (B, "/tmp/B");
-  writeVectorToFile (c, "/tmp/c");
+  writeMatrixToMatlab (B, string ("/tmp/B") + cnt);
+  writeVectorToFile (c, string ("/tmp/c") + cnt);
 
   bench().report ("Stepping", "Solving", false);
 
@@ -700,7 +700,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::solve ()
     assemble();  // reassembles matrices FIXME: should just reorder.
     bench().stop ("Assembly");
     bench().start ("Stepping");
-    step();
+    step(cnt);
     bench().stop ("Stepping");
     bench().start ("Postprocessing", false);
     (void) post.computeError (u);
