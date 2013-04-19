@@ -70,15 +70,14 @@ public:
   typedef FieldMatrix<ctype, dim, dim>             block_t;
   typedef FieldMatrix<ctype, 1, 1>             scalarmat_t;
   typedef BCRSMatrix<scalarmat_t>             ScalarMatrix;
-    //typedef BCRSMatrix<coord_t>                 VectorMatrix; // WRONG
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
   typedef ActiveSetFunctor<ctype, dim, ScalarVector>  AIFunctor;
   typedef ActiveInactiveMapper<dim, TGV>               AIMapper;
-  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
-                                                  MCMGVertexLayout> VertexMapper;
-  typedef FunctorSupportMapper<dim, TGV, TGF> GapVertexMapper;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper
+          <typename TGV::Grid, MCMGVertexLayout>   VertexMapper;
+  typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
 
 private:
   const TGV& gv;    //!< Grid view
@@ -171,8 +170,10 @@ SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::SignoriniIASet (const TGV& _g
 template<class TGV, class TET, class TFT, class TTT, class TGF, class TSS, class TLM>
 void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
 {
-  const int  n_T = gv.size (dim);
-  const auto ingap = active.size() + inactive.size();
+  const int n_T = gv.size (dim);
+  const int n_A = static_cast<int> (active.size());
+  const int n_I = static_cast<int> (inactive.size());
+  const auto ingap = n_A + n_I;
     //cout << "total= " << n_T << ", ingap= " << ingap << "\n";
 
   std::vector<std::set<int> > adjacencyPattern (n_T);
@@ -197,8 +198,8 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
   D.setSize (ingap, ingap);
   D.setBuildMode (BlockMatrix::random);
   
-  b.resize (n_T + inactive.size() + active.size(), false);
-  u.resize (n_T + inactive.size() + active.size(), false);
+  b.resize (n_T + n_I + n_A, false);
+  u.resize (n_T + n_I + n_A, false);
 
   for (int i = 0; i < n_T; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
@@ -455,6 +456,10 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step ()
   const int total = n_T + n_I + n_A;
   
   assert (n_T == n_N + n_A + n_I);
+  assert (A.M() == A.N());
+  assert (A.N() == n_T);
+  assert (D.N() == D.M());
+  assert (D.N() == n_A + n_I);
 
   ScalarVector uu, c;
   c.resize (total*dim, false);

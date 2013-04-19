@@ -75,15 +75,14 @@ public:
   typedef FieldMatrix<ctype, dim, dim>             block_t;
   typedef FieldMatrix<ctype, 1, 1>             scalarmat_t;
   typedef BCRSMatrix<scalarmat_t>             ScalarMatrix;
-    //typedef BCRSMatrix<coord_t>                 VectorMatrix; // WRONG
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
   typedef ActiveSetFunctor<ctype, dim, ScalarVector>  AIFunctor;
-  typedef TwoBodyMapper<dim, TGV>                TwoMapper;
-  typedef LeafMultipleCodimMultipleGeomTypeMapper<typename TGV::Grid,
-                                                MCMGVertexLayout> VertexMapper;
-  typedef FunctorSupportMapper<dim, TGV, TGF> GapVertexMapper;
+  typedef TwoBodyMapper<dim, TGV>                     TwoMapper;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper
+          <typename TGV::Grid, MCMGVertexLayout>   VertexMapper;
+  typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
   
 private:
   TwoRefs<TGV> gv;    //!< Grid view
@@ -235,10 +234,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
   const int n_Tm = gv[MASTER].size (dim);
   const int n_Ts = gv[SLAVE].size (dim);
   const int  n_T = n_Tm + n_Ts;
-  const int n_Am = static_cast<int>(active[MASTER].size());
-  const int n_As = static_cast<int>(active[SLAVE].size());
-  const int n_Im = static_cast<int>(inactive[MASTER].size());
-  const int n_Is = static_cast<int>(inactive[SLAVE].size());
+  const int n_Am = static_cast<int> (active[MASTER].size());
+  const int n_As = static_cast<int> (active[SLAVE].size());
+  const int n_Im = static_cast<int> (inactive[MASTER].size());
+  const int n_Is = static_cast<int> (inactive[SLAVE].size());
   const auto ingap_m = n_Am + n_Im;
   const auto ingap_s = n_As + n_Is;
     //cout << "total= " << n_T << ", ingap= " << ingap << "\n";
@@ -484,10 +483,11 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
           //// Integrand of the RHS
         
         for (int i = 0 ; i < vnum; ++i)
-          b[twoMapper->map (body, *it, i, dim)] += f[body] (it->geometry ().global (x.position ())) *
-                                                   basis[i].evaluateFunction (x.position ()) *
-                                                   x.weight () *
-                                                   it->geometry ().integrationElement (x.position ());
+          b[twoMapper->map (body, *it, i, dim)] +=
+                    f[body] (it->geometry ().global (x.position ())) *
+                    basis[i].evaluateFunction (x.position ()) *
+                    x.weight () *
+                    it->geometry ().integrationElement (x.position ());
       }
       
         //// Neumann Boundary conditions.
@@ -689,7 +689,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
 
 /*! HACK of the HACKS...
  
- This is terrible: we assembled a block matrix and now we flatten it. Should've
+ This is terrible: we assembled a block matrix and now we flatten it. We should've
  started with a scalar matrix!!! Also, instead of using Q we should carry out the
  multiplication by blocks. Currently, with a mesh of ~20000 nodes each of the
  matMultMats involving A and Q require ~30 sec!!!
