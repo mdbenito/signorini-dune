@@ -211,7 +211,7 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
     int to = defaultMapper.map (*it);
     for (int c = 0; c < CoordVector::block_type::dimension; ++c) {
       uu[to*dim+c] = (*u)[from][c];
-      vvmm[to*dim] = vm[from];
+      vvmm[to] = vm[from];
     }
   }
   cout << "Adding more vertex data" << LF;
