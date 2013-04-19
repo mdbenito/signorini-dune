@@ -467,7 +467,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::step (int cnt)
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
   int i;
     // Copy RHS vector
-  for (i = 0; i < n_T*dim; ++i)
+  for (i = 0; i < n_T; ++i)
     for (int j = 0; j < dim; ++j)
       c[i*dim+j] = b[i][j];
 //  cout << "*i= " << i << LF;
