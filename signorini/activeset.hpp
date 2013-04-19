@@ -75,7 +75,7 @@ public:
   typedef ActiveInactiveMapper<dim, TGV>               AIMapper;
   typedef LeafMultipleCodimMultipleGeomTypeMapper
             <typename TGV::Grid, MCMGVertexLayout> VertexMapper;
-  typedef FunctorSupportMapper<dim, TGV, TGF> GapVertexMapper;
+  typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
 
 private:
   const TGV& gv;    //!< Grid view
@@ -358,7 +358,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
   /* Dirichlet boundary conditions.
    Replace the associated line of A and b with a trivial one.
    */
-  coord_t dirichlet;
+  coord_t dirichlet (0.0);
   dirichlet[0] = 0; dirichlet[1] = -0.07;
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {

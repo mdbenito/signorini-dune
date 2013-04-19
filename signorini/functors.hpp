@@ -270,31 +270,26 @@ class ActiveSetFunctor {
   const ScalarVector& solution;
   const ScalarVector& multipliers;
   ctype c;
-  ctype d;
   
 public:
-    /// Parameter d achieves nothing, has no theoretical justification I know of
-    /// and should be left alone as 1.0
   ActiveSetFunctor (const ScalarVector& _gap, const ScalarVector& _sol,
-                    const ScalarVector& _mul, ctype _c=1.0, ctype _d=1.0)
-  : gap (_gap), solution (_sol), multipliers (_mul), c (_c), d (_d) { }
+                    const ScalarVector& _mul, ctype _c=1.0)
+  : gap (_gap), solution (_sol), multipliers (_mul), c (_c) { }
   
   inline ctype operator() (int i) const
   {
-    return d*multipliers[i]+c*(solution[i]-gap[i]);
+    return multipliers[i]+c*(solution[i]-gap[i]);
   }
   
   inline bool isSupported (int i) const
   {
     /*
-    cout << "ActiveSetFunctor::isSupported(" << i << ")= d * "
+    cout << "ActiveSetFunctor::isSupported(" << i << ")= "
          << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
          << ") = " << (*this)(i) << "\n";
      */
-    return (d*multipliers[i]+c*(solution[i]-gap[i])) > 0;
+    return (multipliers[i]+c*(solution[i]-gap[i])) > 0;
   }
 };
-
-
 
 #endif // FUNCTORS_HPP
