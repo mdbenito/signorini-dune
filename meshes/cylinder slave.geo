@@ -1,7 +1,11 @@
-/* A cylinder.
+/*
+ A cylinder of radius 1 and length 10 along the x axis centered around {0,0,0}.
+ The mesh is an extrusion with layers increasingly close as the middle of the
+ cylinder is approached. The calculations for the Extrude command where done
+ in a scheme session inside "README - cylinders.tm"
 
-  After loading the model, create the mesh with Modules->Mesh->3D, then in the options
-  activate face coloring in Tools->Options->Mesh->Visibility->Surface faces
+ After loading the model, create the mesh with Modules->Mesh->3D, then in the options
+ activate face coloring in Tools->Options->Mesh->Visibility->Surface faces.
 */
 
 Point(1) = {5,2,0,0.1};  // Center of the base of the cylinder
@@ -19,13 +23,13 @@ Circle(4) = {5,1,2};
 
 Line Loop(5) = {1,2,3,4};
 Plane Surface(6) = {5};
-//Transfinite Surface{6} = {1,2,3,4};
 Recombine Surface{6};
 Physical Surface("bottom") = {6};
 
 cyl[] = Extrude {-10,0,0} {
   Surface{6};
-  Layers{100}; 
+  Layers { { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 },
+           {1/10, 7/38, 29/114, 605/1938, 116/323, 1922/4845, 413/969, 145/323, 301/646, 309/646, 1573/3230, 955/1938, 481/969, 161/323, 484/969, 2422/4845, 2423/4845, 485/969, 162/323, 488/969, 983/1938, 1657/3230, 337/646, 345/646, 178/323, 556/969, 2923/4845, 207/323, 1333/1938, 85/114, 31/38, 9/10, 1 }};
   Recombine;
 };
 
