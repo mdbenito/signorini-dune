@@ -1,5 +1,7 @@
   // [MBD] For dune-grid-glue
 #define HAVE_PSURFACE 1
+#define PSURFACE_NAMESPACE psurface::
+
   // [MBD] For SuperLU 4.3 in ~/Devel/Dune/SuperLU_4.3
 #define HAVE_SUPERLU 1
 #define SUPERLU_POST_2005_VERSION 1
@@ -241,9 +243,6 @@
    by configure _and_ if the application uses the PARMETIS_CPPFLAGS */
 /* #undef HAVE_PARMETIS */
 
-/* Define to 1 if psurface-library is found */
-/* #undef HAVE_PSURFACE */
-
 /* Define if you have POSIX threads libraries and header files. */
 #define HAVE_PTHREAD 1
 
@@ -336,8 +335,6 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "0.1"
 
-/* The namespace prefix of the psurface library */
-/* #undef PSURFACE_NAMESPACE */
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */

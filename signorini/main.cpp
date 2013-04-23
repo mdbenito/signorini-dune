@@ -35,6 +35,10 @@ pdo.SetPoints(newPoints)
 #include <dune/grid/io/file/gmshreader.hh>
 #include <dune/grid/alugrid.hh>
 
+#include <dune/grid-glue/extractors/codim1extractor.hh>
+#include <dune/grid-glue/merging/psurfacemerge.hh>
+#include <dune/grid-glue/adapter/gridglue.hh>
+
   //// Project includes
 
 #include "benchmark.hpp"
@@ -43,6 +47,7 @@ pdo.SetPoints(newPoints)
 #include "penaltymethod.hpp"
 #include "activeset.hpp"
 #include "twobodies.hpp"
+#include "physicalgroupdescriptors.hpp"
 
   //// stdlib includes
 
@@ -66,8 +71,8 @@ int main (int argc, char** argv)
 
     //// Grid setup
 
-  typedef SGrid<dim, dim>          grid_t;
-//  typedef ALUSimplexGrid<dim, dim> grid_t;
+//  typedef SGrid<dim, dim>          grid_t;
+  typedef ALUCubeGrid<dim, dim>    grid_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
   typedef grid_t::LeafGridView         GV;
@@ -75,7 +80,7 @@ int main (int argc, char** argv)
   FieldVector<int, dim> N(1);
   coord_t       origin (0.0);
   coord_t     topright (1.0);
-  
+  /*
   grid_t gridSlave (N, origin, topright);
   gridSlave.globalRefine (3);
   
@@ -84,15 +89,45 @@ int main (int argc, char** argv)
   topright[1] = 0;
   grid_t gridMaster (N, origin, topright);
   gridMaster.globalRefine (3);
-
-  /*
-  std::string path ("/Users/miguel/Universidad/Two bodies/");
-  grid_t gridMaster, gridSlave;
-  GmshReader<grid_t> gmshReader;
+*/
   
-  gmshReader.read (gridMaster, path * "cylinder master.msh");
-  gmshReader.read (gridSlave, path * "cylinder slave.msh");
-  */
+  string path ("/Users/miguel/Devel/Signorini/meshes/");
+  GmshReader<grid_t> gmshReader;
+  std::vector<int> boundary_id_to_physical_entity[2];
+  std::vector<int> element_index_to_physical_entity[2];
+  grid_t* grids[2];
+  grids[MASTER] = gmshReader.read (path + string("cylinder master.msh"),
+                                   boundary_id_to_physical_entity[MASTER],
+                                   element_index_to_physical_entity[MASTER]);
+
+  grids[SLAVE]  = gmshReader.read (path + string("cylinder slave.msh"),
+                                   boundary_id_to_physical_entity[SLAVE],
+                                   element_index_to_physical_entity[SLAVE]);
+  
+    //// Setup contact surfaces
+  
+  typedef typename grid_t::LevelGridView LevelGV;
+  typedef Codim1Extractor<LevelGV> SurfaceExtractor;
+  typedef PSurfaceMerge<dim-1,dim,double> SurfaceMergeImpl;
+  typedef ::GridGlue<SurfaceExtractor, SurfaceExtractor> GlueType;
+  
+  std::set<int> groups[2];
+  groups[MASTER] << 1 << 2;  // FIXME: what are the right numbers?
+  groups[SLAVE]  << 3 << 4;  // FIXME: what are the right numbers?
+
+  PhysicalFaceDescriptor<LevelGV> slaveDescriptor (grids[SLAVE]->levelView(0), boundary_id_to_physical_entity[SLAVE], groups[SLAVE]);
+  PhysicalFaceDescriptor<LevelGV> masterDescriptor (grids[MASTER]->levelView(0), boundary_id_to_physical_entity[MASTER], groups[MASTER]);
+  SurfaceExtractor masterExtractor (grids[MASTER]->levelView(0), masterDescriptor);
+  SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView(0), slaveDescriptor);
+  
+  SurfaceMergeImpl merger;
+  GlueType glue(slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
+  
+  glue.build();
+
+  assert(glue.size() > 0);
+  std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
+  
     //// Problem setup
 
   typedef VolumeLoad<ctype, dim>          VolumeF;
@@ -145,14 +180,14 @@ int main (int argc, char** argv)
   
   
     //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
-  IASolver fem2 (gridSlave.leafView(), a, f, p, g);
+  IASolver fem2 (grids[SLAVE]->leafView(), a, f, p, g);
 //  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
 //                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
   try {   // Pokemon Exception Handling
-    cout << "Gremlin population: " << gridSlave.size(dim) << "\n";
+    cout << "Gremlin population: " << grids[SLAVE]->size(dim) << "\n";
 //      // Penalty method, one body
 //      fem.initialize();
 //      fem.solve (maxsteps, tolerance);

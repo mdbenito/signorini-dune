@@ -36,6 +36,7 @@
 		4909D1E616B5A13F004D1959 /* activeset.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = activeset.hpp; sourceTree = "<group>"; };
 		4909D1EA16B5A932004D1959 /* penaltymethod.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = penaltymethod.hpp; sourceTree = "<group>"; };
 		491132E11674009F009F1A5C /* utils.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = utils.hpp; sourceTree = "<group>"; };
+		493E53821726F3C800FD5C65 /* physicalgroupdescriptors.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = physicalgroupdescriptors.hpp; sourceTree = "<group>"; };
 		498DE65B163AC44500D62D92 /* shapefunctions.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = shapefunctions.hpp; sourceTree = "<group>"; };
 		49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = functorsupportmapper.hpp; sourceTree = "<group>"; };
 		49C165A416B8863E00167EF1 /* activeinactivemapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = activeinactivemapper.hpp; sourceTree = "<group>"; };
@@ -88,6 +89,7 @@
 				49C1659216B6D3A600167EF1 /* functorsupportmapper.hpp */,
 				49C47D2F16343B1D00D38056 /* integration.hpp */,
 				49C47D0F1632FF8B00D38056 /* main.cpp */,
+				493E53821726F3C800FD5C65 /* physicalgroupdescriptors.hpp */,
 				4909D1EA16B5A932004D1959 /* penaltymethod.hpp */,
 				4909D1E016B445A6004D1959 /* postprocessor.hpp */,
 				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
@@ -247,6 +249,7 @@
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
+					"~/Devel/dune-project/dune-grid-glue/",
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
@@ -260,6 +263,8 @@
 					"-llapack",
 					"-lblas",
 					"-lalugrid",
+					"-ldunegridglue",
+					"-lpsurface",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
@@ -280,6 +285,7 @@
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
+					"~/Devel/dune-project/dune-grid-glue/",
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
@@ -293,6 +299,8 @@
 					"-llapack",
 					"-lblas",
 					"-lalugrid",
+					"-ldunegridglue",
+					"-lpsurface",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;

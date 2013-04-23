@@ -42,9 +42,9 @@ class PostProcessor
 public:
   static const int dim = TGV::dimension;
   
-  typedef            typename TGV::ctype ctype;
-  typedef      FieldVector<ctype, dim> coord_t;
-  typedef FieldMatrix<ctype, dim, dim> block_t;
+  typedef typename TGV::ctype                       ctype;
+  typedef FieldVector<ctype, dim>                 coord_t;
+  typedef FieldMatrix<ctype, dim, dim>            block_t;
   typedef BlockVector<coord_t>                CoordVector;
   typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
   typedef std::vector<ctype>                   FlatVector;
