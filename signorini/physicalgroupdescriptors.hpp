@@ -6,88 +6,78 @@
 #ifndef SIGNORINI_PHYSICALGROUPDESCRIPTORS_HPP
 #define SIGNORINI_PHYSICALGROUPDESCRIPTORS_HPP
 
+#include <iostream>
 #include <vector>
 #include <set>
 
 #include <dune/grid-glue/extractors/extractorpredicate.hh>
 
 using namespace Dune;
+using std::cout;
+using std::vector;
+using std::set;
+
 
 /*! FIXME: why level views? 
  */
-template <class TGV>
+template <class TGV, class TGF>
 class PhysicalFaceDescriptor : public ExtractorPredicate<TGV, 1>
 {
   static const int dim = TGV::dimension;
   
   typedef typename TGV::Traits::template Codim<0>::EntityPointer EntityPointer;
-  typedef LevelMultipleCodimMultipleGeomTypeMapper
-            <typename TGV::Grid, MCMGElementLayout> ElementMapper;
   
-  const TGV& gv;   //!< Grid view
-  ElementMapper* mapper;
-  std::vector<int> bi2pe;
-  std::set<int> groups;
+  const TGF&     gf;   //!< Grid factory
+  vector<int> bi2pe;
+  set<int>   groups;
   
 public:
-  PhysicalFaceDescriptor (const TGV& _gv,
-                          const std::vector<int>& boundary_id_to_physical_entity,
-                          std::set<int> _groups)
-  : gv (_gv), bi2pe (boundary_id_to_physical_entity), groups (_groups)
-  {
-    mapper = new ElementMapper (gv.grid(), 0);  // FIXME: use actual level
-  }
-  
-  virtual ~PhysicalFaceDescriptor ()
-  {
-    delete mapper;
-  }
+  PhysicalFaceDescriptor (const TGF& _gf,
+                          const vector<int>& boundary_id_to_physical_entity,
+                          const set<int>& _groups)
+  : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups)
+  { }
   
   virtual bool contains (const EntityPointer& ep, unsigned int face) const
   {
-    const int bid = mapper->map (*ep, face, 1);
-    return (groups.find (bi2pe[bid]) != groups.end());
+//      cout << "     ep has boundary intersections. Looking for face " << face << LF;
+    for (auto is = ep->ileafbegin(); is != ep->ileafend(); ++is) {
+        //        cout << "          intersection #" << is->indexInInside();
+      if (is->indexInInside() == face && is->boundary()) {
+        auto idx = gf.insertionIndex (*is);
+          //          cout << "               was inserted as " << idx << LF;
+        return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
+      } //else cout << LF;
+    }
+    return false;
   }
 };
 
 /*! FIXME: why level views?
  */
-template <class TGV>
+template <class TGV, class TGF>
 class PhysicalVolumeDescriptor : public ExtractorPredicate<TGV, 0>
 {
   static const int dim = TGV::dimension;
   
   typedef typename TGV::Traits::template Codim<0>::EntityPointer EntityPointer;
-  typedef LevelMultipleCodimMultipleGeomTypeMapper
-          <typename TGV::Grid, MCMGElementLayout> ElementMapper;
   
-  const TGV& gv;   //!< Grid view
-  ElementMapper* mapper;
-  std::vector<int> ei2pe;
-  std::set<int> groups;
+  const TGF&     gf;   //!< Grid factory
+  vector<int> ei2pe;
+  set<int>   groups;
   
 public:
-  PhysicalVolumeDescriptor (const TGV& _gv,
-                            const std::vector<int>& element_index_to_physical_entity,
-                            std::set<int> _groups)
-  : gv (_gv), ei2pe (element_index_to_physical_entity), groups (_groups)
-  {
-    mapper = new ElementMapper (gv.grid(), 0);  // FIXME: use actual level
-  }
-  
-  virtual ~PhysicalVolumeDescriptor ()
-  {
-    delete mapper;
-  }
-  
+  PhysicalVolumeDescriptor (const TGF& _gf,
+                            const vector<int>& element_index_to_physical_entity,
+                            const set<int>& _groups)
+  : gf (_gf), ei2pe (element_index_to_physical_entity), groups (_groups)
+  { }
+
   virtual bool contains (const EntityPointer& ep) const
   {
-    const int eid = mapper->map (*ep);
-    return (groups.find (ei2pe[eid]) != groups.end());
+    const auto idx = gf.insertionIndex (*ep);
+    return (idx >=0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());  // FIXME: ok? test!
   }
 };
-
-
-
 
 #endif /* defined(SIGNORINI_PHYSICALGROUPDESCRIPTORS_HPP) */

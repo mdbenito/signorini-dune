@@ -73,6 +73,7 @@ int main (int argc, char** argv)
 
 //  typedef SGrid<dim, dim>          grid_t;
   typedef ALUCubeGrid<dim, dim>    grid_t;
+  typedef GridFactory<grid_t>   factory_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
   typedef grid_t::LeafGridView         GV;
@@ -92,40 +93,50 @@ int main (int argc, char** argv)
 */
   
   string path ("/Users/miguel/Devel/Signorini/meshes/");
+  factory_t factories[2];
+  grid_t*       grids[2];
   GmshReader<grid_t> gmshReader;
   std::vector<int> boundary_id_to_physical_entity[2];
   std::vector<int> element_index_to_physical_entity[2];
-  grid_t* grids[2];
-  grids[MASTER] = gmshReader.read (path + string("cylinder master.msh"),
-                                   boundary_id_to_physical_entity[MASTER],
-                                   element_index_to_physical_entity[MASTER]);
+  gmshReader.read (factories[MASTER],
+                   path + string("cylinder master.msh"),
+                   boundary_id_to_physical_entity[MASTER],
+                   element_index_to_physical_entity[MASTER]);
+  gmshReader.read (factories[SLAVE],
+                   path + string("cylinder slave.msh"),
+                   boundary_id_to_physical_entity[SLAVE],
+                   element_index_to_physical_entity[SLAVE]);
 
-  grids[SLAVE]  = gmshReader.read (path + string("cylinder slave.msh"),
-                                   boundary_id_to_physical_entity[SLAVE],
-                                   element_index_to_physical_entity[SLAVE]);
+  grids[MASTER] = factories[MASTER].createGrid();
+  grids[SLAVE]  = factories[SLAVE].createGrid();
   
     //// Setup contact surfaces
   
   typedef typename grid_t::LevelGridView LevelGV;
   typedef Codim1Extractor<LevelGV> SurfaceExtractor;
-  typedef PSurfaceMerge<dim-1,dim,double> SurfaceMergeImpl;
+  typedef PSurfaceMerge<dim-1, dim, double> SurfaceMergeImpl;
   typedef ::GridGlue<SurfaceExtractor, SurfaceExtractor> GlueType;
   
   std::set<int> groups[2];
-  groups[MASTER] << 1 << 2;  // FIXME: what are the right numbers?
-  groups[SLAVE]  << 3 << 4;  // FIXME: what are the right numbers?
+  groups[MASTER] << 3 << 4;  // FIXME: what are the right identifiers?
+  groups[SLAVE]  << 5 << 6;  // FIXME: what are the right identifiers?
 
-  PhysicalFaceDescriptor<LevelGV> slaveDescriptor (grids[SLAVE]->levelView(0), boundary_id_to_physical_entity[SLAVE], groups[SLAVE]);
-  PhysicalFaceDescriptor<LevelGV> masterDescriptor (grids[MASTER]->levelView(0), boundary_id_to_physical_entity[MASTER], groups[MASTER]);
+  PhysicalFaceDescriptor<LevelGV, factory_t> masterDescriptor (factories[MASTER],
+                                                               boundary_id_to_physical_entity[MASTER],
+                                                               groups[MASTER]);
+  PhysicalFaceDescriptor<LevelGV, factory_t> slaveDescriptor (factories[SLAVE],
+                                                              boundary_id_to_physical_entity[SLAVE],
+                                                              groups[SLAVE]);
+
   SurfaceExtractor masterExtractor (grids[MASTER]->levelView(0), masterDescriptor);
   SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView(0), slaveDescriptor);
   
   SurfaceMergeImpl merger;
-  GlueType glue(slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
+  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
   
   glue.build();
 
-  assert(glue.size() > 0);
+  assert (glue.size() > 0);
   std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
   
     //// Problem setup
