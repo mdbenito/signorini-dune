@@ -24,7 +24,7 @@ Circle(4) = {5,1,2};
 
 Line Loop(5) = {1,2,3,4};
 Plane Surface(6) = {5};
-Recombine Surface{6};
+//Recombine Surface{6};
 
 /*
   The Layers command was built using Scheme with a recursive definition of the
@@ -39,7 +39,7 @@ cyl[] = Extrude {-10,0,0} {
            2422/4845, 2423/4845, 485/969, 162/323, 488/969, 983/1938, 1657/3230,
            337/646, 345/646, 178/323, 556/969, 2923/4845, 207/323, 1333/1938,
            85/114, 31/38, 9/10, 1 }};
-  Recombine;  // Create hexahedral elements
+//  Recombine;  // Create hexahedral elements
 };
 
 //// Create groups for the definition of boundary conditions

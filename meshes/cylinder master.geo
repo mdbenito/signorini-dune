@@ -24,7 +24,7 @@ Circle(4) = {5,1,2};
 
 Line Loop(5) = {1,2,3,4};
 Plane Surface(6) = {5};
-Recombine Surface{6};
+//Recombine Surface{6};
 
 /*
   The Layers command was built using Scheme with a recursive definition of the
@@ -39,7 +39,7 @@ cyl[] = Extrude {0,0,10} {
             2422/4845, 2423/4845, 485/969, 162/323, 488/969, 983/1938, 1657/3230,
             337/646, 345/646, 178/323, 556/969, 2923/4845, 207/323, 1333/1938,
             85/114, 31/38, 9/10, 1 }};
-  Recombine;  // Create hexahedral elements
+  //Recombine;  // Create hexahedral elements
 };
 
 //// Create groups for the definition of boundary conditions
@@ -47,18 +47,20 @@ cyl[] = Extrude {0,0,10} {
 
 
 Physical Surface(1) = {6};
-Physical Surface(2) = {cyl[0]};
-Physical Surface(3) = {cyl[2]};
-Physical Surface(4) = {cyl[3]};
-Physical Surface(5) = {cyl[4]};
-Physical Surface(6) = {cyl[5]};
-Physical Volume(1) = {cyl[1]};
+Physical Surface(2) = {cyl[0]};   // "top" of the extruded entity 
+Physical Surface(3) = {cyl[2]};   // side 1
+Physical Surface(4) = {cyl[3]};   // side 2
+Physical Surface(5) = {cyl[4]};   // side 3
+Physical Surface(6) = {cyl[5]};   // side 4
+Physical Volume(1) = {cyl[1]};    // extruded entity
+
 
 //// Some presentation stuff
 
 Color Red { Surface{6,cyl[0]}; }
 Color Blue { Surface {cyl[2],cyl[3],cyl[4],cyl[5]};}
 Geometry.Surfaces=1; // Won't work. Mabe because there's no 3D mesh yet?
+
 
 //// Store ids for use in files including this one (unused)
 
