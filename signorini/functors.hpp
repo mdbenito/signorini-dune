@@ -186,7 +186,7 @@ public:
     ret[0] = cx *(0.5-x[0]);
     ret[1] = cy;
      */
-    
+
       // HACK
     if ((ret[0]>0 && x[0] == 1) || (ret[0]<0 && x[0] == 0))
       return coord_t(0.0);
@@ -231,9 +231,9 @@ public:
     // Careful! remember that it must be g(x) > 0
   inline ctype operator() (const coord_t& x) const
   {
-    return ret;                       // [HW05] uses 0.05
-      //return sin (x[0]*6*M_PI) / 50.0;   // DATA3,4
-      //return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
+    return ret;                                     // [HW05] uses 0.05
+//    return sin (x[0]*6*M_PI) / 50.0;              // DATA3,4
+//    return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
   }
   
   template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>

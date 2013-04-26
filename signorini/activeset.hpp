@@ -67,7 +67,6 @@ public:
   typedef FieldMatrix<ctype, dim, dim>             block_t;
   typedef FieldMatrix<ctype, 1, 1>             scalarmat_t;
   typedef BCRSMatrix<scalarmat_t>             ScalarMatrix;
-    //typedef BCRSMatrix<coord_t>                 VectorMatrix; // WRONG
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
@@ -78,8 +77,8 @@ public:
   typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
 
 private:
-  const TGV& gv;    //!< Grid view
-  const GlobalIdSet& gids; //
+  const TGV& gv;           //!< Grid view
+  const GlobalIdSet& gids; //!< Element ids
 
   const TET& a;     //!< Elasticity tensor
   const TFT& f;     //!< Volume forces
@@ -195,8 +194,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::setupMatrices ()
   D.setBuildMode (BlockMatrix::random);
   
   b.resize (n_T, false);
-  u.resize (n_T + n_I + n_A, false); // we use the extended size (+n_I+n_A) below
-                                     // while copying the results back from uu inside step()
+  u.resize (n_T + n_I + n_A, false); // we use the extra room (+n_I+n_A) in step()
 
   for (int i = 0; i < n_T; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
@@ -375,6 +373,7 @@ void SignoriniIASet<TGV, TET, TFT, TTT, TGF, TSS, TLM>::assemble ()
           auto v = it->template subEntity<dim> (subi)->geometry().center();
           int ii = aiMapper->map (*it, subi , dim);
           if (v[1]==1 && v[0]>0 && v[0]<1) {  // HACK! replace with functor!!
+//          if (v[0]==5.0 && v[0]==-5.0) {  // HACK! replace with functor!!
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             A[ii] = 0.0;
             A[ii][ii] = I;
