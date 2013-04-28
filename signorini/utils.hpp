@@ -403,4 +403,124 @@ FieldVector<K, 3> coord3 (K x, K y, K z) {
   return ret;
 }
 
+/*** Poor man's polynomials ***/
+
+template <class ctype, int dim>
+class Monomial {
+  typedef FieldVector<ctype, dim> coord_t;
+  
+  int indices[dim];  // array {0 1 1} means x_2*x_3, etc.
+  ctype coeff;
+  
+  void clear() {
+    for (int i=0; i < dim; ++i) indices[i] = 0;
+  }
+public:
+  typedef std::vector<Monomial<ctype, dim> > Polynomial;
+  
+  Monomial (ctype _coeff=0) : coeff(_coeff) { clear(); }
+  Monomial (std::vector<int> ilist, ctype _coeff) : coeff (_coeff) {
+    clear();
+    for (auto& x : ilist) indices[x] = 1;
+  };
+  
+  ctype operator() (const coord_t& local) const
+  {
+    ctype r = coeff;
+    for (int i=0; i < dim; ++i)
+      if (indices[i] > 0)
+        r *= local[i];
+    
+    return r;
+  }
+  
+  void differentiate (int which)
+  {
+    assert (which >=0 && which < dim);
+    if (indices[which] == 0) {
+      clear();
+      coeff = 0;
+    } else {
+      indices[which] = 0;
+    }
+  }
+  
+  /* TODO: translate this into C++!! and delete the rest!!!!
+   
+   (define dim 3)
+   
+   (define (prepend x)
+   (lambda (y) (append x y)))
+   
+   (define (monomials ord from prog)
+   (cond ((>= from dim) '())
+   ((== ord 1) (cons `(,from) (monomials ord (+ 1 from) prog)))
+   (else
+   (with np (append prog `(,from))
+   (append
+   (map (prepend np) (monomials (- ord 1) (+ 1 from) '()))
+   (monomials ord (+ 1 from) prog))))))
+   */
+  static Polynomial monomialsOfOrder (int order)
+  {
+    if (dim > 3)
+      DUNE_THROW (Exception, "general monomialsOfOrder not implemented in c++");
+    
+    /* MEGA-HACK!!
+     
+     This is just plain stupid, but it's too late now for recursion in c++
+     without sensible reference counting.
+     */
+    
+    Polynomial p;
+    std::vector<int> ids;
+    
+    if (order == 1) {
+      for (int i=0; i < dim; ++i)
+        p.push_back (Monomial (ids << clear_vector() << i, 1));
+    } else if (order == 2) {
+      if (dim == 2) {
+        p.push_back (Monomial (ids << clear_vector() << 0 << 1, 1));
+      } else if (dim == 3) {
+        p.push_back (Monomial (ids << clear_vector() << 0 << 1, 1));
+        p.push_back (Monomial (ids << clear_vector() << 0 << 2, 1));
+        p.push_back (Monomial (ids << clear_vector() << 1 << 2, 1));
+      }
+    } else if (order == 3) {
+      p.push_back (Monomial (ids << clear_vector() << 0 << 1 << 2, 1));
+    }
+    return p;
+  }
+  
+  
+  friend std::ostream& operator<< (std::ostream& os, const Monomial& m)
+  {
+    os << m.coeff;
+    for (int i=0; i < dim; ++i)
+      if (m.indices[i] > 0)
+        os << "x[" << i << "]";
+    return os;
+  }
+  
+  friend Monomial& operator* (Monomial& m, ctype c)
+  {
+    m.coeff *= c;
+    return m;
+  }
+  
+  friend std::ostream& operator<< (std::ostream& os, const Polynomial& p)
+  {
+    for (auto& m : p)
+      os << m << " + ";
+    return os;
+  }
+  
+  friend Polynomial& operator* (Polynomial& p, ctype c)
+  {
+    for (auto& x : p)
+      x = x*c;
+    return p;
+  }
+};
+
 #endif  // SIGNORINI_UTILS_HPP
