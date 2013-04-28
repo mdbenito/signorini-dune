@@ -42,7 +42,6 @@ using std::cout;
 
 #define MASTER 0
 #define SLAVE  1
-  // HACK: Iterate thorugh arrays for both bodies
 #define DOBOTH(x) for (int x=0; x < 2; ++x)
 
 
@@ -85,8 +84,8 @@ public:
   typedef FunctorSupportMapper<dim, TGV, TGF>   GapVertexMapper;
   
 private:
-  TwoRefs<TGV> gv;    //!< Grid view
-  TwoRefs<GlobalIdSet> gids; //!<
+  TwoRefs<TGV> gv;           //!< Grid view
+  TwoRefs<GlobalIdSet> gids; //!< Element ids
   
   TwoRefs<TET> a;    //!< Elasticity tensor
   TwoRefs<TFT> f;    //!< Volume forces
@@ -156,8 +155,6 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::TwoBodiesIASet (const TG
   quadratureOrder (_quadratureOrder),
   inactive(), active(), other()
 {
-  assert (dim == 2);
-  
   I = 0.0;
   for (int i=0; i < dim; ++i)
     I[i][i] = 1.0;
@@ -360,8 +357,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
   MM.setSize (ingap_s, ingap_m);
   MM.setBuildMode (BlockMatrix::random);
   
-  b.resize (n_T + n_Is + n_As, false);
-  u.resize (n_T + n_Is + n_As, false);
+  b.resize (n_T, false);
+  u.resize (n_T + n_Is + n_As, false); // we use the extra room (+n_Is+n_As) in step()
   
   for (int i = 0; i < n_T; ++i)
     A.setrowsize (i, adjacencyPattern[i].size ());
@@ -811,7 +808,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   n_u = 0.0;
   
   CoordVector bb(b);
-  Q.mv(bb, b);  // b is now the new ^b=Q*b
+  Q.mv (bb, b);  // b is now the new ^b=Q*b
   
     // Copy RHS vector
   for (int i = 0; i < n_T; ++i)
@@ -1053,7 +1050,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
   
   CoordVector cu[2];
   DOBOTH (body) {
-    cu[body].resize(gv[body].size(dim));
+    cu[body].resize (gv[body].size(dim));
   }
   
   const int maxiter = 10;
