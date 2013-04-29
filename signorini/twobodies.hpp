@@ -170,7 +170,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::TwoBodiesIASet (const TG
   }
   /*  Really complicated way of doing the very same thing as above:
    Traversing the boundary brings little benefit when dim=2 and we have so few nodes.
-  DOBOTH(body) {
+  DOBOTH (body) {
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
         if (is->boundary ()) {
@@ -181,15 +181,15 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::TwoBodiesIASet (const TG
             for (int i_m = 0 ; i_m < ivnum; ++i_m) {
               int subi = ref.subEntity (is->indexInInside (), 1, i_m, dim);
               IdType id = gids[body].subId (*it, subi, dim);
-              inactive[body].insert(id);
-              other[body].erase(id);
+              inactive[body].insert (id);
+              other[body].erase (id);
             }
           } else {
             for (int i_m = 0 ; i_m < ivnum; ++i_m) {
               int subi = ref.subEntity (is->indexInInside (), 1, i_m, dim);
               IdType id = gids[body].subId (*it, subi, dim);
-              if (inactive[body].find(id) == inactive[body].end())
-                other[body].insert(id);
+              if (inactive[body].find (id) == inactive[body].end())
+                other[body].insert (id);
             }
           }
         }
@@ -264,6 +264,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
      intersects.
      
      ****
+     
+     FIXME: This is just a hack! We should actually project from the master onto
+     the slave along the normal and... [complete this!]
      
      FIXME: we check whether the support of a basis function in the master side
      contains the coordinates of a node in the slave side, but we should rather
@@ -473,7 +476,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
               A[ii][jj] += a[body] (grad2, grad1) * x.weight () * geo.integrationElement (x.position ());
             } catch (ISTLError& e) {       // The adjacencyPattern does not match.
               cout << "FAILED setting data for A[" << ii << ", " << jj << "] = "
-              << "(" << geo.corner(i) << ") x (" << geo.corner (j) << ")\n";
+              << "(" << geo.corner (i) << ") x (" << geo.corner (j) << ")\n";
             }
           }
         }
@@ -669,10 +672,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
    
   for (auto it_s = gv[SLAVE].template begin<dim>(); it_s != gv[SLAVE].template end<dim>(); ++it_s) {
     const auto& v_s = it_s->geometry().center();
-    if (gap[SLAVE].isSupported(v_s)) {
+    if (gap[SLAVE].isSupported (v_s)) {
       for (auto it_m = gv[MASTER].template begin<dim>(); it_m != gv[MASTER].template end<dim>(); ++it_m) {
         const auto& v_m = it_m->geometry().center();
-        if (gap[MASTER].isSupported(v_m)) {
+        if (gap[MASTER].isSupported (v_m)) {
           const int ii_m = twoMapper->mapInBoundary (MASTER, *it_m);
           const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s);
 
@@ -713,7 +716,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
      \                 /
  
  with ~MM = D^-1*MM. We set Â=Q*A*Q^T and append some columns and lines.
- B should be
+ The final system matrix B is
  
      /                                        \
      | Â_NN   Â_NM   Â_NI   Â_NS     0      0 |
@@ -725,7 +728,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
      |    0      0      0    N_A      0     0 |
      \                                        /
  
- In TWO DIMENSIONS this is a SQUARE scalar matrix!
+ Note that this is a SQUARE scalar matrix, because T_A has n_As*(dim-1) rows and
+ n_As*dim columns, and N_A has n_As rows and n_As*dim columns.
  
  */
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGF, class TSS, class TLM>
@@ -753,10 +757,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
     // M = D^-1*MM
   BlockMatrix M;
-  BlockMatrix DD(D);
+  BlockMatrix DD (D);
   for (int i=0; i < DD.N(); ++i)
     DD[i][i].invert();
-  matMultMat(M, DD, MM);
+  matMultMat (M, DD, MM);
   
   BlockMatrix MT;
   transpose (MT, M);
@@ -767,7 +771,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   
   for (auto row = Q.createbegin(); row != Q.createend(); ++row) {
     auto r = row.index();
-    row.insert(r);
+    row.insert (r);
     if (n_N <= r && r < n_N+n_M)
       for (auto col = MT[r-n_N].begin(); col != MT[r-n_N].end(); ++col)
         row.insert (col.index()+n_N+n_M);
@@ -782,20 +786,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
         Q[r][col.index()+n_N+n_M] = MT[r-n_N][col.index()];
   }
 
-  writeMatrixToMatlab(A, "/tmp/A");
-  writeMatrixToMatlab(D, "/tmp/D");
-  writeMatrixToMatlab(DD, "/tmp/DD");
-  writeMatrixToMatlab(Q, "/tmp/Q");
-  writeMatrixToMatlab(M, "/tmp/M");
-  writeMatrixToMatlab(MM, "/tmp/MM");
-  writeMatrixToMatlab(MT, "/tmp/MT");
+  writeMatrixToMatlab (A, "/tmp/A");
+  writeMatrixToMatlab (D, "/tmp/D");
+  writeMatrixToMatlab (DD, "/tmp/DD");
+  writeMatrixToMatlab (Q, "/tmp/Q");
+  writeMatrixToMatlab (M, "/tmp/M");
+  writeMatrixToMatlab (MM, "/tmp/MM");
+  writeMatrixToMatlab (MT, "/tmp/MT");
 
     // The brute force approach:
   BlockMatrix AA;
-  matMultTransposeMat(AA, A, Q);
-  matMultMat(A, Q, AA);  // A is now the new Â.
+  matMultTransposeMat (AA, A, Q);
+  matMultMat (A, Q, AA);  // A is now the new Â.
   
-  writeMatrixToMatlab(A, "/tmp/AA");
+  writeMatrixToMatlab (A, "/tmp/AA");
 //  cout << "We have Â\n";
   
   ScalarVector uu, c;
@@ -807,7 +811,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
   n_m = 0.0;
   n_u = 0.0;
   
-  CoordVector bb(b);
+  CoordVector bb (b);
   Q.mv (bb, b);  // b is now the new ^b=Q*b
   
     // Copy RHS vector
@@ -820,7 +824,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
 //  for (int i = n_T*dim; i < (n_T+n_I)*dim+n_A; ++i)
 //    c[i] = 0.0;
   
-    // recall that g[] uses twoMapper.inBoundary(SLAVE,...) ordering.
+    // recall that g[] uses twoMapper.inBoundary (SLAVE,...) ordering.
   for (int i = 0; i < n_A; ++i) {
 //    cout << " c[" << (n_T+n_I)*dim + n_A + i << "]= g[" << i+n_I << "]= " << g[i+n_I] << LF;
     c[(n_T+n_I)*dim + n_A + i] = g[i+n_I];
@@ -839,7 +843,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
           if (A[r][c][i][j] != 0.0)
-            adjacencyPattern[r*dim+i].insert((int)c*dim+j);
+            adjacencyPattern[r*dim+i].insert ((int)c*dim+j);
     }
   }
   
@@ -855,7 +859,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     } else if (active[SLAVE].find (id) != active[SLAVE].end()) {
       int ia = twoMapper->mapInActive (SLAVE, id);
       for (int i = 0; i < dim; ++i)
-        adjacencyPattern[(n_N+n_M+n_I+ia)*dim+i].insert((n_T+n_I+ia)*dim+i); // D_A
+        adjacencyPattern[(n_N+n_M+n_I+ia)*dim+i].insert ((n_T+n_I+ia)*dim+i); // D_A
       
       int ii = (n_T+n_I)*dim + ia;
         // T_A
@@ -990,7 +994,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     slu.apply (uu, c, stats);
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
-    exit(1);
+    exit (1);
   }
   
   bench().report ("Stepping", " done.");
@@ -1021,7 +1025,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step ()
     //// Transform back to original coordinates
 
     // Is this the same as the code below with the loops?
-//    CoordVector tu(u);
+//    CoordVector tu (u);
 //    Q.mtv (tu, u);
 
   CoordVector tu (n_T), tu2 (n_T);
@@ -1042,7 +1046,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
 
   PostProcessor<TGV, TET, MapperAdapter, TSS> post_m (gv[MASTER], mapper_m, a[MASTER]);
   PostProcessor<TGV, TET, MapperAdapter, TSS> post_s (gv[SLAVE], mapper_s, a[SLAVE]);
-    //TwoRefs<PostProcessor<TGV, TET, MapperAdapter, TSS> > post(post_m, post_s);
+    //TwoRefs<PostProcessor<TGV, TET, MapperAdapter, TSS> > post (post_m, post_s);
 
   std::string filename[2];
   filename[MASTER] = "/tmp/TwoBodiesIA_MASTER";
@@ -1050,7 +1054,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
   
   CoordVector cu[2];
   DOBOTH (body) {
-    cu[body].resize (gv[body].size(dim));
+    cu[body].resize (gv[body].size (dim));
   }
   
   const int maxiter = 10;
@@ -1079,7 +1083,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
 //        cout << "from: " << from << ", to: " << to << LF;
         cu[body][to] = u[from];
       }
-      writeVectorToFile(cu[body], string("/tmp/cu-")+body);
+      writeVectorToFile (cu[body], string ("/tmp/cu-")+body);
     }
     (void) post_m.computeError (cu[MASTER]);
     post_m.computeVonMisesSquared ();
@@ -1108,15 +1112,15 @@ void oldStuff()
     BlockMatrix AA_MN, AA_MM, AA_MS;
     BlockMatrix AA_SN, AA_SM, AA_SS;
     
-    subMatrix(A, AA_NN, 0,       0,       n_N, n_N);
-    subMatrix(A, AA_NM, 0,       n_N,     n_N, n_M);
-    subMatrix(A, AA_NS, 0,       n_N+n_M, n_N, n_S);
-    subMatrix(A, AA_MN, n_N,     0,       n_M, n_N);
-    subMatrix(A, AA_MM, n_N,     n_N,     n_M, n_M);
-    subMatrix(A, AA_MS, n_N,     n_N+n_M, n_M, n_S);
-    subMatrix(A, AA_SN, n_N+n_M, 0,       n_S, n_N);
-    subMatrix(A, AA_SM, n_N+n_M, n_N,     n_S, n_M);
-    subMatrix(A, AA_SS, n_N+n_M, n_N+n_M, n_S, n_S);
+    subMatrix (A, AA_NN, 0,       0,       n_N, n_N);
+    subMatrix (A, AA_NM, 0,       n_N,     n_N, n_M);
+    subMatrix (A, AA_NS, 0,       n_N+n_M, n_N, n_S);
+    subMatrix (A, AA_MN, n_N,     0,       n_M, n_N);
+    subMatrix (A, AA_MM, n_N,     n_N,     n_M, n_M);
+    subMatrix (A, AA_MS, n_N,     n_N+n_M, n_M, n_S);
+    subMatrix (A, AA_SN, n_N+n_M, 0,       n_S, n_N);
+    subMatrix (A, AA_SM, n_N+n_M, n_N,     n_S, n_M);
+    subMatrix (A, AA_SS, n_N+n_M, n_N+n_M, n_S, n_S);
     
     cout << "one" << LF;
     matMultMat (tmp, AA_NS, M);
@@ -1125,24 +1129,24 @@ void oldStuff()
     transposeMatMultMat (tmp, M, AA_SN);
     AA_MN += tmp;
     cout << "three" << LF;
-    matMultMat(tmp, AA_MS, M);
+    matMultMat (tmp, AA_MS, M);
     AA_MM += tmp;
-    transposeMatMultMat(tmp, M, AA_SM);
+    transposeMatMultMat (tmp, M, AA_SM);
     AA_MM += tmp;
-    matMultMat(tmp, A, M);
-    transposeMatMultMat(tmp2, M, tmp);
+    matMultMat (tmp, A, M);
+    transposeMatMultMat (tmp2, M, tmp);
     AA_MM += tmp2;
     cout << "four" << LF;
-    transposeMatMultMat(tmp, M, AA_SS);
+    transposeMatMultMat (tmp, M, AA_SS);
     AA_MS += tmp;
     cout << "five" << LF;
-    matMultMat(tmp, AA_SS, M);
+    matMultMat (tmp, AA_SS, M);
     AA_SM += tmp;
     cout << "six" << LF;
     BCRSMatrix<BlockMatrix> big;
     
-    big.setSize(3,3);
-    big.setBuildMode(BCRSMatrix<BlockMatrix>::row_wise);
+    big.setSize (3,3);
+    big.setBuildMode (BCRSMatrix<BlockMatrix>::row_wise);
     for (auto row = big.createbegin(); row != big.createend(); ++row)
       for (int i=0;i<3;++i)
         row.insert (i);
@@ -1162,8 +1166,8 @@ void oldStuff()
     
     
     CoordVector b_M, b_S;
-    b_M.resize(n_M);
-    b_S.resize(n_S);
+    b_M.resize (n_M);
+    b_S.resize (n_S);
     for (int i=0; i<n_M; ++i) b_M[i] = b[i+n_N];
     for (int i=0; i<n_S; ++i) b_S[i] = b[i+n_N+n_M];
     
@@ -1244,7 +1248,7 @@ void oldStuff()
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
           if (A[r][c][i][j] != 0.0)
-            adjacencyPattern[r*dim+i].insert((int)c*dim+j);
+            adjacencyPattern[r*dim+i].insert ((int)c*dim+j);
     }
   }
   
@@ -1260,7 +1264,7 @@ void oldStuff()
     } else if (active[SLAVE].find (id) != active[SLAVE].end()) {
       int ia = twoMapper->mapInActive (SLAVE, id);
       for (int i = 0; i < dim; ++i)
-        adjacencyPattern[(n_N+n_M+n_I+ia)*dim+i].insert((n_T+n_M+n_I+ia)*dim+i); // D_A
+        adjacencyPattern[(n_N+n_M+n_I+ia)*dim+i].insert ((n_T+n_M+n_I+ia)*dim+i); // D_A
       
       int ii = (n_T+n_I)*dim + ia;
         // T_A
@@ -1368,7 +1372,7 @@ void oldStuff()
     slu.apply (uu, c, stats);
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";
-    exit(1);
+    exit (1);
   }
   
   bench().report ("Stepping", " done.");
@@ -1379,7 +1383,7 @@ void oldStuff()
     for (int j = 0; j < dim; ++j)
       u[i][j] = uu[i*dim+j];
   
-  CoordVector tu(u);
+  CoordVector tu (u);
   Q.mtv (tu, u);
   
   for (const auto& x : inactive[SLAVE]) {
