@@ -369,7 +369,7 @@ class GmshBoundaryFunctor {
   
   const TGF&          gf;   //!< Grid factory
   std::vector<int> bi2pe;
-  std::set<int>   groups;
+  std::set<int>   groups;   //!< List of physical groups managed by this functor
   Evaluation*       eval;
 
 public:
@@ -391,6 +391,8 @@ public:
   bool isSupported (const Intersection& is) const
   {
 //    std::cout << "isSupported(): "; printCorners (is.geometry ()); std::cout << LF;
+    if (!gf.wasInserted (is) || is.neighbor())
+      return false;
     auto idx = gf.insertionIndex (is);
     return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
   }
@@ -411,7 +413,7 @@ class GmshVolumeFunctor {
 
   const TGF&          gf;   //!< Grid factory
   std::vector<int> ei2pe;
-  std::set<int>   groups;
+  std::set<int>   groups;   //!< List of physical groups managed by this functor
   Evaluation*       eval;
   
 public:
