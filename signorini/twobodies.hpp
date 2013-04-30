@@ -315,9 +315,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
                 auto   v_s = it_s->template subEntity<dim> (subi_s)->geometry().center();
                 
                 for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
-                  int    subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
-                  auto& local_m = it_m->geometry().local (v_s);
-                  auto      v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
+                  int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
+                  auto   v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
+                  const auto& local_m = it_m->geometry().local (v_s);
                   
                   if (basis[subi_m].isSupported (local_m)) {
 //                    cout << "*** " << v_s << " *** Supported by *** " << subi_m
