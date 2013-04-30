@@ -279,11 +279,11 @@ public:
     assert (which == MASTER || which == SLAVE);
   }
   
-    // Careful! remember that it must be g(x) > 0
+    // Careful! remember that it must be g(x) >= 0
   inline return_t operator() (const coord_t& global) const
   {
-    if (std::abs (global[0]) > 1.0 && std::abs (global[2]) > 1.0)
-      return std::numeric_limits<ctype>::max() / 2.0;  // divide by two just to be sure
+    if (std::abs (global[0]) > 1.0 || std::abs (global[2]) > 1.0)
+      return 0.0;
     switch (which) {
       case MASTER:
       {
@@ -299,27 +299,6 @@ public:
       }
     }
   }
-/*
-  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
-  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
-  {
-    for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner(i)))
-        return false;
-    return true;
-  }
-  
-  inline bool isSupported (const coord_t& x) const
-  {
-//    double foo = 1.0 / std::sqrt (2.0);
-    switch (which) {
-      case MASTER:
-        return (x[1] >= 0.0 && std::abs(x[2]<=5.0) && std::abs(x[0]<=1.0));
-      case SLAVE:
-        return (x[1] <= 2.0 && std::abs(x[2]<=1.0) && std::abs(x[0]<=5.0));
-    }
-  }
- */
 };
 
 

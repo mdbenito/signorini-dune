@@ -527,10 +527,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
      */
     
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
-      
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
         if (is->boundary () && dir[body].isSupported (*is)) {
+          const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
           const int ivnum = ref.size (is->indexInInside (), 1, dim);
             //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
           
