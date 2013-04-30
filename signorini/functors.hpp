@@ -22,7 +22,10 @@
 #include <dune/common/fassign.hh>
 
 #include "utils.hpp"
+#include "traverse.hpp"
 #include <cmath>
+#include <vector>
+#include <set>
 
 /*! Kronecker's delta. */
 template <typename T>
@@ -259,6 +262,66 @@ public:
   }
 };
 
+  /// REMOVE ME!!! Use PSurface!
+template <typename ctype, int dim>
+class CylinderHackGapEvaluation {
+
+  static const int MASTER=0;
+  static const int SLAVE=1;
+  int which;
+public:
+  typedef FieldVector<ctype, dim> coord_t;
+  typedef ctype return_t;
+
+  CylinderHackGapEvaluation (int _which) : which (_which)
+  {
+    assert (dim == 3);
+    assert (which == MASTER || which == SLAVE);
+  }
+  
+    // Careful! remember that it must be g(x) > 0
+  inline return_t operator() (const coord_t& global) const
+  {
+    if (std::abs (global[0]) > 1.0 && std::abs (global[2]) > 1.0)
+      return std::numeric_limits<ctype>::max() / 2.0;  // divide by two just to be sure
+    switch (which) {
+      case MASTER:
+      {
+        double dy = std::sqrt (1.0 - global[0]*global[0]);
+        dy += 1.0 - std::sqrt (1.0 - global[2]*global[2]);
+        return dy;
+      }
+      case SLAVE:
+      {
+        double dy = std::sqrt (1.0 - global[0]*global[0]);
+        dy += 1.0 - std::sqrt (1.0 - global[2]*global[2]);
+        return dy;
+      }
+    }
+  }
+/*
+  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
+  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
+  {
+    for (int i = 0; i < geo.corners(); ++i)
+      if (! isSupported (geo.corner(i)))
+        return false;
+    return true;
+  }
+  
+  inline bool isSupported (const coord_t& x) const
+  {
+//    double foo = 1.0 / std::sqrt (2.0);
+    switch (which) {
+      case MASTER:
+        return (x[1] >= 0.0 && std::abs(x[2]<=5.0) && std::abs(x[0]<=1.0));
+      case SLAVE:
+        return (x[1] <= 2.0 && std::abs(x[2]<=1.0) && std::abs(x[0]<=5.0));
+    }
+  }
+ */
+};
+
 
 /*! A boundary scalar functor for the active / inactive set strategy.
  */
@@ -289,6 +352,108 @@ public:
          << ") = " << (*this)(i) << "\n";
      */
     return (multipliers[i]+c*(solution[i]-gap[i])) > 0;
+  }
+};
+
+
+/*! A functor to model constant data
+ */
+template <typename ctype, int dim, class ret_t>
+class ConstantEvaluation {
+public:
+  typedef FieldVector<ctype, dim> coord_t;
+  typedef ret_t return_t;
+
+  ConstantEvaluation (const return_t& _ret) : ret (_ret) { }
+  
+  return_t operator() (const coord_t& global) const
+  {
+    (void) global;  // ignored!
+    return ret;
+  }
+
+private:
+  return_t ret;
+};
+
+
+/*! A functor which has support on some Physical Entity defined in Gmsh.
+ 
+ class Evaluation must define operator() and export return_t.
+ 
+ We take ownership of the Evaluation object and delete it when necessary.
+ */
+template <typename ctype, int dim, class Evaluation, class TGF>
+class GmshBoundaryFunctor {
+  typedef FieldVector<ctype, dim>        coord_t;
+  typedef typename Evaluation::return_t return_t;
+  
+  const TGF&          gf;   //!< Grid factory
+  std::vector<int> bi2pe;
+  std::set<int>   groups;
+  Evaluation*       eval;
+
+public:
+  GmshBoundaryFunctor (const TGF& _gf,
+                       const std::vector<int>& boundary_id_to_physical_entity,
+                       const std::set<int>& _groups,
+                       Evaluation* _eval)
+  : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups), eval (_eval)
+  { }
+  
+  ~GmshBoundaryFunctor () { delete eval; }
+  
+  return_t operator() (const coord_t& global) const
+  {
+    return (*eval) (global);
+  }
+  
+  template <class Intersection>
+  bool isSupported (const Intersection& is) const
+  {
+//    std::cout << "isSupported(): "; printCorners (is.geometry ()); std::cout << LF;
+    auto idx = gf.insertionIndex (is);
+    return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
+  }
+};
+
+
+/*! A functor which has support on some Physical Entity defined in Gmsh.
+ 
+ class Evaluation must define operator() and export return_t.
+ 
+ We take ownership of the Evaluation object and delete it when necessary.
+ */
+template <typename ctype, int dim, class Evaluation, class TGF>
+class GmshVolumeFunctor {
+  typedef FieldVector<ctype, dim>                coord_t;
+  typedef typename Evaluation::return_t         return_t;
+  typedef typename TGF::template Codim<0>::Entity Entity;
+
+  const TGF&          gf;   //!< Grid factory
+  std::vector<int> ei2pe;
+  std::set<int>   groups;
+  Evaluation*       eval;
+  
+public:
+  GmshVolumeFunctor (const TGF& _gf,
+                     const std::vector<int>& element_id_to_physical_entity,
+                     const std::set<int>& _groups,
+                     Evaluation* _eval)
+  : gf (_gf), ei2pe (element_id_to_physical_entity), groups (_groups), eval (_eval)
+  { }
+  
+  ~GmshVolumeFunctor () { delete eval; }
+  
+  return_t operator() (const coord_t& global) const
+  {
+    return (*eval) (global);
+  }
+  
+  bool isSupported (const Entity& en) const
+  {
+    auto idx = gf.insertionIndex (en);
+    return (idx >= 0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());
   }
 };
 

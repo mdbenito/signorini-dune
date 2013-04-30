@@ -178,6 +178,7 @@ void TwoBodyMapper<codim, TGV>::update (const IdSet* active,
                                         const IdSet* inactive,
                                         const IdSet* other)
 {
+//  cout << "TwoBodyMapper::update()\n";
   int cnt = 0;
   DOBOTH (body) {
     indices[body].clear();

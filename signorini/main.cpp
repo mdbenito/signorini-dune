@@ -11,6 +11,7 @@ pdi  = self.GetInput()
 pdo  = self.GetOutput()
 solX = pdi.GetPointData().GetArray('u[0]')
 solY = pdi.GetPointData().GetArray('u[1]')
+solZ = pdi.GetPointData().GetArray('u[2]')
 #sum  = pdi.GetPointData().GetArray('Sum') # in case we use the calculator
  
 newPoints = vtk.vtkPoints()
@@ -19,6 +20,7 @@ for i in range(0, pdi.GetNumberOfPoints()):
   x, y, z = coord[:3]
   x = x + solX.GetValue(i)
   y = y + solY.GetValue(i)
+  z = z + solZ.GetValue(i)
   newPoints.InsertPoint(i, x, y, z)
  
 pdo.SetPoints(newPoints)
@@ -114,19 +116,33 @@ int main (int argc, char** argv)
   typedef PSurfaceMerge<dim-1, dim, double> SurfaceMergeImpl;
   typedef ::GridGlue<SurfaceExtractor, SurfaceExtractor> GlueType;
   
-  std::set<int> groups[2];
-  groups[MASTER] << 3 << 4;  // FIXME: what are the right identifiers?
-  groups[SLAVE]  << 5 << 6;  // FIXME: what are the right identifiers?
+  // TODO: patch the GmshParser to read Physical Group names and use those
+  std::set<int> volumeGroups[2];
+  volumeGroups[MASTER] << 1;
+  volumeGroups[SLAVE]  << 1;
 
+  std::set<int> contactGroups[2];
+  contactGroups[MASTER] << 3 << 4;
+  contactGroups[SLAVE]  << 5 << 6;
+  
+  std::set<int> dirichletGroups[2];
+  dirichletGroups[MASTER] << 1 << 2;
+  dirichletGroups[SLAVE]  << 1 << 2;
+  
+  std::set<int> neumannGroups[2];
+  neumannGroups[MASTER] << 5 << 6;
+  neumannGroups[SLAVE]  << 3 << 4;
+  
+  
   PhysicalFaceDescriptor<LevelGV, factory_t> masterDescriptor (factories[MASTER],
                                                                boundary_id_to_physical_entity[MASTER],
-                                                               groups[MASTER]);
+                                                               contactGroups[MASTER]);
   PhysicalFaceDescriptor<LevelGV, factory_t> slaveDescriptor (factories[SLAVE],
                                                               boundary_id_to_physical_entity[SLAVE],
-                                                              groups[SLAVE]);
+                                                              contactGroups[SLAVE]);
 
-  SurfaceExtractor masterExtractor (grids[MASTER]->levelView(0), masterDescriptor);
-  SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView(0), slaveDescriptor);
+  SurfaceExtractor masterExtractor (grids[MASTER]->levelView (0), masterDescriptor);
+  SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView (0), slaveDescriptor);
   
   SurfaceMergeImpl merger;
   GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
@@ -138,12 +154,20 @@ int main (int argc, char** argv)
   
     //// Problem setup
 
-  typedef VolumeLoad<ctype, dim>          VolumeF;
-  typedef Tractions<ctype, dim>         BoundaryF;
-  typedef NormalGap<ctype, dim>               Gap;
-  typedef DirichletFunctor<ctype, dim>  Dirichlet;
+//  typedef VolumeLoad<ctype, dim>          VolumeF;
+//  typedef Tractions<ctype, dim>         BoundaryF;
+//  typedef DirichletFunctor<ctype, dim>  Dirichlet;
+//  typedef NormalGap<ctype, dim>               Gap;
   typedef HookeTensor<ctype, dim>          HookeT;
 
+  typedef ConstantEvaluation<ctype, dim, coord_t>               ConstantEval;
+  typedef GmshVolumeFunctor<ctype, dim, ConstantEval, factory_t>     VolumeF;
+  typedef GmshBoundaryFunctor<ctype, dim, ConstantEval, factory_t> BoundaryF;
+  typedef GmshBoundaryFunctor<ctype, dim, ConstantEval, factory_t> Dirichlet;
+  typedef CylinderHackGapEvaluation<ctype, dim>                      GapHack;
+  typedef GmshBoundaryFunctor<ctype, dim, GapHack, factory_t>            Gap;
+
+  
 //  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
 //  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
 //  typedef Q1ShapeFunctionSet<ctype, dim, ShapeF> ShapeSet;
@@ -172,12 +196,46 @@ int main (int argc, char** argv)
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
     
-  VolumeF   f (coord3 (0.0, 0.0, 0.0));
-  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
-  Dirichlet d (coord3 (0.0, -0.07, 0.0));
-  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
-  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
-  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
+//  VolumeF   f (coord3 (0.0, 0.0, 0.0));
+//  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
+//  Dirichlet d (coord3 (0.0, -0.07, 0.0));
+//  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
+//  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
+//  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
+
+  VolumeF  f (factories[MASTER],
+              element_index_to_physical_entity[MASTER],
+              volumeGroups[MASTER],
+              new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+  VolumeF f2 (factories[SLAVE],
+              element_index_to_physical_entity[SLAVE],
+              volumeGroups[SLAVE],
+              new ConstantEval (coord3 (0.0, -4e6, 0.0)));
+  Dirichlet  d (factories[MASTER],
+                boundary_id_to_physical_entity[MASTER],
+                dirichletGroups[MASTER],
+                new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+  Dirichlet d2 (factories[SLAVE],
+                boundary_id_to_physical_entity[SLAVE],
+                dirichletGroups[SLAVE],
+                new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+  BoundaryF  p (factories[MASTER],
+                boundary_id_to_physical_entity[MASTER],
+                neumannGroups[MASTER],
+                new ConstantEval (coord3 (3.0e5, 7.0e5, 0.0)));
+  BoundaryF p2 (factories[SLAVE],
+                boundary_id_to_physical_entity[SLAVE],
+                neumannGroups[SLAVE],
+                new ConstantEval (coord3 (-3e6, -3.0e6, 0.0)));
+
+  Gap g (factories[MASTER],
+         boundary_id_to_physical_entity[MASTER],
+         contactGroups[MASTER],
+         new GapHack (MASTER));
+  Gap g2 (factories[SLAVE],
+          boundary_id_to_physical_entity[SLAVE],
+          contactGroups[SLAVE],
+          new GapHack (SLAVE));
 
 //  VolumeF   f (coord2 (0.0, 0.0));
 //  VolumeF   f2 (coord2 (0.0, 0.0));
@@ -185,29 +243,28 @@ int main (int argc, char** argv)
 //  Dirichlet d2 (coord2 (0.0, 0.0));
 //  BoundaryF p (coord2 (-3e6, -7e6));
 //  BoundaryF p2 (coord2 (3e6, -4e6));
-
-    //  Gap       g (0.0, 0.0);
-    //  Gap       g2 (0.0, 0.0);
-  Gap g (0.0, 0.05);
   
+//  Gap       g (0.0, 0.0);
+//  Gap       g2 (0.0, 0.0);
+//  Gap g (0.0, 0.05);
   
-    //PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
-  IASolver fem2 (grids[SLAVE]->leafView(), a, f, p, g);
-//  TwoSolver twoFem (gridMaster.leafView(), gridSlave.leafView(),
-//                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
+//  PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
+//  IASolver fem2 (grids[SLAVE]->leafView(), a, f, p, g);
+  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
+                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
   try {   // Pokemon Exception Handling
-    cout << "Gremlin population: " << grids[SLAVE]->size(dim) << "\n";
+    cout << "Gremlin population: " << grids[MASTER]->size(dim) + grids[SLAVE]->size(dim) << LF;
 //      // Penalty method, one body
 //      fem.initialize();
 //      fem.solve (maxsteps, tolerance);
 //    
-      // Active / inactive, one body
-      fem2.solve ();
+//      // Active / inactive, one body
+//      fem2.solve ();
 //      // Active / inactive, two bodies
-//      twoFem.solve();
+      twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

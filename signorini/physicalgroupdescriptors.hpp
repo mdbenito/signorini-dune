@@ -44,9 +44,9 @@ public:
     for (auto is = ep->ileafbegin(); is != ep->ileafend(); ++is) {
         //        cout << "          intersection #" << is->indexInInside();
       if (is->indexInInside() == face && is->boundary()) {
-        auto idx = gf.insertionIndex (*is);
+        unsigned int idx = gf.insertionIndex (*is);
           //          cout << "               was inserted as " << idx << LF;
-        return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
+        return (idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
       } //else cout << LF;
     }
     return false;

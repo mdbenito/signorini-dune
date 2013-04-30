@@ -36,7 +36,7 @@ public:
 
   LinearShapeFunction () : coeff0(0.0), coeff1(0.0) { }
   LinearShapeFunction (ctype coeff0_, const coord_t& coeff1_)
-  : coeff0(coeff0_), coeff1(coeff1_) { }
+  : coeff0 (coeff0_), coeff1 (coeff1_) { }
   
   ctype evaluateFunction (const coord_t& local) const
   {
@@ -50,6 +50,21 @@ public:
   {
     return coeff1;
   }
+  
+    // FIXME: HACK and WRONG
+  inline bool isSupported (const coord_t& local) const
+  {
+    ctype s = 0.0;
+    for (int i = 0; i < dim; ++i) {
+      s += local[i];
+      if (local[i] < 0 || local[i] > 1)
+        return false;
+    }
+    if (s > 1)
+      return false;
+    return true;
+  }
+
   
 private:
   ctype   coeff0;
