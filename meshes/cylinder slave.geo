@@ -3,10 +3,6 @@
  The mesh is an extrusion with layers increasingly close as the middle of the
  cylinder is approached. The calculations for the Extrude command where done
  in a scheme session inside "README - cylinders.tm"
-
- After loading the model, create the mesh with Modules->Mesh->3D, then in the
- options activate face coloring in Tools->Options->Mesh->Visibility->Surface
- faces.
 ******************************************************************************/
 
 Point(1) = {5,2,0,0.1};  // Center of the base of the cylinder
@@ -26,11 +22,6 @@ Line Loop(5) = {1,2,3,4};
 Plane Surface(6) = {5};
 //Recombine Surface{6};
 
-/*
-  The Layers command was built using Scheme with a recursive definition of the
-  sequence of points at which the layers where going to be. 
-  (see "README - cylinders.tm")
-*/
 cyl[] = Extrude {-10,0,0} {
   Surface{6};
   Layers { { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 },
@@ -54,10 +45,10 @@ Physical Surface(6) = {cyl[5]};
 Physical Volume(1) = {cyl[1]};
 
 //// Some presentation stuff
+// The colors seem to be ignored?
 
-Color Red { Surface{6,cyl[0]}; }
-Color Blue { Surface {cyl[2],cyl[3],cyl[4],cyl[5]};}
-Geometry.Surfaces=1; // Won't work. Mabe because there's no 3D mesh yet?
+Color Red { Surface {6, cyl[0]}; }
+Color Blue { Surface {cyl[2], cyl[3], cyl[4], cyl[5]};}
 
 //// Store ids for use in files including this one (unused)
 
@@ -68,9 +59,4 @@ sidSide1 = cyl[2];
 sidSide2 = cyl[3];
 sidSide3 = cyl[4];
 sidSide4 = cyl[5];
-
-
-//BoundingBox;
-//Printf ("minX=%d",General.MinX);  // doesn't work?
-//Mesh.CharacteristicLengthFromCurvature = 1;
 
