@@ -56,13 +56,10 @@ public:
   {
     ctype s = 0.0;
     for (int i = 0; i < dim; ++i) {
+      if (local[i] < 0 || local[i] > 1) return false;
       s += local[i];
-      if (local[i] < 0 || local[i] > 1)
-        return false;
     }
-    if (s > 1)
-      return false;
-    return true;
+    return (s <= 1);
   }
 
   
@@ -123,6 +120,7 @@ private:
   ShapeFunction f0;
   ShapeFunction f1[dim];
 };
+
 
 /* 
  This is a complete "hut" basis function: the support extends to the four
@@ -383,69 +381,6 @@ private:
 
 template <class C, int D, class TS>
 Q1ShapeFunctionSet<C, D, TS>* Q1ShapeFunctionSet<C, D, TS>::_instance = 0;
-
-
-template <class ctype, int dim, class ShapeSet>
-bool testShapes (const std::string& filename)
-{
-  const auto& basis = ShapeSet::instance ();
-  GeometryType gt (basis.basicType, dim);
-  const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
-  typedef FieldVector<ctype, dim> coord_t;
-  coord_t x;
-  
-  cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
-  cout << "Testing vertices:\n";
-  for (int i=0; i < basis.size(); ++i) {
-    for (int v = 0; v < element.size (dim); ++v) {
-      x = element.position (v, dim);
-      cout << "   Basis[" << i << "](" << x << ") = "
-           << basis[i].evaluateFunction (x) << "\n";
-    }
-  }
-  
-  cout << "Testing grid:\n";
-  FieldMatrix<ctype, 41, 41> r, gx, gy;
-
-  for (int i=0; i < basis.size(); ++i) {
-    for (int x = -20; x <= 20; ++x) {
-      for (int y = -20; y <= 20; ++y) {
-        coord_t v;
-        if (dim == 2)      v <<= x*0.1 , y*0.1;
-        else if (dim == 3) v <<= x*0.1 , y*0.1, 0.5;
-        else DUNE_THROW (Exception, "Invalid dimension for testShapes");
-        
-        r[x+20][y+20] = basis[i].evaluateFunction (v);
-        gx[x+20][y+20] = basis[i].evaluateGradient (v)[0];
-        gy[x+20][y+20] = basis[i].evaluateGradient (v)[1];
-//        cout << "   Basis[" << i << "](" << x << ", " << y << ") = "
-//            << basis[i].evaluateFunction (v) << "\n";
-      }
-    }
-    writeMatrixToMatlab(r, filename + i);
-    writeMatrixToMatlab(gx, filename + std::string("-gradx") + i);
-    writeMatrixToMatlab(gy, filename + std::string("-grady") + i);
-  }
-  
-  cout << "Testing gradient:\n";
-  for (int i=0; i < basis.size(); ++i) {
-    for (int v = 0; v < element.size (dim); ++v) {
-      x = element.position (v, dim);
-      cout << "   Basis[" << i << "](" << x << ") = "
-           << basis[i].evaluateGradient (x) << "\n";
-    }
-  }
-  
-  cout << "Testing quadrature points of order two:\n";
-  for (int i=0; i < basis.size(); ++i) {
-    for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
-      cout << "   Basis[" << i << "](" << x.position() << ") = "
-           << basis[i].evaluateFunction (x.position()) << "\n";
-    }
-  }
-  
-  return true;
-}
 
 
 /******************************************************************************

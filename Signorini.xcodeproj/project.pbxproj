@@ -46,6 +46,7 @@
 		49C47D2E16343A2000D38056 /* functors.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = functors.hpp; sourceTree = "<group>"; };
 		49C47D2F16343B1D00D38056 /* integration.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = integration.hpp; sourceTree = "<group>"; };
 		49C47D3016343F4B00D38056 /* traverse.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = traverse.hpp; sourceTree = "<group>"; };
+		49DA97EF173020670076702F /* tests.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = tests.hpp; sourceTree = "<group>"; };
 		49FDFA5C16EFACC6002B830A /* twobodies.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = twobodies.hpp; sourceTree = "<group>"; };
 		49FDFA5F16EFBA1D002B830A /* twobodymapper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = twobodymapper.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -93,6 +94,7 @@
 				493E53821726F3C800FD5C65 /* physicalgroupdescriptors.hpp */,
 				4909D1E016B445A6004D1959 /* postprocessor.hpp */,
 				498DE65B163AC44500D62D92 /* shapefunctions.hpp */,
+				49DA97EF173020670076702F /* tests.hpp */,
 				49C47D3016343F4B00D38056 /* traverse.hpp */,
 				49FDFA5C16EFACC6002B830A /* twobodies.hpp */,
 				49FDFA5F16EFBA1D002B830A /* twobodymapper.hpp */,
@@ -244,15 +246,18 @@
 					"$(inherited)",
 				);
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = "";
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GENERATE_PROFILING_CODE = YES;
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
 					"~/Devel/dune-project/dune-grid-glue/",
 				);
+				LD_NO_PIE = YES;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
+				MACH_O_TYPE = mh_execute;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lm",
@@ -280,15 +285,18 @@
 				GCC_OPTIMIZATION_LEVEL = 3;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = "";
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GENERATE_PROFILING_CODE = YES;
 				HEADER_SEARCH_PATHS = (
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
 					"~/Devel/dune-project/dune-grid-glue/",
 				);
+				LD_NO_PIE = YES;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				LLVM_LTO = YES;
+				MACH_O_TYPE = mh_execute;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-lm",

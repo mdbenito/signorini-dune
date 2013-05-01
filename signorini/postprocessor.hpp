@@ -33,7 +33,7 @@ using namespace Dune;
  TMP: TMapper
  TSS: TShapeFunctionSet
  
- FIXME: Should only take one template parameter: the FEM class, and from it
+ TODO: Should only take one template parameter: the FEM class, and from it
  read types for GridView, Elasticity tensor, shape function set, etc.
  */
 template<class TGV, class TET, class TMP, class TSS>
@@ -181,28 +181,28 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 }
 
 
-  /// This is about the ugliest code I've written in a while...
-  /// UPD: scrap that. I just wrote something far worse. :(((((
-
 template<class TGV, class TET, class TMP, class TSS>
 std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, int step) const
 {
   std::ostringstream oss;
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
   VTKWriter<typename TGV::Grid::LeafGridView> vtkwriter (gv.grid().leafView());
+
+  VertexMapper defaultMapper (gv.grid());
   
+  /* // I don't really need this:
   std::vector<int> indices (gv.size(dim));
   std::vector<int> mapped (gv.size(dim));
-  VertexMapper defaultMapper (gv.grid());
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int from = mapper.map (*it);
     int to = defaultMapper.map (*it);
     mapped[to] = from;
     indices[to] = to;
   }
-  cout << "Adding vertex data" << LF;
+  cout << "Adding index data" << LF;
   vtkwriter.addVertexData (indices, "idx", 1);
   vtkwriter.addVertexData (mapped, "map", 1);
+   */
 
   FlatVector uu (gv.size(dim) * CoordVector::block_type::dimension);
   FlatVector vvmm (gv.size(dim));
@@ -214,11 +214,11 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
       vvmm[to] = vm[from];
     }
   }
-  cout << "Adding more vertex data" << LF;
+  cout << "Adding vertex data" << LF;
   vtkwriter.addVertexData (uu, "u", dim);
   vtkwriter.addVertexData (vvmm, "vm", 1);
   
-  cout << "Writing vertex data" << LF;
+  cout << "Writing file" << LF;
   vtkwriter.write (oss.str(), VTK::appendedraw);
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
