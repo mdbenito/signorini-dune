@@ -43,6 +43,7 @@ pdo.SetPoints(newPoints)
 
   //// Project includes
 
+#include "tests.hpp"
 #include "benchmark.hpp"
 #include "functors.hpp"
 #include "shapefunctions.hpp"
@@ -145,12 +146,12 @@ int main (int argc, char** argv)
   SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView (0), slaveDescriptor);
   
   SurfaceMergeImpl merger;
-  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
-  
-  glue.build();
-
-  assert (glue.size() > 0);
-  std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
+//  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
+//  
+//  glue.build();
+//
+//  assert (glue.size() > 0);
+//  std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
   
     //// Problem setup
 
@@ -180,7 +181,7 @@ int main (int argc, char** argv)
   
   typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet>
           PMSolver;
-  typedef SignoriniIASet<GV, HookeT, VolumeF, BoundaryF, Gap, ShapeSet, LSShapeSet>
+  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
           IASolver;
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
           TwoSolver;
@@ -206,7 +207,7 @@ int main (int argc, char** argv)
   VolumeF  f (factories[MASTER],
               element_index_to_physical_entity[MASTER],
               volumeGroups[MASTER],
-              new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+              new ConstantEval (coord3 (0.0, 4e6, 0.0)));
   VolumeF f2 (factories[SLAVE],
               element_index_to_physical_entity[SLAVE],
               volumeGroups[SLAVE],
@@ -222,11 +223,11 @@ int main (int argc, char** argv)
   BoundaryF  p (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 neumannGroups[MASTER],
-                new ConstantEval (coord3 (3.0e5, 7.0e5, 0.0)));
+                new ConstantEval (coord3 (0.0, 7e6, 0.0)));
   BoundaryF p2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 neumannGroups[SLAVE],
-                new ConstantEval (coord3 (-3e6, -3.0e6, 0.0)));
+                new ConstantEval (coord3 (0.0, -3e6, 0.0)));
 
   Gap g (factories[MASTER],
          boundary_id_to_physical_entity[MASTER],
@@ -236,6 +237,18 @@ int main (int argc, char** argv)
           boundary_id_to_physical_entity[SLAVE],
           contactGroups[SLAVE],
           new GapHack (SLAVE));
+
+//  TwoRefs<Gap> gaps (g, g2);
+//  TwoRefs<BoundaryF> neumann (p, p2);
+//  TwoRefs<Dirichlet> dirichlet (d, d2);
+//  TwoRefs<GV> gv (grids[MASTER]->leafView(), grids[SLAVE]->leafView());
+//  
+//  DOBOTH (body) {
+//    testGmshBoundaryFunctor (gv[body], gaps[body], string ("/tmp/test-gap-") + body);
+//    testGmshBoundaryFunctor (gv[body], neumann[body], string ("/tmp/test-neumann-") + body);
+//    testGmshBoundaryFunctor (gv[body], dirichlet[body], string ("/tmp/test-dirichlet-") + body);
+//  }
+//  exit (1);
 
 //  VolumeF   f (coord2 (0.0, 0.0));
 //  VolumeF   f2 (coord2 (0.0, 0.0));
@@ -249,22 +262,22 @@ int main (int argc, char** argv)
 //  Gap g (0.0, 0.05);
   
 //  PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
-//  IASolver fem2 (grids[SLAVE]->leafView(), a, f, p, g);
-  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
-                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
+  IASolver fem2 (grids[MASTER]->leafView(), a, f, d, p, g);
+//  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
+//                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
   try {   // Pokemon Exception Handling
-    cout << "Gremlin population: " << grids[MASTER]->size(dim) + grids[SLAVE]->size(dim) << LF;
+//    cout << "Gremlin population: " << grids[MASTER]->size(dim) + grids[SLAVE]->size(dim) << LF;
 //      // Penalty method, one body
 //      fem.initialize();
 //      fem.solve (maxsteps, tolerance);
 //    
 //      // Active / inactive, one body
-//      fem2.solve ();
+      fem2.solve ();
 //      // Active / inactive, two bodies
-      twoFem.solve();
+//      twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

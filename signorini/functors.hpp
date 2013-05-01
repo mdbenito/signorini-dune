@@ -365,7 +365,6 @@ private:
 template <typename ctype, int dim, class Evaluation, class TGF>
 class GmshBoundaryFunctor {
   typedef FieldVector<ctype, dim>        coord_t;
-  typedef typename Evaluation::return_t return_t;
   
   const TGF&          gf;   //!< Grid factory
   std::vector<int> bi2pe;
@@ -373,6 +372,9 @@ class GmshBoundaryFunctor {
   Evaluation*       eval;
 
 public:
+  typedef typename Evaluation::return_t return_t;
+  enum { codim = 1 };
+  
   GmshBoundaryFunctor (const TGF& _gf,
                        const std::vector<int>& boundary_id_to_physical_entity,
                        const std::set<int>& _groups,
@@ -391,7 +393,7 @@ public:
   bool isSupported (const Intersection& is) const
   {
 //    std::cout << "isSupported(): "; printCorners (is.geometry ()); std::cout << LF;
-    if (!gf.wasInserted (is) || is.neighbor())
+    if (is.neighbor() || !is.boundary() || !gf.wasInserted (is))
       return false;
     auto idx = gf.insertionIndex (is);
     return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
@@ -408,7 +410,6 @@ public:
 template <typename ctype, int dim, class Evaluation, class TGF>
 class GmshVolumeFunctor {
   typedef FieldVector<ctype, dim>                coord_t;
-  typedef typename Evaluation::return_t         return_t;
   typedef typename TGF::template Codim<0>::Entity Entity;
 
   const TGF&          gf;   //!< Grid factory
@@ -417,6 +418,10 @@ class GmshVolumeFunctor {
   Evaluation*       eval;
   
 public:
+  typedef typename Evaluation::return_t return_t;
+  
+  enum { codim = 0 };
+  
   GmshVolumeFunctor (const TGF& _gf,
                      const std::vector<int>& element_id_to_physical_entity,
                      const std::set<int>& _groups,

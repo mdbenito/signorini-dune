@@ -391,17 +391,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::determineActive ()
   
   active[SLAVE].clear();
   inactive[SLAVE].clear();
-  /*
-  for (auto it_s = gv[SLAVE].template begin<dim>(); it_s != gv[SLAVE].template end<dim>(); ++it_s) {
-    auto id_s = gids[SLAVE].id (*it_s);
-    if (gap[SLAVE].isSupported (it_s->geometry())) {
-      if (contact.isSupported (twoMapper->mapInBoundary (SLAVE, id_s)))
-        active[SLAVE] << id_s;
-      else
-        inactive[SLAVE] << id_s;
-    }
-  }
-*/
+
   for (auto it = gv[SLAVE].template begin<0>(); it != gv[SLAVE].template end<0>(); ++it) {
     for (auto is = gv[SLAVE].ibegin (*it) ; is != gv[SLAVE].iend (*it) ; ++is) {
       const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
@@ -521,23 +511,19 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
       }
     }
   
-    /* Dirichlet boundary conditions.
-     For unvisited vertices on the boundary, replace the associated line of A
-     and b with a trivial one.
-     */
+      //// Dirichlet boundary conditions.
     
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
-        if (is->boundary () && dir[body].isSupported (*is)) {
+        if (dir[body].isSupported (*is)) {
           const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
           const int ivnum = ref.size (is->indexInInside (), 1, dim);
-            //cout << "Dirichlet'ing: "; printCorners (is->geometry ());
-          
           for (int i = 0; i < ivnum; ++i) {
             auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             auto global = it->geometry().global (ref.position (subi, dim));
             int ii = twoMapper->map (body, *it, subi , dim);
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
+            // Replace the associated line of A and b with a trivial one.
             A[ii] = 0.0;
             A[ii][ii] = I;
             b[ii] = dir[body] (global);            
