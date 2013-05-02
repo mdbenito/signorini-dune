@@ -486,7 +486,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
         //// Neumann Boundary conditions.
       
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
-        if ([body].isSupported (*is)) {
+        if (p[body].isSupported (*is)) {
           const int  ivnum = ref.size (is->indexInInside (), 1, dim);
           const auto& igeo = is->geometry ();
           const auto& ityp = is->type ();
