@@ -171,7 +171,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::TwoBodiesIASet (const TG
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
         const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
         const int ivnum = ref.size (is->indexInInside (), 1, dim);
-        if (is->boundary() && gap[body].isSupported (*is)) {
+        if (gap[body].isSupported (*is)) {
           for (int i = 0; i < ivnum; ++i) {
             int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             IdType id = gids[body].subId (*it, subi, dim);
@@ -396,7 +396,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::determineActive ()
     for (auto is = gv[SLAVE].ibegin (*it) ; is != gv[SLAVE].iend (*it) ; ++is) {
       const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
       const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      if (is->boundary() && gap[SLAVE].isSupported (*is)) {
+      if (gap[SLAVE].isSupported (*is)) {
         for (int i = 0; i < ivnum; ++i) {
           int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
           IdType id = gids[SLAVE].subId (*it, subi, dim);
@@ -486,7 +486,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
         //// Neumann Boundary conditions.
       
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
-        if (is->boundary () && p[body].isSupported (*is)) {
+        if ([body].isSupported (*is)) {
           const int  ivnum = ref.size (is->indexInInside (), 1, dim);
           const auto& igeo = is->geometry ();
           const auto& ityp = is->type ();
@@ -544,7 +544,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
   std::set<int> check;
   for (auto it = gv[SLAVE].template begin<0>(); it != gv[SLAVE].template end<0>(); ++it) {
     for (auto is = gv[SLAVE].ibegin (*it) ; is != gv[SLAVE].iend (*it) ; ++is) {
-      if (is->boundary () && gap[SLAVE].isSupported (*is)) {
+      if (gap[SLAVE].isSupported (*is)) {
         const auto&   in = is->inside();
         const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
         const int   vnum = ref.size (is->indexInInside (), 1, dim);
@@ -589,7 +589,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::assemble ()
   /**********   FIXME FIXME FIXME FIXME FIXME *********
 
    because we traverse intersections, nodes in the master contribute
-   four times (one if the node is at the boundary of the gap) to each node in
+   several times (one if the node is at the boundary of the gap) to each node in
    the slave. Using the hack with std::set<int> visited to fix this seems not to
    work very well.
    
@@ -887,7 +887,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
 
   for (auto it = gv[SLAVE].template begin<0>(); it != gv[SLAVE].template end<0>(); ++it) {
     for (auto is = gv[SLAVE].ibegin (*it) ; is != gv[SLAVE].iend (*it) ; ++is) {
-      if (is->boundary () && gap[SLAVE].isSupported (*is)) {
+      if (gap[SLAVE].isSupported (*is)) {
         const auto&   in = is->inside();
         const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
         const int   vnum = ref.size (is->indexInInside (), 1, dim);
