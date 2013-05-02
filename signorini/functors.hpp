@@ -104,203 +104,6 @@ public:
   }
 };
 
-/*! A functor to model constant volume forces. */
-template <typename ctype, int dim>
-class VolumeLoad {
-  typedef FieldVector<ctype, dim> coord_t;
-  coord_t ret;
-public:
-  VolumeLoad (const coord_t& _ret) : ret(_ret) { }
-
-  coord_t operator() (const coord_t& x) const
-  {
-    return ret;
-    
-      //ret[0] = 9.6154; ret[1] = -4.8077; return ret * 1.0e7;  // [FV05, p.36]
-      //ret <<= zero; return ret;                               // [HW05]
-      //ret[0] = 0; ret[1] = -10; return ret * 1.0e7;           // DATA3
-  }
-};
-
-
-/*! A functor to model Dirichlet data
- 
- This just makes no sense. Some stuff hardcoded, some not...
- */
-template <typename ctype, int dim>
-class DirichletFunctor {
-  typedef FieldVector<ctype, dim> coord_t;
-  ctype cx, cy;
-  coord_t ret;
-public:
-  DirichletFunctor (const coord_t& _ret) : ret(_ret) { }
-  
-  coord_t operator() (const coord_t& x) const
-  {
-    return ret;
-  }
-  
-  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
-  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
-  {
-    for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner (i)))
-        return false;
-    
-    return true;
-  }
-  
-  inline bool isSupported (const coord_t& x) const
-  {
-    return /* (x[0]>0 && x[0] < 1) && */ (x[1]==1.0 || x[1]<=-1.0);
-  }
-
-};
-
-
-/*! A boundary vectorial functor. Implements isSupported()
- Hackish hackish
- */
-template <typename ctype, int dim>
-class Tractions {
-  typedef FieldVector<ctype, dim> coord_t;
-  coord_t ret;
-public:
-  Tractions (const coord_t& _ret) : ret(_ret) { }
-
-  inline coord_t operator() (const coord_t& x) const
-  {
-      // Values from [FV05, p.36]
-    /*
-    if (x[1] == 1.0) {
-      ret[0] =  1.9231*x[0] - 3.8462;  ret[1] = -13.462*x[0] + 2.8846;
-    } else if (x[0] == 1.0) {
-      ret[0] =  6.7308*x[1] - 5.7692;  ret[1] = -3.8462*x[1] + 3.9231;
-    } else {
-        ret <<= zero;
-    }
-    
-    return ret*1.0e7;
-    */
-      //ret[0] = -2; ret[1] = -12; return ret * 1.0e7;       // DATA3
-      //ret[0] = 0; ret[1] = -12; return ret * 1.0e7;       // DATA4
-      //ret[0] = (0.5-x[0])*10; ret[1] = -12; return ret * 1.0e7;   // DATA5
-    /* // [HW05]
-    ret[0] = cx *(0.5-x[0]);
-    ret[1] = cy;
-     */
-
-      // HACK
-    if ((ret[0]>0 && x[0] == 1) || (ret[0]<0 && x[0] == 0))
-      return coord_t(0.0);
-
-    return ret;
-  }
-
-  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
-  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
-  {
-    for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner (i)))
-        return false;
-
-    return true;
-  }
-  
-  inline bool isSupported (const coord_t& x) const
-  {
-      //return (x[0] > 1 - x[1]);       // [FV05]
-      //return x[0] > 0 && x[0] < 1;    // For the upper and lower tractions
-      //return x[0] > 0 && x[0] < 1 && x[1] > 0;  // For the upper tractions
-    return x[0] == 0 || x[0] == 1;   // [HW05]
-  }
-};
-
-
-/*! A boundary scalar functor.
- 
- WARNING! This is the *normalized* normal gap (d'oh!). It's not clear to me what
- the correct order of magnitude is or how to relate it with the size of the grid,
- etc.
- */
-template <typename ctype, int dim>
-class NormalGap {  
-  typedef FieldVector<ctype, dim> coord_t;
-  ctype ySupport;
-  ctype ret;
-public:
-  NormalGap (ctype y=0.0, ctype r=0.05) : ySupport(y), ret(r) { }
-  
-    // Careful! remember that it must be g(x) > 0
-  inline ctype operator() (const coord_t& x) const
-  {
-    return ret;                                     // [HW05] uses 0.05
-//    return sin (x[0]*6*M_PI) / 50.0;              // DATA3,4
-//    return std::abs (sin (x[0]*6*M_PI) / 20.0);   // DATA5
-  }
-  
-  template <int mydim, int cdim, class GridImp, template <int, int, class> class GeometryImp>
-  bool isSupported (const class Dune::Geometry<mydim, cdim, GridImp, GeometryImp>& geo) const
-  {
-    for (int i = 0; i < geo.corners(); ++i)
-      if (! isSupported (geo.corner(i)))
-        return false;
-    return true;
-  }
-
-  /* Why do I need the check with epsilon()? ctype is a double and literals are
-   double by default, so if I construct with NormalGap(-0.05) the check here
-   should work. But it does not!!!
-   */
-  inline bool isSupported (const coord_t& x) const
-  {
-      //return false;   // [FV05]
-    bool ret = (std::abs(x[1] - ySupport) <= std::numeric_limits<ctype>::epsilon());
-//    cout << "   isSupported(" << x << ") with ySupport= " << ySupport << ": "
-//         << (ret ? "YES" : "NO") << LF;
-    return ret;// && (x[0] != 0.0) && (x[0] != 1.0);
-  }
-};
-
-  /// REMOVE ME!!! Use PSurface!
-template <typename ctype, int dim>
-class CylinderHackGapEvaluation {
-
-  static const int MASTER=0;
-  static const int SLAVE=1;
-  int which;
-public:
-  typedef FieldVector<ctype, dim> coord_t;
-  typedef ctype return_t;
-
-  CylinderHackGapEvaluation (int _which) : which (_which)
-  {
-    assert (dim == 3);
-    assert (which == MASTER || which == SLAVE);
-  }
-  
-    // Careful! remember that it must be g(x) >= 0
-  inline return_t operator() (const coord_t& global) const
-  {
-    if (std::abs (global[0]) > 1.0 || std::abs (global[2]) > 1.0)
-      return 0.0;
-    switch (which) {
-      case MASTER:
-      {
-        double dy = std::sqrt (1.0 - global[0]*global[0]);
-        dy += 1.0 - std::sqrt (1.0 - global[2]*global[2]);
-        return dy;
-      }
-      case SLAVE:
-      {
-        double dy = std::sqrt (1.0 - global[0]*global[0]);
-        dy += 1.0 - std::sqrt (1.0 - global[2]*global[2]);
-        return dy;
-      }
-    }
-  }
-};
-
 
 /*! A boundary scalar functor for the active / inactive set strategy.
  */
@@ -326,23 +129,72 @@ public:
   inline bool isSupported (int i) const
   {
     /*
-    cout << "ActiveSetFunctor::isSupported(" << i << ")= "
-         << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
-         << ") = " << (*this)(i) << "\n";
+     cout << "ActiveSetFunctor::isSupported(" << i << ")= "
+     << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
+     << ") = " << (*this)(i) << "\n";
      */
     return (multipliers[i]+c*(solution[i]-gap[i])) > 0;
   }
 };
 
 
-/*! A functor to model constant data
+  /// REMOVE ME!!! Use PSurface!
+template <typename ctype, int dim>
+class CylinderHackGapEvaluation {
+  typedef FieldVector<ctype, dim> coord_t;
+  typedef FieldVector<ctype, 1> scalar_t;
+public:
+  typedef scalar_t return_t;
+  static const int return_dim = 1;
+  
+  CylinderHackGapEvaluation () { assert (dim == 3); }
+  
+    // Careful! remember that it must be g(x) >= 0
+  return_t operator() (const coord_t& global) const
+  {
+    if (std::abs (global[0]) > 1.0 || std::abs (global[2]) > 1.0)
+      return 100000.0;
+    return 1.0 - std::sqrt (1.0 - global[0]*global[0]) +
+           2.0 - std::sqrt (1.0 - global[2]*global[2]) - 1.0;
+  }
+};
+
+
+/*! A quick hack to specify constraints to apply to GmshFunctors.
+ 
+ I only need this until I understand what's wrong with the GmshReader and the
+ Physical Entities.
+ */
+template <typename coord_t, int dim>
+class Constraint {
+  typedef bool (*Predicate)(const coord_t&);
+  Predicate      f;
+  bool      negate;
+  Constraint* next;
+
+public:
+    // use the argument "affirmative" to negate the Predicate
+  Constraint (Predicate _f=0, bool affirmative=true, Constraint* _next=0)
+    : f (_f), negate (!affirmative), next (_next) { };
+  
+  bool at (const coord_t& global) const
+  {
+    if (f && (negate == f (global))) return false;  // == is a xor for booleans!
+    if (next)            return next->at (global);
+    return true;
+  }
+};
+
+
+/*! An evaluation to model constant scalar data
  */
 template <typename ctype, int dim, class ret_t>
 class ConstantEvaluation {
-public:
   typedef FieldVector<ctype, dim> coord_t;
+public:
   typedef ret_t return_t;
-
+  static const int return_dim = return_t::dimension;
+  
   ConstantEvaluation (const return_t& _ret) : ret (_ret) { }
   
   return_t operator() (const coord_t& global) const
@@ -359,30 +211,38 @@ private:
 /*! A functor which has support on some Physical Entity defined in Gmsh.
  
  class Evaluation must define operator() and export return_t.
+ class Constraint must define at(). This is just a hack.
  
- We take ownership of the Evaluation object and delete it when necessary.
+ We take ownership of the Evaluation and Constraints objects and delete them
+ when necessary.
  */
-template <typename ctype, int dim, class Evaluation, class TGF>
+template <typename ctype, int dim, class TGF, class Evaluation, class Constraint>
 class GmshBoundaryFunctor {
-  typedef FieldVector<ctype, dim>        coord_t;
+  typedef FieldVector<ctype, dim> coord_t;
   
   const TGF&          gf;   //!< Grid factory
   std::vector<int> bi2pe;
   std::set<int>   groups;   //!< List of physical groups managed by this functor
   Evaluation*       eval;
+  Constraint* constraint;
+  std::string       name;
 
 public:
   typedef typename Evaluation::return_t return_t;
-  enum { codim = 1 };
+  static const int return_dim = Evaluation::return_dim;  
+  static const int codim = 1;
   
   GmshBoundaryFunctor (const TGF& _gf,
                        const std::vector<int>& boundary_id_to_physical_entity,
                        const std::set<int>& _groups,
-                       Evaluation* _eval)
-  : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups), eval (_eval)
+                       Evaluation* _eval,
+                       Constraint* _cons,
+                       std::string _name)
+  : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups),
+    eval (_eval), constraint (_cons), name (_name)
   { }
   
-  ~GmshBoundaryFunctor () { delete eval; }
+  ~GmshBoundaryFunctor () { delete eval; delete constraint; }
   
   return_t operator() (const coord_t& global) const
   {
@@ -395,8 +255,23 @@ public:
 //    std::cout << "isSupported(): "; printCorners (is.geometry ()); std::cout << LF;
     if (is.neighbor() || !is.boundary() || !gf.wasInserted (is))
       return false;
+    
     auto idx = gf.insertionIndex (is);
-    return (idx >= 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
+    if (!(idx > 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end()))
+      return false;
+    
+    const auto&   in = is.inside();
+    const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
+    const int   vnum = ref.size (is.indexInInside(), 1, dim);
+    for (int i = 0; i < vnum; ++i) {
+      int  subi = ref.subEntity (is.indexInInside (), 1, i, dim);
+      auto global = in->geometry().global (ref.position (subi, dim));
+      if (! constraint->at (global)) {
+//        cout << "ConstraintHack " << name << " not fulfilled! (at " << global << ")\n";
+        return false;
+      }
+    }
+    return true;
   }
 };
 
@@ -407,7 +282,7 @@ public:
  
  We take ownership of the Evaluation object and delete it when necessary.
  */
-template <typename ctype, int dim, class Evaluation, class TGF>
+template <typename ctype, int dim, class TGF, class Evaluation>
 class GmshVolumeFunctor {
   typedef FieldVector<ctype, dim>                coord_t;
   typedef typename TGF::template Codim<0>::Entity Entity;
@@ -419,8 +294,8 @@ class GmshVolumeFunctor {
   
 public:
   typedef typename Evaluation::return_t return_t;
-  
-  enum { codim = 0 };
+  static const int return_dim = Evaluation::return_dim;
+  static const int codim = 0;
   
   GmshVolumeFunctor (const TGF& _gf,
                      const std::vector<int>& element_id_to_physical_entity,
@@ -439,7 +314,7 @@ public:
   bool isSupported (const Entity& en) const
   {
     auto idx = gf.insertionIndex (en);
-    return (idx >= 0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());
+    return (idx > 0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());
   }
 };
 

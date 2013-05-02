@@ -49,6 +49,51 @@ pdo.SetPoints(newPoints)
 #include "twobodies.hpp"
 #include "physicalgroupdescriptors.hpp"
 
+template<class coord_t>
+bool predX (const coord_t& global)
+{
+  return std::abs (global[0]) == 5;
+}
+
+template<class coord_t>
+bool predZ (const coord_t& global)
+{
+  return std::abs (global[2]) == 5;
+}
+
+template<class coord_t>
+bool predY (const coord_t& global)
+{
+  return (std::abs (global[1]) - 1 <= 1 && !predX(global) && !predZ(global));
+}
+
+template<class coord_t>
+bool predSlaveGap (const coord_t& global)
+{
+  double ang = std::atan2 (global[1]-2.0, global[2]);
+  return (ang > -M_PI && ang < 0);
+}
+
+template<class coord_t>
+bool predSlaveNeumann (const coord_t& global)
+{
+  return !predSlaveGap (global);
+}
+
+template<class coord_t>
+bool predMasterGap (const coord_t& global)
+{
+  double ang = std::atan2 (global[1], global[0]);
+  return (ang > 0 && ang < M_PI);
+}
+
+template<class coord_t>
+bool predMasterNeumann (const coord_t& global)
+{
+  return !predMasterGap (global);
+}
+
+
 int main (int argc, char** argv)
 {
   const int          dim = 3;
@@ -129,13 +174,14 @@ int main (int argc, char** argv)
   
     //// Problem setup
 
-  typedef HookeTensor<ctype, dim>                                     HookeT;
-  typedef ConstantEvaluation<ctype, dim, coord_t>               ConstantEval;
-  typedef GmshVolumeFunctor<ctype, dim, ConstantEval, factory_t>     VolumeF;
-  typedef GmshBoundaryFunctor<ctype, dim, ConstantEval, factory_t> BoundaryF;
-  typedef GmshBoundaryFunctor<ctype, dim, ConstantEval, factory_t> Dirichlet;
-  typedef CylinderHackGapEvaluation<ctype, dim>                      GapHack;
-  typedef GmshBoundaryFunctor<ctype, dim, GapHack, factory_t>            Gap;
+  typedef HookeTensor<ctype, dim>                                   HookeT;
+  typedef Constraint<coord_t, dim>                          ConstraintHack;
+  typedef ConstantEvaluation<ctype, dim, coord_t>               VectorEval;
+  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
+  typedef GmshVolumeFunctor<ctype, dim, factory_t, VectorEval>     VolumeF;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> BoundaryF;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> Dirichlet;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, GapHack, ConstraintHack>          Gap;
 
 //  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
 //  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
@@ -165,36 +211,52 @@ int main (int argc, char** argv)
   VolumeF  f (factories[MASTER],
               element_index_to_physical_entity[MASTER],
               volumeGroups[MASTER],
-              new ConstantEval (coord3 (0.0, 4e6, 0.0)));
+              new VectorEval (coord3 (0.0, 4e6, 0.0)));
   VolumeF f2 (factories[SLAVE],
               element_index_to_physical_entity[SLAVE],
               volumeGroups[SLAVE],
-              new ConstantEval (coord3 (0.0, -4e6, 0.0)));
+              new VectorEval (coord3 (0.0, -4e6, 0.0)));
   Dirichlet  d (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 dirichletGroups[MASTER],
-                new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+                new VectorEval (coord3 (0.0, 0.0, 0.0)),
+                new ConstraintHack (predZ),
+                "MASTER Dirichlet");
   Dirichlet d2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 dirichletGroups[SLAVE],
-                new ConstantEval (coord3 (0.0, 0.0, 0.0)));
+                new VectorEval (coord3 (0.0, 0.0, 0.0)),
+                new ConstraintHack (predX),
+                "SLAVE Dirichlet");
   BoundaryF  p (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 neumannGroups[MASTER],
-                new ConstantEval (coord3 (0.0, 7e6, 0.0)));
+                new VectorEval (coord3 (0.0, 7e6, 0.0)),
+                new ConstraintHack (predMasterNeumann, true,
+                                    new ConstraintHack (predZ, false)),
+                "MASTER Neumann");
   BoundaryF p2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 neumannGroups[SLAVE],
-                new ConstantEval (coord3 (0.0, -3e6, 0.0)));
+                new VectorEval (coord3 (0.0, -3e6, 0.0)),
+                new ConstraintHack (predSlaveNeumann, true,
+                                    new ConstraintHack (predX, false)),
+                "SLAVE Neumann");
 
   Gap g (factories[MASTER],
          boundary_id_to_physical_entity[MASTER],
          contactGroups[MASTER],
-         new GapHack (MASTER));
+         new GapHack (),
+         new ConstraintHack (predMasterGap, true,
+                             new ConstraintHack (predZ, false)),
+         "MASTER Gap");
   Gap g2 (factories[SLAVE],
           boundary_id_to_physical_entity[SLAVE],
           contactGroups[SLAVE],
-          new GapHack (SLAVE));
+          new GapHack (),
+          new ConstraintHack (predSlaveGap, true,
+                              new ConstraintHack (predX, false)),
+          "SLAVE Gap");
 
 //  TwoRefs<Gap> gaps (g, g2);
 //  TwoRefs<BoundaryF> neumann (p, p2);
@@ -209,9 +271,9 @@ int main (int argc, char** argv)
 //  exit (1);
   
 //  PMSolver fem (grids[MASTER]->leafView(), a, f, p, g, d, 1.0e-14 / E);
-  IASolver fem2 (grids[MASTER]->leafView(), a, f, d, p, g);
-//  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
-//                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
+//  IASolver fem2 (grids[MASTER]->leafView(), a, f, d, p, g);
+  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
+                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
 
     //// Solution
   
@@ -223,9 +285,9 @@ int main (int argc, char** argv)
 //    fem.solve (10, 1e-6);  // args: maxsteps, tolerance
 //
 //      // Active / inactive, one body
-      fem2.solve ();
+//      fem2.solve ();
 //      // Active / inactive, two bodies
-//      twoFem.solve();
+    twoFem.solve();
     return 0;
   } catch (Exception& e) {
     cout << "DEAD! " << e.what() << "\n";

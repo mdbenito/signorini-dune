@@ -92,11 +92,10 @@ template<class TGV, class TFN>
 void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
 {
   static const int     dim = TGV::dimension;
-//  static const int ret_dim = TFN::return_t::dimension;
+  static const int ret_dim = TFN::return_dim;
   
   typedef typename TGV::ctype     ctype;
   typedef typename TGV::Grid     grid_t;
-  typedef std::vector<ctype> FlatVector;
   typedef LeafMultipleCodimMultipleGeomTypeMapper <grid_t, MCMGVertexLayout> VertexMapper;
   
   VertexMapper mapper (gv.grid());
@@ -104,9 +103,10 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
   
   VTKWriter<typename grid_t::LeafGridView> vtkwriter (gv.grid().leafView());
  
-//  FlatVector values (gv.size(dim) * ret_dim, 0.0);
-  FlatVector support (gv.size(dim), 0.0);
-  
+  std::vector<ctype> values (gv.size(dim) * ret_dim, 0.0);
+  std::vector<ctype> support (gv.size (dim), 0.0);
+//  std::vector<int> indices (gv.size (dim), 0);
+
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it)
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is)
       if (func.isSupported (*is)) {
@@ -114,16 +114,21 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
         const int ivnum = ref.size (is->indexInInside (), 1, dim);
         for (int i = 0; i < ivnum; ++i) {
           int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-          auto  off = mapper.map (*it, subi, dim);
-          support[off] = 1.0;
-//          auto global = it->geometry().global (ref.position (subi, dim));
-//          auto  ret = func (global);
-//          for (int c = 0; c < ret_dim; ++c)
-//            values[off*ret_dim+c] = ret[c];
+          auto  idx = mapper.map (*it, subi, dim);
+          const auto& in = is->inside();
+          support[idx] = 1.0;
+//          indices[idx] = idx;
+
+          auto global = it->geometry().global (ref.position (subi, dim));
+          auto  ret = func (global);
+          for (int c = 0; c < ret_dim; ++c)
+            values[idx*ret_dim+c] = ret[c];
         }
       }
 
-  vtkwriter.addVertexData (support, "support", 1);  
+  vtkwriter.addVertexData (support, "support", 1);
+  vtkwriter.addVertexData (values, "value", ret_dim);
+//  vtkwriter.addVertexData (indices, "index", 1);
   base = base + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
   vtkwriter.write (base, VTK::appendedraw);
