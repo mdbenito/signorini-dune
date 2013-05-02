@@ -27,16 +27,13 @@ pdo.SetPoints(newPoints)
 
  */
 
+#include "config.h"             // (initially) constructed by ./configure script
+
   //// Dune includes
 
-#include "config.h"             // (initially) constructed by ./configure script
-#include <dune/grid/sgrid.hh>
-#include <dune/common/mpihelper.hh>
 #include <dune/common/exceptions.hh>
-
 #include <dune/grid/io/file/gmshreader.hh>
 #include <dune/grid/alugrid.hh>
-
 #include <dune/grid-glue/extractors/codim1extractor.hh>
 #include <dune/grid-glue/merging/psurfacemerge.hh>
 #include <dune/grid-glue/adapter/gridglue.hh>
@@ -60,37 +57,14 @@ int main (int argc, char** argv)
   const double        E2 = 8.0e9;
   const double        nu = 0.3;
   const double       nu2 = 0.3;
-/*
-  const double         E = 5.0e9;       // Young's modulus (in Pa) [FV05, p.35]
-  const double       eps = 1.0e-5 / E;  // See [KO88, p.140]
-  const double       eps = 1.0e-14 / E;  // See [KO88, p.140]
-  const double tolerance = 1.0e-5;      // For the iterative penalty method
-  const int     maxsteps = 10;
-*/
+
     //// Grid setup
 
-//  typedef SGrid<dim, dim>          grid_t;
   typedef ALUSimplexGrid<dim, dim> grid_t;
   typedef GridFactory<grid_t>   factory_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
   typedef grid_t::LeafGridView         GV;
-
-  /*
-  FieldVector<int, dim> N(1);
-  coord_t       origin (0.0);
-  coord_t     topright (1.0);
-  grid_t*           grids[2];
-
-  grids[SLAVE] = new grid_t (N, origin, topright);
-  grids[SLAVE]->globalRefine (4);
-  
-    // Careful changing this! Check the supports of the boundary functors!!
-  origin[1] = -1;
-  topright[1] = 0;
-  grids[MASTER] = new grid_t (N, origin, topright);
-  grids[MASTER]->globalRefine (4);
-   */
   
   string path ("/Users/miguel/Devel/Signorini/meshes/");
   factory_t factories[2];
@@ -155,12 +129,7 @@ int main (int argc, char** argv)
   
     //// Problem setup
 
-//  typedef VolumeLoad<ctype, dim>          VolumeF;
-//  typedef Tractions<ctype, dim>         BoundaryF;
-//  typedef DirichletFunctor<ctype, dim>  Dirichlet;
-//  typedef NormalGap<ctype, dim>               Gap;
-  typedef HookeTensor<ctype, dim>          HookeT;
-
+  typedef HookeTensor<ctype, dim>                                     HookeT;
   typedef ConstantEvaluation<ctype, dim, coord_t>               ConstantEval;
   typedef GmshVolumeFunctor<ctype, dim, ConstantEval, factory_t>     VolumeF;
   typedef GmshBoundaryFunctor<ctype, dim, ConstantEval, factory_t> BoundaryF;
@@ -168,7 +137,6 @@ int main (int argc, char** argv)
   typedef CylinderHackGapEvaluation<ctype, dim>                      GapHack;
   typedef GmshBoundaryFunctor<ctype, dim, GapHack, factory_t>            Gap;
 
-  
 //  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
 //  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
 //  typedef Q1ShapeFunctionSet<ctype, dim, ShapeF> ShapeSet;
@@ -185,9 +153,6 @@ int main (int argc, char** argv)
           IASolver;
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
           TwoSolver;
-
-    //Should be:
-    //SignoriniIASet<GV, ProblemData, ShapeSet> IASolver;
   
 //  testShapes<ctype, dim, ShapeSet> ("/tmp/basis");
 //  testShapes<ctype, dim, LSShapeSet> ("/tmp/multbasis");
@@ -196,13 +161,6 @@ int main (int argc, char** argv)
 
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
-    
-//  VolumeF   f (coord3 (0.0, 0.0, 0.0));
-//  VolumeF   f2 (coord3 (0.0, 0.0, 0.0));
-//  Dirichlet d (coord3 (0.0, -0.07, 0.0));
-//  Dirichlet d2 (coord3 (0.0, 0.0, 0.0));
-//  BoundaryF p (coord3 (-3e6, -7e6, 0.0));
-//  BoundaryF p2 (coord3 (3e6, -4e6, 0.0));
 
   VolumeF  f (factories[MASTER],
               element_index_to_physical_entity[MASTER],
@@ -249,19 +207,8 @@ int main (int argc, char** argv)
 //    testGmshBoundaryFunctor (gv[body], dirichlet[body], string ("/tmp/test-dirichlet-") + body);
 //  }
 //  exit (1);
-
-//  VolumeF   f (coord2 (0.0, 0.0));
-//  VolumeF   f2 (coord2 (0.0, 0.0));
-//  Dirichlet d (coord2 (0.0, -0.07));
-//  Dirichlet d2 (coord2 (0.0, 0.0));
-//  BoundaryF p (coord2 (-3e6, -7e6));
-//  BoundaryF p2 (coord2 (3e6, -4e6));
   
-//  Gap       g (0.0, 0.0);
-//  Gap       g2 (0.0, 0.0);
-//  Gap g (0.0, 0.05);
-  
-//  PMSolver  fem (gridSlave.leafView(), a, f, p, g, d, eps);
+//  PMSolver fem (grids[MASTER]->leafView(), a, f, p, g, d, 1.0e-14 / E);
   IASolver fem2 (grids[MASTER]->leafView(), a, f, d, p, g);
 //  TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),
 //                    a, a2, f, f2, d, d2, p, p2, g, g2, 4);
@@ -270,10 +217,11 @@ int main (int argc, char** argv)
   
   try {   // Pokemon Exception Handling
 //    cout << "Gremlin population: " << grids[MASTER]->size(dim) + grids[SLAVE]->size(dim) << LF;
+    
 //      // Penalty method, one body
-//      fem.initialize();
-//      fem.solve (maxsteps, tolerance);
-//    
+//    fem.initialize();
+//    fem.solve (10, 1e-6);  // args: maxsteps, tolerance
+//
 //      // Active / inactive, one body
       fem2.solve ();
 //      // Active / inactive, two bodies
