@@ -5,24 +5,26 @@
  in a scheme session inside "README - cylinders.tm"
 ******************************************************************************/
 
-Point(1) = {5,2,0,0.1};  // Center of the base of the cylinder
+ms = 2;                     // Mesh size
+
+Point(1) = {5, 2, 0, ms};  // Center of the base of the cylinder
 
 // 4 points to define the circle around Point 1
-Point(2) = {5,2,-1,0.5};
-Point(3) = {5,3,0,0.5};
-Point(4) = {5,2,1,0.5};
-Point(5) = {5,1,0,0.5};
+Point(2) = {5, 2, -1, ms};
+Point(3) = {5, 3,  0, ms};
+Point(4) = {5, 2,  1, ms};
+Point(5) = {5, 1,  0, ms};
 
-Circle(1) = {2,1,3};
-Circle(2) = {3,1,4};
-Circle(3) = {4,1,5};
-Circle(4) = {5,1,2};
+Circle(1) = {2, 1, 3};
+Circle(2) = {3, 1, 4};
+Circle(3) = {4, 1, 5};
+Circle(4) = {5, 1, 2};
 
-Line Loop(5) = {1,2,3,4};
+Line Loop(5) = {1, 2, 3, 4};
 Plane Surface(6) = {5};
 //Recombine Surface{6};
 
-cyl[] = Extrude {-10,0,0} {
+cyl[] = Extrude {-10, 0, 0} {
   Surface{6};
   Layers { { 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1 },
            {1/10, 7/38, 29/114, 605/1938, 116/323, 1922/4845, 413/969, 145/323,

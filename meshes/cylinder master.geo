@@ -5,13 +5,14 @@
  in a scheme session inside "README - cylinders.tm"
 ******************************************************************************/
 
-Point(1) = {0,0,-5,0.5};  // Center of the base of the cylinder
+ms = 2;                     // Mesh size
 
+Point(1) = {0, 0, -5, ms};  // Center of the base of the cylinder
 // 4 points to define the circle around Point 1
-Point(2) = {1,0,-5,0.5};
-Point(3) = {0,1,-5,0.5};
-Point(4) = {-1,0,-5,0.5};
-Point(5) = {0,-1,-5,0.5};
+Point(2) = { 1,  0, -5, ms};
+Point(3) = { 0,  1, -5, ms};
+Point(4) = {-1,  0, -5, ms};
+Point(5) = { 0, -1, -5, ms};
 
 Circle(1) = {2,1,3};
 Circle(2) = {3,1,4};
