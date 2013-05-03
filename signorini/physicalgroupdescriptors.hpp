@@ -44,7 +44,8 @@ public:
     for (auto is = ep->ileafbegin(); is != ep->ileafend(); ++is) {
         //        cout << "          intersection #" << is->indexInInside();
       if (is->indexInInside() == face && is->boundary()) {
-        unsigned int idx = gf.insertionIndex (*is);
+          //unsigned int idx = gf.insertionIndex (*is);
+        unsigned int idx = is->boundarySegmentIndex();  // insertionIndex() not implemented for UGGrid
           //          cout << "               was inserted as " << idx << LF;
         return (idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end());
       } //else cout << LF;
@@ -75,7 +76,8 @@ public:
 
   virtual bool contains (const EntityPointer& ep) const
   {
-    const auto idx = gf.insertionIndex (*ep);
+//    const auto idx = gf.insertionIndex (*ep);
+    const auto idx = ep->getIndex();  // insertionIndex() not implemented for UGGrid
     return (idx >=0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());  // FIXME: ok? test!
   }
 };
