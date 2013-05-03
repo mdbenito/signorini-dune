@@ -33,7 +33,8 @@ pdo.SetPoints(newPoints)
 
 #include <dune/common/exceptions.hh>
 #include <dune/grid/io/file/gmshreader.hh>
-#include <dune/grid/alugrid.hh>
+#include <dune/grid/uggrid.hh>
+#include <dune/grid/uggrid/uggridfactory.hh>
 #include <dune/grid-glue/extractors/codim1extractor.hh>
 #include <dune/grid-glue/merging/psurfacemerge.hh>
 #include <dune/grid-glue/adapter/gridglue.hh>
@@ -49,51 +50,6 @@ pdo.SetPoints(newPoints)
 #include "twobodies.hpp"
 #include "physicalgroupdescriptors.hpp"
 
-template<class coord_t>
-bool predX (const coord_t& global)
-{
-  return std::abs (global[0]) == 5;
-}
-
-template<class coord_t>
-bool predZ (const coord_t& global)
-{
-  return std::abs (global[2]) == 5;
-}
-
-template<class coord_t>
-bool predY (const coord_t& global)
-{
-  return (std::abs (global[1]) - 1 <= 1 && !predX(global) && !predZ(global));
-}
-
-template<class coord_t>
-bool predSlaveGap (const coord_t& global)
-{
-  double ang = std::atan2 (global[1]-2.0, global[2]);
-  return (ang > -M_PI && ang < 0);
-}
-
-template<class coord_t>
-bool predSlaveNeumann (const coord_t& global)
-{
-  return !predSlaveGap (global);
-}
-
-template<class coord_t>
-bool predMasterGap (const coord_t& global)
-{
-  double ang = std::atan2 (global[1], global[0]);
-  return (ang > 0 && ang < M_PI);
-}
-
-template<class coord_t>
-bool predMasterNeumann (const coord_t& global)
-{
-  return !predMasterGap (global);
-}
-
-
 int main (int argc, char** argv)
 {
   const int          dim = 3;
@@ -105,12 +61,12 @@ int main (int argc, char** argv)
 
     //// Grid setup
 
-  typedef ALUSimplexGrid<dim, dim> grid_t;
+  typedef UGGrid<dim>              grid_t;
   typedef GridFactory<grid_t>   factory_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
   typedef grid_t::LeafGridView         GV;
-  
+
   string path ("/Users/miguel/Devel/Signorini/meshes/");
   factory_t factories[2];
   grid_t*       grids[2];
@@ -144,16 +100,22 @@ int main (int argc, char** argv)
   std::set<int> contactGroups[2];
   contactGroups[MASTER] << 3 << 4;
   contactGroups[SLAVE]  << 5 << 6;
+//  contactGroups[MASTER] << 1;    // prism
+//  contactGroups[SLAVE]  << 1;    // prism
   
   std::set<int> dirichletGroups[2];
   dirichletGroups[MASTER] << 1 << 2;
   dirichletGroups[SLAVE]  << 1 << 2;
+//  dirichletGroups[MASTER] << 4;    // prism
+//  dirichletGroups[SLAVE]  << 5;    // prism
   
   std::set<int> neumannGroups[2];
   neumannGroups[MASTER] << 5 << 6;
   neumannGroups[SLAVE]  << 3 << 4;
-  
-  
+//  neumannGroups[MASTER] << 6;    // prism
+//  neumannGroups[SLAVE] << 6;    // prism
+
+  /*
   PhysicalFaceDescriptor<LevelGV, factory_t> masterDescriptor (factories[MASTER],
                                                                boundary_id_to_physical_entity[MASTER],
                                                                contactGroups[MASTER]);
@@ -165,14 +127,15 @@ int main (int argc, char** argv)
   SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView (0), slaveDescriptor);
   
   SurfaceMergeImpl merger;
-//  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
-//  
-//  glue.build();
-//
-//  assert (glue.size() > 0);
-//  std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
+  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
   
-    //// Problem setup
+  glue.build();
+
+  assert (glue.size() > 0);
+  std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
+   */
+
+    //// Problem data setup
 
   typedef HookeTensor<ctype, dim>                                   HookeT;
   typedef Constraint<coord_t, dim>                          ConstraintHack;
@@ -219,44 +182,28 @@ int main (int argc, char** argv)
   Dirichlet  d (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 dirichletGroups[MASTER],
-                new VectorEval (coord3 (0.0, 0.0, 0.0)),
-                new ConstraintHack (predZ),
-                "MASTER Dirichlet");
+                new VectorEval (coord3 (0.0, 0.0, 0.0)));
   Dirichlet d2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 dirichletGroups[SLAVE],
-                new VectorEval (coord3 (0.0, 0.0, 0.0)),
-                new ConstraintHack (predX),
-                "SLAVE Dirichlet");
+                new VectorEval (coord3 (0.0, 0.0, 0.0)));
   BoundaryF  p (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 neumannGroups[MASTER],
-                new VectorEval (coord3 (0.0, 7e6, 0.0)),
-                new ConstraintHack (predMasterNeumann, true,
-                                    new ConstraintHack (predZ, false)),
-                "MASTER Neumann");
+                new VectorEval (coord3 (0.0, 7e6, 0.0)));
   BoundaryF p2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 neumannGroups[SLAVE],
-                new VectorEval (coord3 (0.0, -3e6, 0.0)),
-                new ConstraintHack (predSlaveNeumann, true,
-                                    new ConstraintHack (predX, false)),
-                "SLAVE Neumann");
+                new VectorEval (coord3 (0.0, -3e6, 0.0)));
 
   Gap g (factories[MASTER],
          boundary_id_to_physical_entity[MASTER],
          contactGroups[MASTER],
-         new GapHack (),
-         new ConstraintHack (predMasterGap, true,
-                             new ConstraintHack (predZ, false)),
-         "MASTER Gap");
+         new GapHack ());
   Gap g2 (factories[SLAVE],
           boundary_id_to_physical_entity[SLAVE],
           contactGroups[SLAVE],
-          new GapHack (),
-          new ConstraintHack (predSlaveGap, true,
-                              new ConstraintHack (predX, false)),
-          "SLAVE Gap");
+          new GapHack ());
 
 //  TwoRefs<Gap> gaps (g, g2);
 //  TwoRefs<BoundaryF> neumann (p, p2);
@@ -269,7 +216,7 @@ int main (int argc, char** argv)
 //    testGmshBoundaryFunctor (gv[body], dirichlet[body], string ("/tmp/test-dirichlet-") + body);
 //  }
 //  exit (1);
-  
+
 //  PMSolver fem (grids[MASTER]->leafView(), a, f, p, g, d, 1.0e-14 / E);
 //  IASolver fem2 (grids[MASTER]->leafView(), a, f, d, p, g);
   TwoSolver twoFem (grids[MASTER]->leafView(), grids[SLAVE]->leafView(),

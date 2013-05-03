@@ -252,7 +252,8 @@
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
-					"~/Devel/dune-project/dune-grid-glue/",
+					"/Users/miguel/Devel/dune-project/dune-grid-glue/",
+					/usr/local/include/ug,
 				);
 				LD_NO_PIE = YES;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
@@ -270,6 +271,9 @@
 					"-lalugrid",
 					"-ldunegridglue",
 					"-lpsurface",
+					"-ldevS",
+					"-lugS3",
+					"-lugS2",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;
@@ -291,7 +295,8 @@
 					/usr/local/include,
 					"/Users/miguel/Devel/dune-project/SuperLU_4.3/SRC",
 					/usr/local/include/serial,
-					"~/Devel/dune-project/dune-grid-glue/",
+					"/Users/miguel/Devel/dune-project/dune-grid-glue/",
+					/usr/local/include/ug,
 				);
 				LD_NO_PIE = YES;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
@@ -309,6 +314,9 @@
 					"-lalugrid",
 					"-ldunegridglue",
 					"-lpsurface",
+					"-ldevS",
+					"-lugS3",
+					"-lugS2",
 				);
 				PRODUCT_NAME = Signorini;
 				SDKROOT = macosx10.7;

@@ -1,12 +1,6 @@
-  // [MBD] For dune-grid-glue
-#define HAVE_PSURFACE 1
-#define PSURFACE_NAMESPACE psurface::
-
-  // [MBD] For SuperLU 4.3 in ~/Devel/Dune/SuperLU_4.3
-#define HAVE_SUPERLU 1
-#define SUPERLU_POST_2005_VERSION 1
-#define SUPERLU_MIN_VERSION_4_3 1
-
+  // [MBD] 
+#define ENABLE_SUPERLU 1
+#define ENABLE_UG 1
 #define ENABLE_ALUGRID 1
 
 /* config.h.  Generated from config.h.in by configure.  */
@@ -14,16 +8,14 @@
 
 /* Alberta version found by configure, either 0x200 for 2.0 or 0x300 for 3.0
    */
-#define DUNE_ALBERTA_VERSION 0x300
-#define ENABLE_ALBERTA 1
-#define ALBERTA_DIM 2
+/* #undef DUNE_ALBERTA_VERSION */
 
 /* If this is set, the member 'size' of FieldVector is a method rather than an
    enum */
 #define DUNE_COMMON_FIELDVECTOR_SIZE_IS_METHOD 1
 
 /* Define to the version of dune-common */
-#define DUNE_COMMON_VERSION "2.2.0"
+#define DUNE_COMMON_VERSION "2.2.1"
 
 /* Define to the major version of dune-common */
 #define DUNE_COMMON_VERSION_MAJOR 2
@@ -32,10 +24,10 @@
 #define DUNE_COMMON_VERSION_MINOR 2
 
 /* Define to the revision of dune-common */
-#define DUNE_COMMON_VERSION_REVISION 0
+#define DUNE_COMMON_VERSION_REVISION 1
 
 /* Define to the version of dune-geometry */
-#define DUNE_GEOMETRY_VERSION "2.2.0"
+#define DUNE_GEOMETRY_VERSION "2.2.1"
 
 /* Define to the major version of dune-geometry */
 #define DUNE_GEOMETRY_VERSION_MAJOR 2
@@ -44,14 +36,26 @@
 #define DUNE_GEOMETRY_VERSION_MINOR 2
 
 /* Define to the revision of dune-geometry */
-#define DUNE_GEOMETRY_VERSION_REVISION 0
+#define DUNE_GEOMETRY_VERSION_REVISION 1
 
 /* If this is set, public access to the implementation of facades like Entity,
    Geometry, etc. is granted. */
 /* #undef DUNE_GRID_EXPERIMENTAL_GRID_EXTENSIONS */
 
+/* Define to the version of dune-grid-glue */
+#define DUNE_GRID_GLUE_VERSION "2.2-svn"
+
+/* Define to the major version of dune-grid-glue */
+#define DUNE_GRID_GLUE_VERSION_MAJOR 2
+
+/* Define to the minor version of dune-grid-glue */
+#define DUNE_GRID_GLUE_VERSION_MINOR 2
+
+/* Define to the revision of dune-grid-glue */
+#define DUNE_GRID_GLUE_VERSION_REVISION 0
+
 /* Define to the version of dune-grid */
-#define DUNE_GRID_VERSION "2.2.0"
+#define DUNE_GRID_VERSION "2.2.1"
 
 /* Define to the major version of dune-grid */
 #define DUNE_GRID_VERSION_MAJOR 2
@@ -60,10 +64,10 @@
 #define DUNE_GRID_VERSION_MINOR 2
 
 /* Define to the revision of dune-grid */
-#define DUNE_GRID_VERSION_REVISION 0
+#define DUNE_GRID_VERSION_REVISION 1
 
 /* Define to the version of dune-istl */
-#define DUNE_ISTL_VERSION "2.2.0"
+#define DUNE_ISTL_VERSION "2.2.1"
 
 /* Define to the major version of dune-istl */
 #define DUNE_ISTL_VERSION_MAJOR 2
@@ -72,19 +76,7 @@
 #define DUNE_ISTL_VERSION_MINOR 2
 
 /* Define to the revision of dune-istl */
-#define DUNE_ISTL_VERSION_REVISION 0
-
-/* Define to the version of dune-localfunctions */
-#define DUNE_LOCALFUNCTIONS_VERSION "2.2.0"
-
-/* Define to the major version of dune-localfunctions */
-#define DUNE_LOCALFUNCTIONS_VERSION_MAJOR 2
-
-/* Define to the minor version of dune-localfunctions */
-#define DUNE_LOCALFUNCTIONS_VERSION_MINOR 2
-
-/* Define to the revision of dune-localfunctions */
-#define DUNE_LOCALFUNCTIONS_VERSION_REVISION 0
+#define DUNE_ISTL_VERSION_REVISION 1
 
 /* Standard debug streams with a level below will collapse to doing nothing */
 #define DUNE_MINIMAL_DEBUG_LEVEL 4
@@ -107,18 +99,6 @@
 /* As FC_FUNC, but for C identifiers containing underscores. */
 #define FC_FUNC_(name,NAME) name ## _
 
-/* Define to the version of Signorini */
-#define GRIDHOWTO_VERSION "0.1"
-
-/* Define to the major version of Signorini */
-#define GRIDHOWTO_VERSION_MAJOR 0
-
-/* Define to the minor version of Signorini */
-#define GRIDHOWTO_VERSION_MINOR 1
-
-/* Define to the revision of Signorini */
-#define GRIDHOWTO_VERSION_REVISION 0
-
 /* does the compiler support __attribute__((deprecated))? */
 #define HAS_ATTRIBUTE_DEPRECATED 1
 
@@ -130,7 +110,7 @@
 
 /* This is only true if alberta-library was found by configure _and_ if the
    application uses the ALBERTA_CPPFLAGS */
-  //#define HAVE_ALBERTA ENABLE_ALBERTA
+/* #undef HAVE_ALBERTA */
 
 /* Was AlgLib for DUNE found and ALGLIB_CPPFLAGS used? */
 /* #undef HAVE_ALGLIB */
@@ -140,7 +120,7 @@
 #define HAVE_ALUGRID ENABLE_ALUGRID
 
 /* Define to 1 if you have the <alugrid_parallel.h> header file. */
-#define HAVE_ALUGRID_PARALLEL_H 1
+/* #undef HAVE_ALUGRID_PARALLEL_H */
 
 /* Define to 1 if you have the <alugrid_serial.h> header file. */
 #define HAVE_ALUGRID_SERIAL_H 1
@@ -181,14 +161,14 @@
 /* Define to 1 if dune-grid was found */
 #define HAVE_DUNE_GRID 1
 
+/* Define to 1 if dune-grid-glue was found */
+#define HAVE_DUNE_GRID_GLUE 1
+
 /* Define to 1 if dune-istl was found */
 #define HAVE_DUNE_ISTL 1
 
-/* Define to 1 if dune-localfunctions was found */
-#define HAVE_DUNE_LOCALFUNCTIONS 1
-
 /* Was GMP found and GMP_CPPFLAGS used? */
-/* #undef HAVE_GMP */
+#define HAVE_GMP ENABLE_GMP
 
 /* This is only true if grape-library was found by configure _and_ if the
    application uses the GRAPE_CPPFLAGS */
@@ -201,7 +181,10 @@
 #define HAVE_LAPACK 1
 
 /* Define to 1 if you have the `gmp' library (-L$with_gmp/lib -lgmp). */
-/* #undef HAVE_LIBGMP */
+#define HAVE_LIBGMP 1
+
+/* Define to 1 if you have the `gmpxx' library (-L$with_gmp/lib -lgmpxx). */
+#define HAVE_LIBGMPXX 1
 
 /* Define to 1 if you have the `m' library (-lm). */
 #define HAVE_LIBM 1
@@ -231,7 +214,7 @@
 /* Define if you have the MPI library. This is only true if MPI was found by
    configure _and_ if the application uses the DUNEMPICPPFLAGS (or the
    deprecated MPI_CPPFLAGS) */
-#define HAVE_MPI ENABLE_MPI
+/* #undef HAVE_MPI */
 
 /* Define to 1 if nullptr is supported */
 /* #undef HAVE_NULLPTR */
@@ -242,6 +225,9 @@
 /* Define if you have the Parmetis library. This is only true if MPI was found
    by configure _and_ if the application uses the PARMETIS_CPPFLAGS */
 /* #undef HAVE_PARMETIS */
+
+/* Define to 1 if psurface-library is found */
+#define HAVE_PSURFACE 1
 
 /* Define if you have POSIX threads libraries and header files. */
 #define HAVE_PTHREAD 1
@@ -271,7 +257,7 @@
 #define HAVE_STRING_H 1
 
 /* Define to ENABLE_SUPERLU if SUPERLU is found */
-/* #undef HAVE_SUPERLU */
+#define HAVE_SUPERLU ENABLE_SUPERLU
 
 /* Define to 1 if SUPERLU_DIST is found */
 /* #undef HAVE_SUPERLU_DIST */
@@ -283,13 +269,13 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define to 1 if you have the <tr1/memory> header file. */
-  //#define HAVE_TR1_MEMORY 1
+#define HAVE_TR1_MEMORY 1
 
 /* Define to 1 if you have the <tr1/tuple> header file. */
-  //#define HAVE_TR1_TUPLE 1
+#define HAVE_TR1_TUPLE 1
 
 /* Define to 1 if you have the <tr1/type_traits> header file. */
-  //#define HAVE_TR1_TYPE_TRAITS 1
+#define HAVE_TR1_TYPE_TRAITS 1
 
 /* Define to 1 if you have the <tuple> header file. */
 /* #undef HAVE_TUPLE */
@@ -299,7 +285,7 @@
 
 /* This is only true if UG was found by configure _and_ if the application
    uses the UG_CPPFLAGS */
-/* #undef HAVE_UG */
+#define HAVE_UG ENABLE_UG
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
@@ -312,29 +298,31 @@
 #define LT_OBJDIR ".libs/"
 
 /* Define to 1 MPI supports MPI-2 */
-#define MPI_2 1
+/* #undef MPI_2 */
 
 /* Name of package */
-#define PACKAGE "Signorini"
+#define PACKAGE "twobodies"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "nonick@8027.org"
+#define PACKAGE_BUGREPORT "debenito@ma.tum.de"
 
 /* Define to the full name of this package. */
-#define PACKAGE_NAME "Signorini"
+#define PACKAGE_NAME "twobodies"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Signorini 0.1"
+#define PACKAGE_STRING "twobodies 0.4.1"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "Signorini"
+#define PACKAGE_TARNAME "twobodies"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.1"
+#define PACKAGE_VERSION "0.4.1"
 
+/* The namespace prefix of the psurface library */
+#define PSURFACE_NAMESPACE psurface::
 
 /* Define to necessary symbol if this constant uses a non-standard name on
    your system. */
@@ -351,19 +339,31 @@
 
 /* define to 1 if there SLU_DOUBLE imported by header slu_ddefs.h from SuperLU
    */
-/* #undef SUPERLU_MIN_VERSION_4_3 */
+#define SUPERLU_MIN_VERSION_4_3 1
 
 /* define to 1 if there is a header slu_ddefs.h in SuperLU */
-/* #undef SUPERLU_POST_2005_VERSION */
+#define SUPERLU_POST_2005_VERSION 1
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 /* #undef TM_IN_SYS_TIME */
+
+/* Define to the version of twobodies */
+#define TWOBODIES_VERSION "0.4.1"
+
+/* Define to the major version of twobodies */
+#define TWOBODIES_VERSION_MAJOR 0
+
+/* Define to the minor version of twobodies */
+#define TWOBODIES_VERSION_MINOR 4
+
+/* Define to the revision of twobodies */
+#define TWOBODIES_VERSION_REVISION 1
 
 /* use UG LGM domain */
 /* #undef UG_LGMDOMAIN */
 
 /* Version number of package */
-#define VERSION "0.1"
+#define VERSION "0.4.1"
 
 /* Define to 1 if the X Window System is missing or not being used. */
 /* #undef X_DISPLAY_MISSING */
@@ -391,7 +391,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined YASPGRID && ! defined USED_YASPGRID_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined YASPGRID && ! defined USED_YASPGRID_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -421,7 +421,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_YASPGRID_GRIDTYPE 1
-#endif // #if defined YASPGRID
+#endif // #if HAVE_DUNE_GRID && defined YASPGRID && ..
 
 #include <dune/common/unused.hh>
 
@@ -431,7 +431,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined ALBERTAGRID && ! defined USED_ALBERTAGRID_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined ALBERTAGRID && ! defined USED_ALBERTAGRID_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -461,7 +461,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_ALBERTAGRID_GRIDTYPE 1
-#endif // #if defined ALBERTAGRID
+#endif // #if HAVE_DUNE_GRID && defined ALBERTAGRID && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::UGGrid< dimgrid >:
     defining UGGRID during compilation typedefs this grid implementation as GridType
@@ -469,7 +469,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined UGGRID && ! defined USED_UGGRID_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined UGGRID && ! defined USED_UGGRID_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -499,7 +499,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_UGGRID_GRIDTYPE 1
-#endif // #if defined UGGRID
+#endif // #if HAVE_DUNE_GRID && defined UGGRID && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::ALUConformGrid< dimgrid, dimworld >:
     defining ALUGRID_CONFORM during compilation typedefs this grid implementation as GridType
@@ -507,7 +507,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined ALUGRID_CONFORM && ! defined USED_ALUGRID_CONFORM_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined ALUGRID_CONFORM && ! defined USED_ALUGRID_CONFORM_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -533,7 +533,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_ALUGRID_CONFORM_GRIDTYPE 1
-#endif // #if defined ALUGRID_CONFORM
+#endif // #if HAVE_DUNE_GRID && defined ALUGRID_CONFORM && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::ALUCubeGrid< dimgrid, dimworld >:
     defining ALUGRID_CUBE during compilation typedefs this grid implementation as GridType
@@ -541,7 +541,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined ALUGRID_CUBE && ! defined USED_ALUGRID_CUBE_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined ALUGRID_CUBE && ! defined USED_ALUGRID_CUBE_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -567,7 +567,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_ALUGRID_CUBE_GRIDTYPE 1
-#endif // #if defined ALUGRID_CUBE
+#endif // #if HAVE_DUNE_GRID && defined ALUGRID_CUBE && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::ALUSimplexGrid< dimgrid, dimworld >:
     defining ALUGRID_SIMPLEX during compilation typedefs this grid implementation as GridType
@@ -575,7 +575,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined ALUGRID_SIMPLEX && ! defined USED_ALUGRID_SIMPLEX_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined ALUGRID_SIMPLEX && ! defined USED_ALUGRID_SIMPLEX_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -601,7 +601,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_ALUGRID_SIMPLEX_GRIDTYPE 1
-#endif // #if defined ALUGRID_SIMPLEX
+#endif // #if HAVE_DUNE_GRID && defined ALUGRID_SIMPLEX && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::OneDGrid:
     defining ONEDGRID during compilation typedefs this grid implementation as GridType
@@ -609,7 +609,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined ONEDGRID && ! defined USED_ONEDGRID_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined ONEDGRID && ! defined USED_ONEDGRID_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -639,7 +639,7 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_ONEDGRID_GRIDTYPE 1
-#endif // #if defined ONEDGRID
+#endif // #if HAVE_DUNE_GRID && defined ONEDGRID && ..
 
 /* add GRIDTYPE typedef for grid implementation Dune::SGrid< dimgrid, dimworld >:
     defining SGRID during compilation typedefs this grid implementation as GridType
@@ -647,7 +647,7 @@
     also integer constants dimgrid and dimworld are set in this namespace.
     The required headers for this grid implementation are also included.
   */
- #if defined SGRID && ! defined USED_SGRID_GRIDTYPE
+ #if HAVE_DUNE_GRID && defined SGRID && ! defined USED_SGRID_GRIDTYPE
   #if HAVE_GRIDTYPE
    #error "Ambiguous definition of GRIDTYPE."
   #endif 
@@ -673,4 +673,4 @@
   }
   #define HAVE_GRIDTYPE 1
   #define USED_SGRID_GRIDTYPE 1
-#endif // #if defined SGRID
+#endif // #if HAVE_DUNE_GRID && defined SGRID && ..

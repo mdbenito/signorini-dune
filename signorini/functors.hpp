@@ -211,7 +211,7 @@ private:
 /*! A functor which has support on some Physical Entity defined in Gmsh.
  
  class Evaluation must define operator() and export return_t.
- class Constraint must define at(). This is just a hack.
+ class Constraint must define at(). REMOVE THIS! it's just a hack!
  
  We take ownership of the Evaluation and Constraints objects and delete them
  when necessary.
@@ -236,8 +236,8 @@ public:
                        const std::vector<int>& boundary_id_to_physical_entity,
                        const std::set<int>& _groups,
                        Evaluation* _eval,
-                       Constraint* _cons,
-                       std::string _name)
+                       Constraint* _cons=0,
+                       std::string _name="")
   : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups),
     eval (_eval), constraint (_cons), name (_name)
   { }
@@ -252,23 +252,26 @@ public:
   template <class Intersection>
   bool isSupported (const Intersection& is) const
   {
-//    std::cout << "isSupported(): "; printCorners (is.geometry ()); std::cout << LF;
-    if (is.neighbor() || !is.boundary() || !gf.wasInserted (is))
+    if (is.neighbor() || !is.boundary())
+           // FIXME! adding: || !gf.wasInserted (is))  evaluates to false always?!??! (cube grids only??!)
       return false;
-    
-    auto idx = gf.insertionIndex (is);
+
+      //    auto idx = gf.insertionIndex (is);  // not implemented for UGGrid
+    auto idx = is.boundarySegmentIndex();       // but it's ok since indices are not reordered ("if not load balancing"?)
     if (!(idx > 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end()))
       return false;
-    
-    const auto&   in = is.inside();
-    const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
-    const int   vnum = ref.size (is.indexInInside(), 1, dim);
-    for (int i = 0; i < vnum; ++i) {
-      int  subi = ref.subEntity (is.indexInInside (), 1, i, dim);
-      auto global = in->geometry().global (ref.position (subi, dim));
-      if (! constraint->at (global)) {
-//        cout << "ConstraintHack " << name << " not fulfilled! (at " << global << ")\n";
-        return false;
+
+    if (constraint) {
+      const auto&   in = is.inside();
+      const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
+      const int   vnum = ref.size (is.indexInInside(), 1, dim);
+      for (int i = 0; i < vnum; ++i) {
+        int  subi = ref.subEntity (is.indexInInside (), 1, i, dim);
+        auto global = in->geometry().global (ref.position (subi, dim));
+        if (! constraint->at (global)) {
+            //        cout << "ConstraintHack " << name << " not fulfilled! (at " << global << ")\n";
+          return false;
+        }
       }
     }
     return true;
