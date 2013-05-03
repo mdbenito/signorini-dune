@@ -300,13 +300,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
     for (auto is_s = gv[SLAVE].ibegin (*it_s) ; is_s != gv[SLAVE].iend (*it_s) ; ++is_s) {
       if (is_s->boundary () && gap[SLAVE].isSupported (*is_s)) {
         const auto& ref_s = GenericReferenceElements<ctype, dim>::general (it_s->type());
-//        cout << " ********\n";
         for (auto it_m = gv[MASTER].template begin<0>(); it_m != gv[MASTER].template end<0>(); ++it_m) {
           for (auto is_m = gv[MASTER].ibegin (*it_m) ; is_m != gv[MASTER].iend (*it_m) ; ++is_m) {
             if (is_m->boundary () && gap[MASTER].isSupported (*is_m)) {
-//              cout << " ------\n";
               const auto& ref_m = GenericReferenceElements<ctype, dim>::general (it_m->type());
-              
               const int ivnum_s = ref_s.size (is_s->indexInInside (), 1, dim);
               const int ivnum_m = ref_m.size (is_m->indexInInside (), 1, dim);
               
@@ -318,7 +315,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
                   int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
                   auto   v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
                   const auto& local_m = it_m->geometry().local (v_s);
-                  
+
                   if (basis[subi_m].isSupported (local_m)) {
 //                    cout << "*** " << v_s << " *** Supported by *** " << subi_m
 //                         << " *** at " << v_m << "\n";

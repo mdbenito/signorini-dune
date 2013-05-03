@@ -36,7 +36,7 @@ bool testShapes (const std::string& filename)
     for (int v = 0; v < element.size (dim); ++v) {
       x = element.position (v, dim);
       cout << "   Basis[" << i << "](" << x << ") = "
-      << basis[i].evaluateFunction (x) << "\n";
+           << basis[i].evaluateFunction (x) << "\n";
     }
   }
   
@@ -68,7 +68,7 @@ bool testShapes (const std::string& filename)
     for (int v = 0; v < element.size (dim); ++v) {
       x = element.position (v, dim);
       cout << "   Basis[" << i << "](" << x << ") = "
-      << basis[i].evaluateGradient (x) << "\n";
+           << basis[i].evaluateGradient (x) << "\n";
     }
   }
   
@@ -76,7 +76,7 @@ bool testShapes (const std::string& filename)
   for (int i=0; i < basis.size(); ++i) {
     for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
       cout << "   Basis[" << i << "](" << x.position() << ") = "
-      << basis[i].evaluateFunction (x.position()) << "\n";
+           << basis[i].evaluateFunction (x.position()) << "\n";
     }
   }
 

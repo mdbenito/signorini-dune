@@ -70,6 +70,7 @@ void printTraversalInfo (TGrid& grid)
     THERE_ARE(cnt) << " element(s) on level " << level << endl;
   }
 }
+#undef THERE_ARE
 
 template <class TFunctor, class TGrid>
 void printTraversalQuadratures (TGrid& grid)
