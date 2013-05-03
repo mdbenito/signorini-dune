@@ -138,7 +138,7 @@ public:
 };
 
 
-  /// REMOVE ME!!! Use PSurface!
+  /// FIXME: REMOVE ME!!! Use PSurface!
 template <typename ctype, int dim>
 class CylinderHackGapEvaluation {
   typedef FieldVector<ctype, dim> coord_t;
@@ -156,6 +156,25 @@ public:
       return 100000.0;
     return 1.0 - std::sqrt (1.0 - global[0]*global[0]) +
            2.0 - std::sqrt (1.0 - global[2]*global[2]) - 1.0;
+  }
+};
+
+
+  /// FIXME: REMOVE ME!!! Use PSurface!
+template <typename ctype, int dim>
+class PlateHackGapEvaluation {
+  typedef FieldVector<ctype, dim> coord_t;
+  typedef FieldVector<ctype, 1> scalar_t;
+public:
+  typedef scalar_t return_t;
+  static const int return_dim = 1;
+  
+  PlateHackGapEvaluation () { assert (dim == 2); }
+  
+    // Careful! remember that it must be g(x) >= 0
+  return_t operator() (const coord_t& global) const
+  {
+    return 0.05;
   }
 };
 

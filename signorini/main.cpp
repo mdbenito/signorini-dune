@@ -52,7 +52,7 @@ pdo.SetPoints(newPoints)
 
 int main (int argc, char** argv)
 {
-  const int          dim = 3;
+  const int          dim = 2;
 
   const double         E = 8.0e9;
   const double        E2 = 8.0e9;
@@ -74,11 +74,11 @@ int main (int argc, char** argv)
   std::vector<int> boundary_id_to_physical_entity[2];
   std::vector<int> element_index_to_physical_entity[2];
   gmshReader.read (factories[MASTER],
-                   path + string("cylinder master.msh"),
+                   path + string("plate master.msh"),
                    boundary_id_to_physical_entity[MASTER],
                    element_index_to_physical_entity[MASTER]);
   gmshReader.read (factories[SLAVE],
-                   path + string("cylinder slave.msh"),
+                   path + string("plate slave.msh"),
                    boundary_id_to_physical_entity[SLAVE],
                    element_index_to_physical_entity[SLAVE]);
 
@@ -86,36 +86,12 @@ int main (int argc, char** argv)
   grids[SLAVE]  = factories[SLAVE].createGrid();
   
     //// Setup contact surfaces
-
+/*
   typedef typename grid_t::LevelGridView LevelGV;
   typedef Codim1Extractor<LevelGV> SurfaceExtractor;
   typedef PSurfaceMerge<dim-1, dim, double> SurfaceMergeImpl;
   typedef ::GridGlue<SurfaceExtractor, SurfaceExtractor> GlueType;
   
-  // TODO: patch the GmshParser to read Physical Group names and use those
-  std::set<int> volumeGroups[2];
-  volumeGroups[MASTER] << 1;
-  volumeGroups[SLAVE]  << 1;
-
-  std::set<int> contactGroups[2];
-  contactGroups[MASTER] << 3 << 4;
-  contactGroups[SLAVE]  << 5 << 6;
-//  contactGroups[MASTER] << 1;    // prism
-//  contactGroups[SLAVE]  << 1;    // prism
-  
-  std::set<int> dirichletGroups[2];
-  dirichletGroups[MASTER] << 1 << 2;
-  dirichletGroups[SLAVE]  << 1 << 2;
-//  dirichletGroups[MASTER] << 4;    // prism
-//  dirichletGroups[SLAVE]  << 5;    // prism
-  
-  std::set<int> neumannGroups[2];
-  neumannGroups[MASTER] << 5 << 6;
-  neumannGroups[SLAVE]  << 3 << 4;
-//  neumannGroups[MASTER] << 6;    // prism
-//  neumannGroups[SLAVE] << 6;    // prism
-
-  /*
   PhysicalFaceDescriptor<LevelGV, factory_t> masterDescriptor (factories[MASTER],
                                                                boundary_id_to_physical_entity[MASTER],
                                                                contactGroups[MASTER]);
@@ -133,28 +109,29 @@ int main (int argc, char** argv)
 
   assert (glue.size() > 0);
   std::cout << "Gluing successful, " << glue.size() << " remote intersections found!" << std::endl;
-   */
 
+*/
     //// Problem data setup
 
   typedef HookeTensor<ctype, dim>                                   HookeT;
   typedef Constraint<coord_t, dim>                          ConstraintHack;
   typedef ConstantEvaluation<ctype, dim, coord_t>               VectorEval;
-  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
+//  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
+  typedef PlateHackGapEvaluation<ctype, dim>                    GapHack;
   typedef GmshVolumeFunctor<ctype, dim, factory_t, VectorEval>     VolumeF;
   typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> BoundaryF;
   typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> Dirichlet;
   typedef GmshBoundaryFunctor<ctype, dim, factory_t, GapHack, ConstraintHack>          Gap;
 
-//  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
+  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
 //  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
-//  typedef Q1ShapeFunctionSet<ctype, dim, ShapeF> ShapeSet;
-//  typedef BetterLinearShapeFunction<ctype, dim, 3, -1> LSShapeF;
+  typedef Q1ShapeFunctionSet<ctype, dim, ShapeF> ShapeSet;
+  typedef BetterLinearShapeFunction<ctype, dim, 3, -1> LSShapeF;
 //  typedef LagrangeSpaceShapeFunction<ctype, dim>     LSShapeF;
-//  typedef Q1ShapeFunctionSet<ctype, dim, LSShapeF> LSShapeSet;
+  typedef Q1ShapeFunctionSet<ctype, dim, LSShapeF> LSShapeSet;
 
-  typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
-  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
+//  typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
+//  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
   
   typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet>
           PMSolver;
@@ -168,33 +145,68 @@ int main (int argc, char** argv)
 //  test_basisOfPlaneNormalTo<ctype, dim>();
 //  exit(1);
 
+    // TODO: patch the GmshParser to read Physical Group names and use those
+  std::set<int> volumeGroups[2];
+  volumeGroups[MASTER] << 1;
+  volumeGroups[SLAVE]  << 1;
+  
+  std::set<int> contactGroups[2];
+  contactGroups[MASTER] << 3;  // plate
+  contactGroups[SLAVE]  << 1;  // plate
+//  contactGroups[MASTER] << 3 << 4;  // cylinder
+//  contactGroups[SLAVE]  << 5 << 6;  // cylinder
+//  contactGroups[MASTER] << 1;       // prism
+//  contactGroups[SLAVE]  << 1;       // prism
+  
+  std::set<int> dirichletGroups[2];
+  dirichletGroups[MASTER] << 1;  // plate
+  dirichletGroups[SLAVE]  << 3;  // plate
+//  dirichletGroups[MASTER] << 1 << 2;  // cylinder
+//  dirichletGroups[SLAVE]  << 1 << 2;  // cylinder
+//  dirichletGroups[MASTER] << 4;       // prism
+//  dirichletGroups[SLAVE]  << 5;       // prism
+  
+  std::set<int> neumannGroups[2];
+  neumannGroups[MASTER] << 2 << 4;
+  neumannGroups[SLAVE]  << 2 << 4;
+//  neumannGroups[MASTER] << 5 << 6;  // cylinder
+//  neumannGroups[SLAVE]  << 3 << 4;  // cylinder
+//  neumannGroups[MASTER] << 6;       // prism
+//  neumannGroups[SLAVE] << 6;        // prism
+  
   HookeT    a (E, nu);
   HookeT    a2 (E2, nu2);
 
   VolumeF  f (factories[MASTER],
               element_index_to_physical_entity[MASTER],
               volumeGroups[MASTER],
-              new VectorEval (coord3 (0.0, 4e6, 0.0)));
+//              new VectorEval (coord3 (0.0, 4e6, 0.0)));
+              new VectorEval (coord2(0.0, 4e6)));
   VolumeF f2 (factories[SLAVE],
               element_index_to_physical_entity[SLAVE],
               volumeGroups[SLAVE],
-              new VectorEval (coord3 (0.0, -4e6, 0.0)));
+//              new VectorEval (coord3 (0.0, -4e6, 0.0)));
+              new VectorEval (coord2 (0.0, -4e6)));
   Dirichlet  d (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 dirichletGroups[MASTER],
-                new VectorEval (coord3 (0.0, 0.0, 0.0)));
+//                new VectorEval (coord3 (0.0, 0.0, 0.0)));
+                new VectorEval (coord2 (0.0, 0.0)));
   Dirichlet d2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 dirichletGroups[SLAVE],
-                new VectorEval (coord3 (0.0, 0.0, 0.0)));
+//                new VectorEval (coord3 (0.0, 0.0, 0.0)));
+                new VectorEval (coord2 (0.0, 0.0)));
   BoundaryF  p (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 neumannGroups[MASTER],
-                new VectorEval (coord3 (0.0, 7e6, 0.0)));
+//                new VectorEval (coord3 (0.0, 7e6, 0.0)));
+                new VectorEval (coord2 (0.0, 7e6)));
   BoundaryF p2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 neumannGroups[SLAVE],
-                new VectorEval (coord3 (0.0, -3e6, 0.0)));
+//                new VectorEval (coord3 (0.0, -3e6, 0.0)));
+                new VectorEval (coord2 (0.0, -3e6)));
 
   Gap g (factories[MASTER],
          boundary_id_to_physical_entity[MASTER],
@@ -205,16 +217,16 @@ int main (int argc, char** argv)
           contactGroups[SLAVE],
           new GapHack ());
 
-//  TwoRefs<Gap> gaps (g, g2);
-//  TwoRefs<BoundaryF> neumann (p, p2);
-//  TwoRefs<Dirichlet> dirichlet (d, d2);
-//  TwoRefs<GV> gv (grids[MASTER]->leafView(), grids[SLAVE]->leafView());
-//  
-//  DOBOTH (body) {
-//    testGmshBoundaryFunctor (gv[body], gaps[body], string ("/tmp/test-gap-") + body);
-//    testGmshBoundaryFunctor (gv[body], neumann[body], string ("/tmp/test-neumann-") + body);
-//    testGmshBoundaryFunctor (gv[body], dirichlet[body], string ("/tmp/test-dirichlet-") + body);
-//  }
+  TwoRefs<Gap> gaps (g, g2);
+  TwoRefs<BoundaryF> neumann (p, p2);
+  TwoRefs<Dirichlet> dirichlet (d, d2);
+  TwoRefs<GV> gv (grids[MASTER]->leafView(), grids[SLAVE]->leafView());
+  
+  DOBOTH (body) {
+    testGmshBoundaryFunctor (gv[body], gaps[body], string ("/tmp/test-gap-") + body);
+    testGmshBoundaryFunctor (gv[body], neumann[body], string ("/tmp/test-neumann-") + body);
+    testGmshBoundaryFunctor (gv[body], dirichlet[body], string ("/tmp/test-dirichlet-") + body);
+  }
 //  exit (1);
 
 //  PMSolver fem (grids[MASTER]->leafView(), a, f, p, g, d, 1.0e-14 / E);
