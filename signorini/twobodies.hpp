@@ -745,20 +745,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
         Q[r][col.index()+n_N+n_M] = MT[r-n_N][col.index()];
   }
 
-  writeMatrixToMatlab (A, "/tmp/A");
-  writeMatrixToMatlab (D, "/tmp/D");
-  writeMatrixToMatlab (DD, "/tmp/DD");
-  writeMatrixToMatlab (Q, "/tmp/Q");
-  writeMatrixToMatlab (M, "/tmp/M");
-  writeMatrixToMatlab (MM, "/tmp/MM");
-  writeMatrixToMatlab (MT, "/tmp/MT");
+//  writeMatrixToMatlab (A, "/tmp/A");
+//  writeMatrixToMatlab (D, "/tmp/D");
+//  writeMatrixToMatlab (DD, "/tmp/DD");
+//  writeMatrixToMatlab (Q, "/tmp/Q");
+//  writeMatrixToMatlab (M, "/tmp/M");
+//  writeMatrixToMatlab (MM, "/tmp/MM");
+//  writeMatrixToMatlab (MT, "/tmp/MT");
 
     // The brute force approach:
   BlockMatrix AA;
   matMultTransposeMat (AA, A, Q);
   matMultMat (A, Q, AA);  // A is now the new Â.
   
-  writeMatrixToMatlab (A, "/tmp/AA");
+//  writeMatrixToMatlab (A, "/tmp/AA");
   cout << "We have Â\n";
   
   ScalarVector uu, c;
@@ -946,8 +946,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
     }
   }
   */
-  writeMatrixToMatlab (B, string ("/tmp/B") + cnt);
-  writeVectorToFile (c, string ("/tmp/c") + cnt);
+//  writeMatrixToMatlab (B, string ("/tmp/B") + cnt);
+//  writeVectorToFile (c, string ("/tmp/c") + cnt);
   
   bench().report ("Stepping", "Solving", false);
   
@@ -996,7 +996,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
   Q.mtv (tu, tu2);
   for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
   
-  writeVectorToFile (u, string ("/tmp/u") + cnt);
+//  writeVectorToFile (u, string ("/tmp/u") + cnt);
 }
 
 
@@ -1046,7 +1046,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::solve ()
 //        cout << "from: " << from << ", to: " << to << LF;
         cu[body][to] = u[from];
       }
-      writeVectorToFile (cu[body], string ("/tmp/cu-")+body);
+//      writeVectorToFile (cu[body], string ("/tmp/cu-")+body);
     }
     (void) post_m.computeError (cu[MASTER]);
     post_m.computeVonMisesSquared ();
