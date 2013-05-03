@@ -128,11 +128,10 @@ public:
   
   inline bool isSupported (int i) const
   {
-    /*
-     cout << "ActiveSetFunctor::isSupported(" << i << ")= "
-     << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
-     << ") = " << (*this)(i) << "\n";
-     */
+//     cout << "ActiveSetFunctor::isSupported(" << i << ")= "
+//          << multipliers[i] << " + c * (" << solution[i] << " - " << gap[i]
+//          << ") = " << (*this)(i) << "\n";
+   
     return (multipliers[i]+c*(solution[i]-gap[i])) > 0;
   }
 };
@@ -174,7 +173,7 @@ public:
     // Careful! remember that it must be g(x) >= 0
   return_t operator() (const coord_t& global) const
   {
-    return 0.05;
+    return 0.01;
   }
 };
 

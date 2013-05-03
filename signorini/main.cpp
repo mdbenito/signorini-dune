@@ -181,22 +181,22 @@ int main (int argc, char** argv)
               element_index_to_physical_entity[MASTER],
               volumeGroups[MASTER],
 //              new VectorEval (coord3 (0.0, 4e6, 0.0)));
-              new VectorEval (coord2(0.0, 4e6)));
+              new VectorEval (coord2(0.0, 4e8)));
   VolumeF f2 (factories[SLAVE],
               element_index_to_physical_entity[SLAVE],
               volumeGroups[SLAVE],
 //              new VectorEval (coord3 (0.0, -4e6, 0.0)));
-              new VectorEval (coord2 (0.0, -4e6)));
+              new VectorEval (coord2 (0.0, -4e8)));
   Dirichlet  d (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 dirichletGroups[MASTER],
 //                new VectorEval (coord3 (0.0, 0.0, 0.0)));
-                new VectorEval (coord2 (0.0, 0.0)));
+                new VectorEval (coord2 (0.0, 0.02)));
   Dirichlet d2 (factories[SLAVE],
                 boundary_id_to_physical_entity[SLAVE],
                 dirichletGroups[SLAVE],
 //                new VectorEval (coord3 (0.0, 0.0, 0.0)));
-                new VectorEval (coord2 (0.0, 0.0)));
+                new VectorEval (coord2 (0.0, -0.02)));
   BoundaryF  p (factories[MASTER],
                 boundary_id_to_physical_entity[MASTER],
                 neumannGroups[MASTER],

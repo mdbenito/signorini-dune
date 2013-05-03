@@ -313,10 +313,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
                 
                 for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
                   int subi_m = ref_m.subEntity (is_m->indexInInside (), 1, i_m, dim);
-                  auto   v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
                   const auto& local_m = it_m->geometry().local (v_s);
 
                   if (basis[subi_m].isSupported (local_m)) {
+//                    auto   v_m = it_m->template subEntity<dim> (subi_m)->geometry().center();
 //                    cout << "*** " << v_s << " *** Supported by *** " << subi_m
 //                         << " *** at " << v_m << "\n";
                     const int ii_s = twoMapper->mapInBoundary (SLAVE, *it_s, subi_s, dim);
