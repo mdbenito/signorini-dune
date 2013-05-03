@@ -138,14 +138,9 @@ class BetterLinearShapeFunction
     // Scalar function to construct the n-dimensional one
   ctype b0 (ctype x) const
   {
-    if (-1 <= x && x <= 0)    return 1 + x;
-    else if (0 < x && x <= 1) return 1 - x;
-    else                      return   0.0;
-  }
-    // Shifted scalar function to construct the n-dimensional one
-  ctype b1 (ctype x) const
-  {
-    return b0 (x-1);
+    if (-1 <= x && x <= 0)    return 1.0 + x;
+    else if (0 < x && x <= 1) return 1.0 - x;
+    else                      return     0.0;
   }
 
       // Derivative of the scalar function to construct the gradient
@@ -155,10 +150,11 @@ class BetterLinearShapeFunction
     else if (0 <= x && x <= 1) return -1.0;
     else                       return  0.0;
   }
-    // Derivative of the shifted scalar function to construct the gradient
-  ctype g1 (ctype x) const
+  
+    /*! Returns true if this shape function has its apex at node i */
+  bool atNode (int i) const
   {
-    return -1*g0 (x-1);   // HACK: somehow we need this...
+    return (mask & (1u<<i));
   }
   
 public:
@@ -166,8 +162,8 @@ public:
   
   BetterLinearShapeFunction (unsigned long _mask = 0) : mask (_mask)
   {
-    cout << "BetterLinearShapeFunction needs FIXING! Aborting.\n";
-    assert (false);
+//    cout << "BetterLinearShapeFunction needs FIXING! Aborting.\n";
+//    assert (false);
   }
   
   ctype evaluateFunction (const coord_t& local) const
@@ -175,8 +171,8 @@ public:
     if (! isSupported (local)) return 0.0;
     ctype r = factor;
     for (int i = 0; i < dim; ++i) {
-      if (mask & (1u<<(dim-i-1))) r *= b1 (local[i]);
-      else                        r *= b0 (local[i]);
+      if (atNode (i)) r *= b0 (local[i]-1);
+      else            r *= b0 (local[i]);
     }
     r += indep;
       //std::cout << "Shape[" << mask << "] (" << local << ")= " << r << "\n";    
@@ -189,14 +185,13 @@ public:
     coord_t r (factor);
     
     for (int i = 0; i < dim; ++i) {
-      if (mask & (1u<<(dim-i-1))) r[i] *= g1 (local[i]);
-      else                        r[i] *= g0 (local[i]);
+      if (atNode (i)) r[i] *= g0 (local[i]-1);
+      else            r[i] *= g0 (local[i]);
       for (int j = 0; j < dim; ++j) {
         if (j == i) continue;
-        if (mask & (1u<<(dim-j-1))) r[i] *= b1 (local[j]);
-        else                        r[i] *= b0 (local[j]);
+        if (atNode (j)) r[i] *= b0 (local[j]-1);
+        else            r[i] *= b0 (local[j]);
       }
-      r[i] = -1.0 * std::abs(r[i]);  // HACK: we want the gradient pointing inwards at the apex
     }
       //std::cout << "GRAD Shape[" << mask << "] (" << local << ")= " << r << "\n";
     return r;
@@ -205,7 +200,7 @@ public:
   inline bool isSupported (const coord_t& local) const
   {
     for (int i = 0; i < dim; ++i)
-      if (std::abs(((mask & (1u<<i)) ? 1.0 : 0) - local[i]) > 1)
+      if (std::abs((atNode (i) ? 1.0 : 0) - local[i]) > 1)
         return false;
     return true;
   }
@@ -336,32 +331,13 @@ private:
   Q1ShapeFunctionSet ()
   {
     assert (basicType == GeometryType::cube);
-//    switch (basicType) {
-//      case GeometryType::cube:
-//        f.resize (N);
-        for (int i=0; i < N; ++i) {
-            /// WTF??!??!?!??! mapDuneIndex() is no longer necessary? was it ever?
-            // when did I change the shape functions' evaluation?
-          unsigned int mask = i; //mapDuneIndex(i);
-//          cout << "Creating shape function " << i << " with mask " << mask << "\n";
-          f[i] = new ShapeFunction (mask);
-        }
-    /*
-        break;
-      case GeometryType::simplex:
-        N = 1 + dim;          // FIXME: ok?
-        f.resize (N);
-        f[0] = new ShapeFunction (0);
-        for (int i=1; i < N; ++i) {
-          unsigned int mask = (1 << (i-1));
-          cout << "Creating shape function " << i << " with mask " << mask << "\n";
-          f[i] = new ShapeFunction (mask);
-        }
-        break;
-      default:
-        DUNE_THROW (Exception, "Unhandled shape geometry type in Q1ShapeFunctionSet");
+    for (int i=0; i < N; ++i) {
+        /// WTF??!??!?!??! mapDuneIndex() is no longer necessary? was it ever?
+        // when did I change the shape functions' evaluation?
+      unsigned int mask = i; //mapDuneIndex(i);
+                             //          cout << "Creating shape function " << i << " with mask " << mask << "\n";
+      f[i] = new ShapeFunction (mask);
     }
-    */
     atexit (this->atExit);
   }
 
