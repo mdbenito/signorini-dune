@@ -13,10 +13,10 @@ Line(3) = {3, 4};
 Line(4) = {4, 1};
 
 Line Loop(5) = {1, 2, 3, 4};
-Plane Surface(6) = {5};
-Recombine Surface { 6 };
+Plane Surface(6) = { 5 };
+//Recombine Surface { 6 };
 
-Physical Surface(1) = {6};       // whole plate
+Physical Surface(1) = { 6 };     // whole plate
 Physical Line(1) = { 1 };        // base
 Physical Line(2) = { 2 };        // right side
 Physical Line(3) = { 3 };        // top side
