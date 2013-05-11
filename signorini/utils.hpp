@@ -158,9 +158,9 @@ public:
   typedef typename X::field_type field_type;
   enum { category=SolverCategory::sequential };
   DummyPreconditioner () { }
-  virtual void pre (X& x, Y& b) { }
+  virtual void pre (X& x, Y& b) { (void) x; (void) b;}
   virtual void apply (X& v, const Y& d) { v = d; }
-  virtual void post (X& x) { }
+  virtual void post (X& x) { (void) x; }
 };
 
 /* Now, THIS is ugly... */
@@ -188,6 +188,7 @@ public:
   }
 */
 };
+
 
   // Flatten a BCRSMatrix<B> to a BCRSMatrix<B::field_type>
 template <class B, class BB>
