@@ -99,23 +99,20 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
   typedef LeafMultipleCodimMultipleGeomTypeMapper <grid_t, MCMGVertexLayout> VertexMapper;
   
   VertexMapper mapper (gv.grid());
-  const auto& gids = gv.grid().globalIdSet();
-  
   VTKWriter<typename grid_t::LeafGridView> vtkwriter (gv.grid().leafView());
  
   std::vector<ctype> values (gv.size(dim) * ret_dim, 0.0);
   std::vector<ctype> support (gv.size (dim), 0.0);
 //  std::vector<int> indices (gv.size (dim), 0);
 
-  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it)
-    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is)
+  for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
+    for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
       if (func.isSupported (*is)) {
         const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
         const int ivnum = ref.size (is->indexInInside (), 1, dim);
         for (int i = 0; i < ivnum; ++i) {
           int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
           auto  idx = mapper.map (*it, subi, dim);
-          const auto& in = is->inside();
           support[idx] = 1.0;
 //          indices[idx] = idx;
 
@@ -125,11 +122,47 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
             values[idx*ret_dim+c] = ret[c];
         }
       }
+    }
+  }
 
   vtkwriter.addVertexData (support, "support", 1);
   vtkwriter.addVertexData (values, "value", ret_dim);
 //  vtkwriter.addVertexData (indices, "index", 1);
   base = base + std::string("-") + dim + std::string("d");
+  cout << "Writing file " << base  << LF;
+  vtkwriter.write (base, VTK::appendedraw);
+}
+
+
+template <class Glue, int body>
+void testContactSurfaces (const Glue& glue, std::string base)
+{
+  dune_static_assert((body==0 || body==1), "'body' can only be 0 or 1");
+  
+  typedef typename SelectType <(body==0), typename Glue::Grid0View, typename Glue::Grid1View>::Type GV;
+  typedef typename GV::ctype ctype;
+  typedef LeafMultipleCodimMultipleGeomTypeMapper <typename GV::Grid, MCMGVertexLayout> VertexMapper;
+  
+  const int     dim = GV::dimension;
+  const int domdimw = GV::dimensionworld;
+  const auto& gv    = glue.template gridView<body>();
+  VertexMapper mapper (gv.grid());
+  VTKWriter<GV> vtkwriter (gv);
+  std::vector<ctype> support (gv.size (dim), 0.0);
+
+  for (auto is = glue.template ibegin<body>(); is != glue.template iend<body>(); ++is) {
+    if (is->self() && is->neighbor()) {
+      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+      const int ivnum = ref.size (is->indexInInside (), 1, dim);
+      for (int i = 0; i < ivnum; ++i) {
+        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+        auto  idx = mapper.map (*(is->inside()), subi, dim);
+        support[idx] = 1.0;
+      }
+    }
+  }
+  vtkwriter.addVertexData (support, "contact", 1);
+  base = base + std::string("-") + body + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
   vtkwriter.write (base, VTK::appendedraw);
 }
