@@ -127,8 +127,7 @@ private:
  cuadrilaterals adjacent to the vertex where the value of the function is 1.
  
  FIXME! This is wrong! Plot the files output by testShapes() to see how the
- values and gradients are different to those of MLinearShapeFunction
- 
+ values and gradients are different of those of MLinearShapeFunction
  */
 template<class ctype, int dim, int factor, int indep>
 class BetterLinearShapeFunction
@@ -151,8 +150,9 @@ class BetterLinearShapeFunction
     else                       return  0.0;
   }
   
-    /*! Returns true if this shape function has its apex at node i */
-  bool atNode (int i) const
+    /*! Returns true if this shape function has its apex at a node whose i-th
+     coordinate is 1. */
+  bool atCoord (int i) const
   {
     return (mask & (1u<<i));
   }
@@ -162,8 +162,8 @@ public:
   
   BetterLinearShapeFunction (unsigned long _mask = 0) : mask (_mask)
   {
-//    cout << "BetterLinearShapeFunction needs FIXING! Aborting.\n";
-//    assert (false);
+    cout << "BetterLinearShapeFunction needs FIXING! Aborting.\n";
+    assert (false);
   }
   
   ctype evaluateFunction (const coord_t& local) const
@@ -171,8 +171,8 @@ public:
     if (! isSupported (local)) return 0.0;
     ctype r = factor;
     for (int i = 0; i < dim; ++i) {
-      if (atNode (i)) r *= b0 (local[i]-1);
-      else            r *= b0 (local[i]);
+      if (atCoord (i)) r *= b0 (local[i]-1);
+      else             r *= b0 (local[i]);
     }
     r += indep;
       //std::cout << "Shape[" << mask << "] (" << local << ")= " << r << "\n";    
@@ -185,12 +185,12 @@ public:
     coord_t r (factor);
     
     for (int i = 0; i < dim; ++i) {
-      if (atNode (i)) r[i] *= g0 (local[i]-1);
-      else            r[i] *= g0 (local[i]);
+      if (atCoord (i)) r[i] *= g0 (local[i]-1);
+      else             r[i] *= g0 (local[i]);
       for (int j = 0; j < dim; ++j) {
         if (j == i) continue;
-        if (atNode (j)) r[i] *= b0 (local[j]-1);
-        else            r[i] *= b0 (local[j]);
+        if (atCoord (j)) r[i] *= b0 (local[j]-1);
+        else             r[i] *= b0 (local[j]);
       }
     }
       //std::cout << "GRAD Shape[" << mask << "] (" << local << ")= " << r << "\n";
@@ -200,7 +200,7 @@ public:
   inline bool isSupported (const coord_t& local) const
   {
     for (int i = 0; i < dim; ++i)
-      if (std::abs((atNode (i) ? 1.0 : 0) - local[i]) > 1)
+      if (std::abs ((atCoord (i) ? 1.0 : 0) - local[i]) > 1)
         return false;
     return true;
   }
@@ -310,10 +310,10 @@ private:
    and our system which assigns to the vertex with coordinates (1,1,0), i.e.
    number 3 in DUNE the index 6 = 110b. We basically do a poor man's bit order
    reversal (lsb->msb) of dim bits.
-   FIXME? breaks at dim = 16
    */
   inline unsigned int mapDuneIndex (int i)
   {
+    assert (dim < 16);
     unsigned int msb_i = 0;
     i = i & 0xFFFF;
     for (int b = 0; b < dim; ++b)
@@ -331,11 +331,12 @@ private:
   Q1ShapeFunctionSet ()
   {
     assert (basicType == GeometryType::cube);
+    std::cerr << "WARNING: *not* using mapDuneIndex() in Q1ShapeFunctionSet\n";
     for (int i=0; i < N; ++i) {
         /// WTF??!??!?!??! mapDuneIndex() is no longer necessary? was it ever?
         // when did I change the shape functions' evaluation?
       unsigned int mask = i; //mapDuneIndex(i);
-                             //          cout << "Creating shape function " << i << " with mask " << mask << "\n";
+//          cout << "Creating shape function " << i << " with mask " << mask << "\n";
       f[i] = new ShapeFunction (mask);
     }
     atexit (this->atExit);
