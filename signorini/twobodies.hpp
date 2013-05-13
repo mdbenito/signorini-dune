@@ -825,11 +825,15 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 //        const auto& localSlave = is->geometryInInside().local (slaveVertex);
 //        coord_t   nr = is->unitOuterNormal (localSlave);
 
-        coord_t slaveVertex = is->geometryInInside().corner (subi);
-        coord_t masterVertex = is->geometryOutside().global (is->geometryInOutside().local (slaveVertex));
-        coord_t nr = masterVertex - slaveVertex;
-        nr /= nr.two_norm();
-
+//        coord_t slaveVertex = is->geometry().corner (subi);
+//        coord_t masterVertex = is->geometryOutside().corner (subi);
+//        coord_t nr = masterVertex - slaveVertex;
+//        nr /= nr.two_norm();
+//        cout << "at " << slaveVertex << " the normal is: " << nr << LF;
+        std::cerr << "***********************\n"
+                  << "FIXME!! hardcoded normal in TwoBodiesIASet::step()\n"
+                  << "***********************\n";
+        coord_t nr = coord3(0.0, -1.0, 0.0);
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
           
         n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
