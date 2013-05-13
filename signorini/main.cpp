@@ -222,7 +222,8 @@ int main (int argc, char** argv)
   SurfaceExtractor slaveExtractor (grids[SLAVE]->levelView (0), slaveDescriptor);
   
   SurfaceMergeImpl merger;
-  GlueType glue (slaveExtractor, masterExtractor, &merger);   // FIXME: careful with the order
+     // FIXME: I've switched the roles of master and slave wrt to what grid-glue expects!!
+  GlueType glue (masterExtractor, slaveExtractor, &merger);
   
   glue.build();
   

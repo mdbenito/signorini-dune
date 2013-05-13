@@ -40,8 +40,8 @@
 using namespace Dune;
 using std::cout;
 
-#define MASTER 1
-#define SLAVE  0
+#define MASTER 0
+#define SLAVE  1
 #define DOBOTH(x) for (int x=0; x < 2; ++x)
 
 
