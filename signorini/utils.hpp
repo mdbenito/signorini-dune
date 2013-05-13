@@ -375,7 +375,7 @@ std::vector<FieldVector<ctype, dim> > basisOfPlaneNormalTo (const FieldVector<ct
   return v;
 }
 
-  // FINISH THIS! (check orthonormality)
+  // TODO: FINISH THIS! (check orthonormality)
 template <class ctype, int dim>
 bool test_basisOfPlaneNormalTo () {
   typedef FieldVector<ctype, dim> coord_t;

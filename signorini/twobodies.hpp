@@ -74,7 +74,7 @@ public:
   typedef BCRSMatrix<block_t>                  BlockMatrix;
   typedef BlockVector<scalar_t>               ScalarVector;
   typedef BlockVector<coord_t>                 CoordVector;
-  typedef ActiveSetFunctor<ctype, dim, ScalarVector>  AIFunctor;
+  typedef ActiveSetFunctor<ctype, dim, ScalarVector>  ASFunctor;
   typedef TwoBodyMapper<dim, TGV>                     TwoMapper;
   typedef LeafMultipleCodimMultipleGeomTypeMapper
           <typename TGV::Grid, MCMGVertexLayout>   VertexMapper;
@@ -97,7 +97,7 @@ private:
   CoordVector  b;    //!< RHS: volume forces and tractions
   CoordVector  u;    //!< Solution
   CoordVector  n_d;  //!< D * normal at the gap nodes
-  ScalarVector g;    //!< Gap functor evaluated at the gap nodes
+  ScalarVector g;    //!< Weak gap functor evaluated at the gap nodes (integral condition)
   ScalarVector n_u;  //!< Normal component of the solution at gap nodes
   ScalarVector n_m;  //!< Normal component of the lagrange multiplier at gap nodes
   
@@ -233,7 +233,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
   const int n_Is = static_cast<int> (inactive[SLAVE].size());
   const auto ingap_m = n_Am + n_Im;
   const auto ingap_s = n_As + n_Is;
-  cout << "total= " << n_T << ", ingap_s= " << ingap_s << "\n";
+//  cout << "total= " << n_T << ", ingap_s= " << ingap_s << "\n";
   
   bench().start ("Adjacency for stiffness matrix", false);
   std::vector<std::set<int> > adjacencyPattern (n_T);
@@ -333,7 +333,7 @@ template<class TGV, class TET, class TFT, class TDF, class TTF, class TGT, class
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive ()
 {
    // all nodes inactive for default values == 0
-  AIFunctor contact (g, n_u, n_m);
+  ASFunctor contact (g, n_u, n_m);
   
   active[SLAVE].clear();
   inactive[SLAVE].clear();
@@ -512,7 +512,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
           const auto& domainGlobal = is->geometry().global (x.position());
           const auto& targetGlobal = is->geometryOutside().global (x.position());
           double gap = (domainGlobal - targetGlobal).two_norm();
-          
+//          cout << "gap at " << domainGlobal << " is " << gap << LF;
           g[ib] += gap *
                    multBasis[subi].evaluateFunction (local) *
                    x.weight () *

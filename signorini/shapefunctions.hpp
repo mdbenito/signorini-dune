@@ -2,7 +2,7 @@
  * shapefunctions.hpp                                                         *
  *                                                                            *
  * TODO:                                                                      *
- *   - Replace *Q1ShapeFunctionSet for a template class, taking the shape as    *
+ *   - Replace Q1ShapeFunctionSet for a template class, taking the shape as   *
  *     template parameter (needs changing the definition of P1 functions).    *
  ******************************************************************************/
 

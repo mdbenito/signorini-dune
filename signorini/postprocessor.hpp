@@ -183,9 +183,9 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   VertexMapper defaultMapper (gv.grid());
   
   // debugging indices
-  typedef std::vector<int> IntVec;
-  IntVec indices (numVertices);
-  IntVec mapped (numVertices);
+  /*
+  std::vector<int> indices (numVertices);
+  std::vector<int> mapped (numVertices);
 
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int from = mapper.map (*it);
@@ -196,7 +196,7 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   cout << "Adding index data" << LF;
   vtkwriter.addVertexData (indices, "idx", 1);
   vtkwriter.addVertexData (mapped, "map", 1);
-
+   */
   FlatVector uu (numVertices * CoordVector::block_type::dimension);
   FlatVector vvmm (numVertices);
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
