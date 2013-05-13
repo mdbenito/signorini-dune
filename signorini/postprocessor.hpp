@@ -57,8 +57,8 @@ private:
   const TET& a;       //!< Elasticity tensor
   
   
-  CoordVector* u;     //!< Solution
-  FlatVector vm;      //!< Von Mises stress of solution
+  CoordVector u;      //!< Solution. Uses VertexMapper ordering.
+  FlatVector vm;      //!< Von Mises stress of solution. Uses VertexMapper ordering.
 
 public:
   PostProcessor (const TGV& _gv, const TMP& _m, const TET& _a);
@@ -77,18 +77,27 @@ template<class TGV, class TET, class TMP, class TSS>
 PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
                                                   const TMP& _m,
                                                   const TET& _a)
-  : gv (_gv), mapper(_m), a (_a), u (NULL)
+  : gv (_gv), mapper(_m), a (_a)
 {
+  u.resize (gv.size (dim), 0.0);
   vm.resize (gv.size (dim), 0.0);
 }
 
+/*! Copies the solution vector.
+ 
+ Only those entries of the input vector which correspond to nodes of the mesh
+ are copied, using the mapper provided. In particular, any additional entries
+ are disregarded (e.g. lagrange multipliers at the end of the CoordVector, etc.)
+ */
 template<class TGV, class TET, class TMP, class TSS>
 void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
 {
-  delete u;
-  u = new CoordVector (v);
-  
-  bench().report ("Postprocessing", string("New solution has size: ") + u->size());
+  VertexMapper defaultMapper (gv.grid ());
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    int from = mapper.map (*it), to = defaultMapper.map (*it);
+    u[to] = v[from];
+  }
+  bench().report ("Postprocessing", "New solution copied");
 }
 
 /*! Computes the error wrt. to the previous solution.
@@ -105,28 +114,19 @@ template<class TGV, class TET, class TMP, class TSS>
 long double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
 {
   check (v);
-
+  
   long double r = 0.0;
-  
-  if (u == NULL) {
-    r = 1.0;
-  } else {
-    long double n = 0.0;
-    auto uit = u->begin();
-    auto vit = v.begin();
-    
-    for (; uit != u->end() && vit != v.end(); ++uit, ++vit) {
-      for (int i=0; i < dim; ++i) {
-        r += std::abs ((*uit)[i] - (*vit)[i]);
-        n += std::abs ((*uit)[i]);
-      }
-    }
-    r = r / n;
-    bench().report ("Postprocessing", string ("New solution diverged by: ") + r);
+  VertexMapper defaultMapper (gv.grid ());
+  for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
+    int from = mapper.map (*it);
+    int   to = defaultMapper.map (*it);
+    r += coord_t (v[from] - u[to]).one_norm();
   }
-  
-  setSolution (v);
-  return r;
+  setSolution (v); // u will hold the new solution values
+  r /= u.one_norm();
+  bench().report ("Postprocessing", string ("New solution diverged by: ") + r);
+
+  return r;  // Should be 1 on first run.
 }
 
 /*! Returns the *squared* von Mises stress. (brute force)
@@ -142,27 +142,19 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
   bench().report ("Postprocessing", "Computing von Mises stress...", false);
   const auto& basis = TSS::instance ();
   VertexMapper defaultMapper (gv.grid());
-  
-  const auto totalVertices = gv.size (dim);
-  
+
   std::fill (vm.begin(), vm.end(), 0.0);
-  assert (vm.size() == u->size());
-  
-  if (u == NULL || u->size() < totalVertices)
-    DUNE_THROW (Exception, "Call PostProcessor::computeError() first");
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    GeometryType typ = it->type ();
-    const auto&  ref = GenericReferenceElements<ctype, dim>::general (typ);
+    const auto&  ref = GenericReferenceElements<ctype, dim>::general (it->type ());
     const int   vnum = ref.size (dim);
 
-    double r;
     for (int i = 0; i < vnum; ++i) {
       auto ii = defaultMapper.map (*it, i, dim);
       auto iipos = ref.position (i, dim);
-      block_t  s = a.stress ((*u)[ii], basis[i].evaluateGradient (iipos));
+      block_t  s = a.stress (u[ii], basis[i].evaluateGradient (iipos));
       double   t = trace(s);
-      r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+      double r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
         //cout << "stressing: " << ii << " ";
       /*
       r = 0.0;
@@ -208,11 +200,10 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   FlatVector uu (numVertices * CoordVector::block_type::dimension);
   FlatVector vvmm (numVertices);
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
-    int from = mapper.map (*it);
-    int to = defaultMapper.map (*it);
+    int ii = defaultMapper.map (*it);
     for (int c = 0; c < CoordVector::block_type::dimension; ++c) {
-      uu.at(to*dim+c) = ((*u)[from])[c];
-      vvmm.at(to) = vm.at(from);
+      uu.at (ii*dim+c) = u[ii][c];
+      vvmm.at (ii) = vm.at(ii);
     }
   }
   cout << "Adding vertex data" << LF;
