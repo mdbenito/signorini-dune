@@ -2,6 +2,12 @@
 #define ENABLE_SUPERLU 1
 #define ENABLE_UG 1
 #define ENABLE_ALUGRID 1
+#define DUNE_FMatrix_WITH_CHECKING 1
+#define DUNE_ISTL_WITH_CHECKING 1
+
+// The following is only possible if all libraries are built with it!
+// This is because STL method's signatures change with this activated (?)
+  //#define _GLIBCXX_DEBUG 1
 
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */

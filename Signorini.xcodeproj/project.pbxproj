@@ -237,12 +237,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CURRENT_PROJECT_VERSION = 0.4.2;
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
-					"DUNE_FMatrix_WITH_CHECKING=yesplease",
 					"$(inherited)",
 				);
 				GCC_UNROLL_LOOPS = YES;
@@ -284,6 +284,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CURRENT_PROJECT_VERSION = 0.4.2;
 				GCC_C_LANGUAGE_STANDARD = "compiler-default";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_OPTIMIZATION_LEVEL = 3;
