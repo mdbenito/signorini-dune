@@ -24,10 +24,11 @@ using namespace Dune;
 template <class ctype, int dim, class ShapeSet>
 bool testShapes (const std::string& filename)
 {
+  typedef FieldVector<ctype, dim> coord_t;
+
   const auto& basis = ShapeSet::instance ();
   GeometryType gt (basis.basicType, dim);
   const auto& element = GenericReferenceElements<ctype, dim>::general (gt);
-  typedef FieldVector<ctype, dim> coord_t;
   coord_t x;
   
   cout << "Testing " << basis.basicType << " shapes for dimension " << dim << ":\n";
@@ -91,19 +92,19 @@ TFN: TFunctor
 template<class TGV, class TFN>
 void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
 {
-  static const int     dim = TGV::dimension;
-  static const int ret_dim = TFN::return_dim;
-  
   typedef typename TGV::ctype     ctype;
   typedef typename TGV::Grid     grid_t;
   typedef LeafMultipleCodimMultipleGeomTypeMapper <grid_t, MCMGVertexLayout> VertexMapper;
-  
+ 
+  const int     dim = TGV::dimension;
+  const int ret_dim = TFN::return_dim;
+  const int numVertices = gv.size(dim);
+
   VertexMapper mapper (gv.grid());
   VTKWriter<typename grid_t::LeafGridView> vtkwriter (gv.grid().leafView());
  
-  std::vector<ctype> values (gv.size(dim) * ret_dim, 0.0);
-  std::vector<ctype> support (gv.size (dim), 0.0);
-//  std::vector<int> indices (gv.size (dim), 0);
+  std::vector<ctype> values (numVertices * ret_dim, 0.0);
+  std::vector<ctype> support (numVertices, 0.0);
 
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     for (auto is = gv.ibegin (*it) ; is != gv.iend (*it) ; ++is) {
@@ -113,13 +114,12 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
         for (int i = 0; i < ivnum; ++i) {
           int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
           auto  idx = mapper.map (*it, subi, dim);
-          support[idx] = 1.0;
-//          indices[idx] = idx;
-
+          support.at(idx) = 1.0;
+          
           auto global = it->geometry().global (ref.position (subi, dim));
           auto  ret = func (global);
           for (int c = 0; c < ret_dim; ++c)
-            values[idx*ret_dim+c] = ret[c];
+            values.at(idx*ret_dim+c) = ret[c];
         }
       }
     }
@@ -127,7 +127,6 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
 
   vtkwriter.addVertexData (support, "support", 1);
   vtkwriter.addVertexData (values, "value", ret_dim);
-//  vtkwriter.addVertexData (indices, "index", 1);
   base = base + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
   vtkwriter.write (base, VTK::appendedraw);
@@ -146,6 +145,7 @@ void testContactSurfaces (const Glue& glue, std::string base)
   const int     dim = GV::dimension;
   const int domdimw = GV::dimensionworld;
   const auto& gv    = glue.template gridView<body>();
+  
   VertexMapper mapper (gv.grid());
   VTKWriter<GV> vtkwriter (gv);
   std::vector<ctype> support (gv.size (dim), 0.0);
@@ -157,7 +157,7 @@ void testContactSurfaces (const Glue& glue, std::string base)
       for (int i = 0; i < ivnum; ++i) {
         int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
         auto  idx = mapper.map (*(is->inside()), subi, dim);
-        support[idx] = 1.0;
+        support.at(idx) = 1.0;
       }
     }
   }

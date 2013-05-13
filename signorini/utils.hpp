@@ -422,6 +422,7 @@ public:
   Monomial (ctype _coeff=0) : coeff(_coeff) { clear(); }
   Monomial (std::vector<int> ilist, ctype _coeff) : coeff (_coeff) {
     clear();
+    assert (ilist.size() < dim);
     for (auto& x : ilist) indices[x] = 1;
   };
   

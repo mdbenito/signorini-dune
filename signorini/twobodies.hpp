@@ -16,7 +16,6 @@
 
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
-#include <dune/common/fassign.hh>     // operator <<= for vectors
 #include <dune/geometry/quadraturerules.hh>
 #include <dune/grid/common/mcmgmapper.hh>
 
@@ -64,10 +63,8 @@ public:
   static const int dim = TGV::dimension;
   
   typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
-  typedef typename TGV::template Codim<dim>::Entity Vertex;
   typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
   typedef std::set<IdType>                           IdSet;
-  typedef std::vector<const Vertex*>              IdVector;
   typedef typename TGV::ctype                        ctype;
   typedef FieldVector<ctype, 1>                   scalar_t;
   typedef FieldVector<ctype, dim>                  coord_t;
@@ -249,7 +246,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
         int ii = twoMapper->map (body, *it, i, dim);
         for (int j = 0; j < vnum; ++j) {
           int jj = twoMapper->map (body, *it, j, dim);
-          adjacencyPattern[ii].insert (jj);
+          adjacencyPattern.at(ii).insert (jj);
         }
       }
     }
@@ -276,7 +273,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
           int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
           int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
           
-          couplingPattern[ii_s].insert (ii_m);
+          couplingPattern.at (ii_s).insert (ii_m);
         }
       }
     }
@@ -298,20 +295,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
   u.resize (n_T + n_Is + n_As, false); // we use the extra room (+n_Is+n_As) in step()
   
   for (int i = 0; i < n_T; ++i)
-    A.setrowsize (i, adjacencyPattern[i].size ());
+    A.setrowsize (i, adjacencyPattern.at(i).size ());
   A.endrowsizes ();
   
   for (int i = 0; i < n_T; ++i)
-    for (const auto& it : adjacencyPattern[i])
+    for (const auto& it : adjacencyPattern.at(i))
       A.addindex (i, it);
   A.endindices ();
   
   for (int i = 0; i < ingap_s; ++i)
-    MM.setrowsize (i, couplingPattern[i].size ());
+    MM.setrowsize (i, couplingPattern.at (i).size ());
   MM.endrowsizes ();
   
   for (int i = 0; i < ingap_s; ++i)
-    for (const auto& it : couplingPattern[i])
+    for (const auto& it : couplingPattern.at(i))
       MM.addindex (i, it);
   MM.endindices ();
   
@@ -358,10 +355,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive ()
 
   twoMapper->update (active, inactive, other);
   
+  TwoToOneBodyMapper<dim, TGV> mapper_s (SLAVE, *twoMapper);
+  
   cout << "\nInactive: " << inactive[SLAVE].size() << ": ";
-  for (auto x : inactive[SLAVE]) cout << twoMapper->map (SLAVE, x) << " ";
+  for (auto x : inactive[SLAVE]) cout << mapper_s.map (x) << " ";
   cout << "\nActive: " << active[SLAVE].size() << ": ";
-  for (auto x : active[SLAVE])   cout << twoMapper->map (SLAVE, x) << " ";
+  for (auto x : active[SLAVE])   cout << mapper_s.map (x) << " ";
   cout << "\n";
 }
 
@@ -733,7 +732,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
           if (A[r][c][i][j] != 0.0)
-            adjacencyPattern[r*dim+i].insert ((int)c*dim+j);
+            adjacencyPattern.at(r*dim+i).insert ((int)c*dim+j);
     }
   }
   
@@ -743,8 +742,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     if (inactive[SLAVE].find (id) != inactive[SLAVE].end()) {
       int ib = twoMapper->mapInBoundary (SLAVE, id);
       for (int i = 0; i < dim; ++i) {
-        adjacencyPattern[(n_T+ib)*dim+i].insert ((n_T+ib)*dim+i);  // Id_I
-        adjacencyPattern[(n_N+n_M+ib)*dim+i].insert ((n_T+ib)*dim+i);  // D_I
+        adjacencyPattern.at((n_T+ib)*dim+i).insert ((n_T+ib)*dim+i);  // Id_I
+        adjacencyPattern.at((n_N+n_M+ib)*dim+i).insert ((n_T+ib)*dim+i);  // D_I
       }
     } else if (active[SLAVE].find (id) != active[SLAVE].end()) {
       int ia = twoMapper->mapInActive (SLAVE, id);
@@ -753,18 +752,18 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
       int ii = (n_T+n_I)*dim;
       
       for (int i = 0; i < dim; ++i)
-        adjacencyPattern[(n_N+n_M+n_I+ia)*dim+i].insert ((n_T+n_I+ia)*dim+i); // D_A
+        adjacencyPattern.at((n_N+n_M+n_I+ia)*dim+i).insert ((n_T+n_I+ia)*dim+i); // D_A
       
       // T_A: dim-1 tangent vectors to determine the tangent hyperplane at each node
       for (int j = 0; j < dim - 1; ++j)
         for (int k = 0; k < dim; ++k)
-          adjacencyPattern[ii + (dim-1)*ia + j].insert ((n_T + ib)*dim + k);
+          adjacencyPattern.at(ii + (dim-1)*ia + j).insert ((n_T + ib)*dim + k);
       
       assert (ii + ia*(dim-1) + dim-2 < total*dim);
       assert (ii + ia*dim + dim-1 < total*dim);
         // N_A
       for (int k = 0; k < dim; ++k)
-        adjacencyPattern[ii+(dim-1)*n_A+ia].insert (im*dim + k);
+        adjacencyPattern.at(ii+(dim-1)*n_A+ia).insert (im*dim + k);
 
       assert (ii + (dim-1)*n_A + ia < total*dim);
       assert ((im+1)*dim < total*dim);
@@ -773,7 +772,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row)
-    for (const auto& col : adjacencyPattern[row.index()])
+    for (const auto& col : adjacencyPattern.at(row.index()))
       row.insert (col);
   
   B = 0.0; // Careful! we will be using operator+= later, so this is important.
@@ -822,19 +821,19 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
         IdType id = gids[SLAVE].subId (*in, subi, dim);
         int    ib = twoMapper->mapInBoundary (SLAVE, id);
 
+          // There's no unitOuterNormal in grid-glue's Intersection
+//        const auto& localSlave = is->geometryInInside().local (slaveVertex);
+//        coord_t   nr = is->unitOuterNormal (localSlave);
+
         coord_t slaveVertex = is->geometryInInside().corner (subi);
         coord_t masterVertex = is->geometryOutside().global (is->geometryInOutside().local (slaveVertex));
         coord_t nr = masterVertex - slaveVertex;
         nr /= nr.two_norm();
-//        const auto& localSlave = is->geometryInInside().local (slaveVertex);
-//        coord_t   nr = is->unitOuterNormal (local);
-        
-        
-        
+
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
           
         n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
-        n_d_count[ib] += 1;
+        n_d_count.at(ib) += 1;
         
           //cout << "ib= " << ib << ", nr= " << nr << "\n";
         if (active[SLAVE].find (id) != active[SLAVE].end()) {
@@ -849,7 +848,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
             //cout << "ii= " << ii << "\n";
           for (int j = 0; j < dim-1; ++j)
             for (int k = 0; k < dim; ++k)
-              B[ii+j][(n_T+ib)*dim+k] += tg[j][k]; //FIXME: why a sum?
+              B[ii+j][(n_T+ib)*dim+k] += tg.at(j)[k]; //FIXME: why a sum?
             
           c[ii] = 0.0;
             
@@ -868,17 +867,17 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     // Fix the computation of n_d averaging through the number of vertices
     // contributing to each node.
   for (int i = 0; i < n_d.size(); ++i)
-    if (n_d_count[i] > 1)
-      n_d[i] /= static_cast<double> (n_d_count[i]);
+    if (n_d_count.at(i) > 1)
+      n_d[i] /= static_cast<double> (n_d_count.at(i));
   
   cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
   
   /*
   for (int i = 0; i < total*dim; ++i) {
-    if (adjacencyPattern[i].size() > 0) {
+    if (adjacencyPattern.at(i).size() > 0) {
       cout << "WTF?!?!? Columns not filled at row " << i << ": ";
-      for (const auto& x : adjacencyPattern[i])
+      for (const auto& x : adjacencyPattern.at(i))
         cout << " " << x;
       cout << LF;
     }

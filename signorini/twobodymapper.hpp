@@ -27,7 +27,6 @@ class TwoBodyMapper
 {
   typedef typename TGV::template Codim<0>::Entity Element;
   typedef typename TGV::template Codim<codim>::Entity Entity;
-  typedef std::vector<const Entity*> EntityVector;
   
   typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
   typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
@@ -182,12 +181,12 @@ void TwoBodyMapper<codim, TGV>::update (const IdSet* active,
   int cnt = 0;
   DOBOTH (body) {
     indices[body].clear();
-    sizeOther[body] = static_cast<int> (other[body].size());
-//    cout << "sizeOther[" << body << "]= " << sizeOther[body] << LF;
     offsetBody[body] = cnt;
 //    cout << "offsetBody[" << body << "]= " << offsetBody[body] << LF;
     for (auto x : other[body])
       indices[body][x] = cnt++;
+    sizeOther[body] = static_cast<int> (other[body].size());
+//    cout << "sizeOther[" << body << "]= " << sizeOther[body] << LF;
   }
 
   DOBOTH (body) {
@@ -231,13 +230,11 @@ template <int codim, class TGV>
 class TwoToOneBodyMapper
 : public Mapper<typename TGV::Grid, TwoToOneBodyMapper<codim, TGV> >
 {
-  typedef typename TGV::template Codim<0>::Entity Element;
+  typedef typename TGV::template Codim<0>::Entity    Element;
   typedef typename TGV::template Codim<codim>::Entity Entity;
-  typedef std::vector<const Entity*> EntityVector;
-  
-  typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
-  typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
-  typedef std::set<IdType>                           IdSet;
+  typedef typename TGV::Grid::GlobalIdSet        GlobalIdSet;
+  typedef typename TGV::Grid::GlobalIdSet::IdType     IdType;
+  typedef std::set<IdType>                             IdSet;
 
   const int body;
   const TwoBodyMapper<codim, TGV>& mapper;

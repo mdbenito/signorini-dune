@@ -46,7 +46,6 @@ public:
   typedef FieldVector<ctype, dim>                 coord_t;
   typedef FieldMatrix<ctype, dim, dim>            block_t;
   typedef BlockVector<coord_t>                CoordVector;
-  typedef BlockVector<FieldVector<ctype,1> > ScalarVector;
   typedef std::vector<ctype>                   FlatVector;
 
   typedef LeafMultipleCodimMultipleGeomTypeMapper
@@ -58,8 +57,8 @@ private:
   const TET& a;       //!< Elasticity tensor
   
   
-  CoordVector* u;      //!< Solution
-  ScalarVector vm;    //!< Von Mises stress of solution
+  CoordVector* u;     //!< Solution
+  FlatVector vm;      //!< Von Mises stress of solution
 
 public:
   PostProcessor (const TGV& _gv, const TMP& _m, const TET& _a);
@@ -78,11 +77,9 @@ template<class TGV, class TET, class TMP, class TSS>
 PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
                                                   const TMP& _m,
                                                   const TET& _a)
-  : gv (_gv), mapper(_m), a (_a), u (NULL), vm (NULL)
+  : gv (_gv), mapper(_m), a (_a), u (NULL)
 {
-  VertexMapper defaultMapper (gv.grid());
-  const auto totalVertices = defaultMapper.size ();
-  vm.resize (totalVertices);
+  vm.resize (gv.size (dim), 0.0);
 }
 
 template<class TGV, class TET, class TMP, class TSS>
@@ -90,6 +87,7 @@ void PostProcessor<TGV, TET, TMP, TSS>::setSolution (const CoordVector& v)
 {
   delete u;
   u = new CoordVector (v);
+  
   bench().report ("Postprocessing", string("New solution has size: ") + u->size());
 }
 
@@ -145,12 +143,13 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
   const auto& basis = TSS::instance ();
   VertexMapper defaultMapper (gv.grid());
   
-  const auto totalVertices = defaultMapper.size ();
+  const auto totalVertices = gv.size (dim);
+  
+  std::fill (vm.begin(), vm.end(), 0.0);
+  assert (vm.size() == u->size());
   
   if (u == NULL || u->size() < totalVertices)
-    DUNE_THROW (Exception, "call PostProcessor::computeError() first");
-
-  vm = 0;
+    DUNE_THROW (Exception, "Call PostProcessor::computeError() first");
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     GeometryType typ = it->type ();
@@ -173,7 +172,7 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
         }
       }
        */
-      vm[ii] += r / vnum;
+      vm.at(ii) += r / vnum;
     }
   }
   
@@ -184,34 +183,36 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 template<class TGV, class TET, class TMP, class TSS>
 std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, int step) const
 {
+  const int numVertices = gv.size (dim);
   std::ostringstream oss;
   oss << base << dim << "d-" << std::setfill('0') << std::setw(3) << step;
   VTKWriter<typename TGV::Grid::LeafGridView> vtkwriter (gv.grid().leafView());
 
   VertexMapper defaultMapper (gv.grid());
   
-  /* // I don't really need this:
-  std::vector<int> indices (gv.size(dim));
-  std::vector<int> mapped (gv.size(dim));
+  // debugging indices
+  typedef std::vector<int> IntVec;
+  IntVec indices (numVertices);
+  IntVec mapped (numVertices);
+
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int from = mapper.map (*it);
     int to = defaultMapper.map (*it);
-    mapped[to] = from;
-    indices[to] = to;
+    mapped.at(to) = from;
+    indices.at(to) = to;
   }
   cout << "Adding index data" << LF;
   vtkwriter.addVertexData (indices, "idx", 1);
   vtkwriter.addVertexData (mapped, "map", 1);
-   */
 
-  FlatVector uu (gv.size(dim) * CoordVector::block_type::dimension);
-  FlatVector vvmm (gv.size(dim));
+  FlatVector uu (numVertices * CoordVector::block_type::dimension);
+  FlatVector vvmm (numVertices);
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int from = mapper.map (*it);
     int to = defaultMapper.map (*it);
     for (int c = 0; c < CoordVector::block_type::dimension; ++c) {
-      uu[to*dim+c] = (*u)[from][c];
-      vvmm[to] = vm[from];
+      uu.at(to*dim+c) = ((*u)[from])[c];
+      vvmm.at(to) = vm.at(from);
     }
   }
   cout << "Adding vertex data" << LF;
@@ -219,7 +220,7 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   vtkwriter.addVertexData (vvmm, "vm", 1);
   
   cout << "Writing file" << LF;
-  vtkwriter.write (oss.str(), VTK::appendedraw);
+  vtkwriter.write (oss.str(), VTK::ascii);
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
 }

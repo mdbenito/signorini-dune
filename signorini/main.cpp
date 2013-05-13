@@ -94,13 +94,13 @@ int main (int argc, char** argv)
   typedef HookeTensor<ctype, dim>                                   HookeT;
   typedef Constraint<coord_t, dim>                          ConstraintHack;
   typedef ConstantEvaluation<ctype, dim, coord_t>               VectorEval;
-  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
+//  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
 //  typedef PlateHackGapEvaluation<ctype, dim>                       GapHack;
 //  typedef PrismHackGapEvaluation<ctype, dim>                       GapHack;
   typedef GmshVolumeFunctor<ctype, dim, factory_t, VectorEval>     VolumeF;
   typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> BoundaryF;
   typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> Dirichlet;
-  typedef GmshBoundaryFunctor<ctype, dim, factory_t, GapHack, ConstraintHack>          Gap;
+//  typedef GmshBoundaryFunctor<ctype, dim, factory_t, GapHack, ConstraintHack>          Gap;
 
 //  typedef BetterLinearShapeFunction<ctype, dim, 1, 0> ShapeF;
 //  typedef MLinearShapeFunction<ctype, dim>         ShapeF;
@@ -112,10 +112,10 @@ int main (int argc, char** argv)
   typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
   typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
   
-  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet>
-          PMSolver;
-  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
-          IASolver;
+//  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet>
+//          PMSolver;
+//  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
+//          IASolver;
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, GlueType, ShapeSet, LSShapeSet>
           TwoSolver;
   

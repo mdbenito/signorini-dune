@@ -58,10 +58,8 @@ public:
   static const int dim = TGV::dimension;
 
   typedef typename TGV::Grid::GlobalIdSet      GlobalIdSet;
-  typedef typename TGV::template Codim<dim>::Entity Vertex;
   typedef typename TGV::Grid::GlobalIdSet::IdType   IdType;
   typedef std::set<IdType>                           IdSet;
-  typedef std::vector<const Vertex*>              IdVector;
   typedef typename TGV::ctype                        ctype;
   typedef FieldVector<ctype, 1>                   scalar_t;
   typedef FieldVector<ctype, dim>                  coord_t;
@@ -203,7 +201,7 @@ void SignoriniIASet<TGV, TET, TFF, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
       int ii = aiMapper->map (*it, i, dim);
       for (int j = 0; j < vnum; ++j) {
         int jj = aiMapper->map (*it, j, dim);
-        adjacencyPattern[ii].insert (jj);
+        adjacencyPattern.at (ii).insert (jj);
       }
     }
   }
@@ -219,11 +217,11 @@ void SignoriniIASet<TGV, TET, TFF, TDF, TTF, TGF, TSS, TLM>::setupMatrices ()
   u.resize (n_T + n_I + n_A, false); // we use the extra room (+n_I+n_A) in step()
 
   for (int i = 0; i < n_T; ++i)
-    A.setrowsize (i, adjacencyPattern[i].size ());
+    A.setrowsize (i, adjacencyPattern.at(i).size ());
   A.endrowsizes ();
   
   for (int i = 0; i < n_T; ++i)
-    for (const auto& it : adjacencyPattern[i])
+    for (const auto& it : adjacencyPattern.at(i))
       A.addindex (i, it);
   A.endindices ();
   
@@ -527,7 +525,7 @@ void SignoriniIASet<TGV, TET, TFF, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
       for (int i = 0; i < dim; ++i)
         for (int j = 0; j < dim; ++j)
           if (A[ri][ci][i][j] != 0.0)
-            adjacencyPattern[ri*dim+i].insert((int)ci*dim+j);
+            adjacencyPattern.at(ri*dim+i).insert((int)ci*dim+j);
     }
   }
 
@@ -537,25 +535,25 @@ void SignoriniIASet<TGV, TET, TFF, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
     if (inactive.find (id) != inactive.end()) {
       int im = aiMapper->mapInBoundary (id);
       for (int i = 0; i < dim; ++i) {
-        adjacencyPattern[(n_T+im)*dim+i].insert ((n_T+im)*dim+i);  // Id_I
-        adjacencyPattern[(n_N+im)*dim+i].insert ((n_T+im)*dim+i);  // D_I
+        adjacencyPattern.at((n_T+im)*dim+i).insert ((n_T+im)*dim+i);  // Id_I
+        adjacencyPattern.at((n_N+im)*dim+i).insert ((n_T+im)*dim+i);  // D_I
       }
     } else if (active.find (id) != active.end()) {
       int im = aiMapper->map (id);
       int ia = aiMapper->mapInActive (id);
       for (int i = 0; i < dim; ++i)
-        adjacencyPattern[(n_N+n_I+ia)*dim+i].insert((n_T+n_I+ia)*dim+i); // D_A
+        adjacencyPattern.at((n_N+n_I+ia)*dim+i).insert((n_T+n_I+ia)*dim+i); // D_A
 
       int ii = (n_T+n_I)*dim;
        // T_A: dim-1 tangent vectors to determine the tangent hyperplane at each node
       for (int j = 0; j < dim - 1; ++j)
         for (int k = 0; k < dim; ++k)
-          adjacencyPattern[ii + (dim-1)*ia + j].insert (ii + ia*dim + k);   // FIXME: offsets ok??? <==========================
+          adjacencyPattern.at(ii + (dim-1)*ia + j).insert (ii + ia*dim + k);   // FIXME: offsets ok??? <==========================
       assert (ii + ia*(dim-1) + dim-2 < total*dim);
       assert (ii + ia*dim + dim-1 < total*dim);
         // N_A
       for (int k = 0; k < dim; ++k)
-        adjacencyPattern[ii+(dim-1)*n_A+ia].insert (im*dim + k);
+        adjacencyPattern.at(ii+(dim-1)*n_A+ia).insert (im*dim + k);
       assert (ii + (dim-1)*n_A + ia < total*dim);
       assert ((im+1)*dim < total*dim);
     }
@@ -563,7 +561,7 @@ void SignoriniIASet<TGV, TET, TFF, TDF, TTF, TGF, TSS, TLM>::step (int cnt)
   cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row)
-    for (const auto& col : adjacencyPattern[row.index()])
+    for (const auto& col : adjacencyPattern.at(row.index()))
         row.insert (col);
   
   B = 0.0;
