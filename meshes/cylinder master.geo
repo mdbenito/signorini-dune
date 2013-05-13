@@ -3,6 +3,7 @@
  The mesh is an extrusion with layers increasingly close as the middle of the
  cylinder is approached. The calculations for the Extrude command where done
  in a scheme session inside "README - cylinders.tm"
+ UPD: I removed some of the middle layers of the extrusion.
 ******************************************************************************/
 
 ms = 0.8;                       // Mesh size
