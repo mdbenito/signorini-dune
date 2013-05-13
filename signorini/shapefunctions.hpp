@@ -34,21 +34,21 @@ public:
   static const size_t N = dim;
   static const GeometryType::BasicType basicType = GeometryType::simplex;
 
-  LinearShapeFunction () : coeff0(0.0), coeff1(0.0) { }
-  LinearShapeFunction (ctype coeff0_, const coord_t& coeff1_)
-  : coeff0 (coeff0_), coeff1 (coeff1_) { }
+  LinearShapeFunction () : indep(0.0), coeff(0.0) { }
+  LinearShapeFunction (const coord_t& _coeff, const ctype _indep)
+  : coeff (_coeff), indep (_indep) { }
   
   ctype evaluateFunction (const coord_t& local) const
   {
-    ctype result = coeff0;
+    ctype result = indep;
     for (int i = 0; i < dim; ++i)
-      result += coeff1[i] * local[i];
+      result += coeff[i] * local[i];
     return result;
   }
   
   inline coord_t evaluateGradient (const coord_t& local) const
   {
-    return coeff1;
+    return coeff;
   }
   
     // FIXME: HACK and WRONG
@@ -64,9 +64,9 @@ public:
 
   
 private:
-  ctype   coeff0;
-  coord_t coeff1;
-  
+  coord_t coeff;
+  ctype   indep;
+
   template<class TC, int d, int f, int i> friend class P1ShapeFunctionSet;
 };
 
@@ -97,28 +97,30 @@ public:
   {
     if (i < 0 || i >= N)
       DUNE_THROW (Exception, "Index out of bounds for shape function.");
-    return (i == 0) ? f0 : f1[i - 1];
+    return *(f[i]);
   }
   
+  static size_t size()
+  {
+    return N;
+  }
+
 private:
 
   P1ShapeFunctionSet()
   {
-    coord_t e (-1.0 * static_cast<ctype> (factor));
-    f0.coeff0 = static_cast<ctype> (indep);
-    f0.coeff1 = e;
+    f[0] = new ShapeFunction (coord_t(-1.0*factor), factor+indep);
+    coord_t e;
     for (int i = 0; i < dim; ++i) {
-      coord_t e (0.0);
-      e[i] = static_cast<ctype> (factor);
-      f1[i].coeff0 = static_cast<ctype> (indep);
-      f1[i].coeff1 = e;
+      e = 0.0;
+      e[i] = factor;
+      f[i+1] = new ShapeFunction (e, indep);
     }
   }
   
   P1ShapeFunctionSet (const P1ShapeFunctionSet& other) {}
   
-  ShapeFunction f0;
-  ShapeFunction f1[dim];
+  ShapeFunction* f[dim+1];
 };
 
 
@@ -292,7 +294,7 @@ public:
     return *(f[i]);
   }
   
-  size_t size() const
+  static size_t size()
   {
     return N;
   }
