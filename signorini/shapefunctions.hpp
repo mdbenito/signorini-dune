@@ -503,8 +503,8 @@ public:
   LagrangeSpaceShapeFunction (unsigned long _mask = 0) : mask (_mask)
   {
     Polynomial p;
-    for (int i = 0; i < dim; ++i) {
-      p = Monomial::monomialsOfOrder (i+1);
+    for (int i = 1; i < dim; ++i) {
+      p = Monomial::monomialsOfOrder (i);
       int sign = (i%2 == 0) ? -1 : 1;
       p = p * (sign * 3.0);
       poly.insert (poly.end(), p.begin(), p.end());
