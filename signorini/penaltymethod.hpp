@@ -84,14 +84,15 @@ private:
   
   int quadratureOrder;
   double          eps; //!< Penalty parameter
+  double    tolerance; //!< Tolerance for the iterations
+  int        maxsteps; //!< Maximum number of iterations
 public:
   SignoriniFEPenalty (const TGV& _gv,  const TET& _a, const TFT& _f,
                       const TTT& _p, const TGT& _g, const TDF& _d,
-                      double _eps, int _quadratureOrder = 4);
+                      double _eps, double _tol=1e-6, int _max=10, int _quadratureOrder = 4);
 
   void initialize ();
-  void solve (int maxsteps, double tolerance);
-
+  void solve ();
   const CoordVector& solution() const { return u; }
   
 protected:
@@ -108,9 +109,9 @@ protected:
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TDF, class TSS>
 SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::SignoriniFEPenalty
 (const TGV& _gv,  const TET& _a, const TFT& _f, const TTT& _p, const TGT& _g,
- const TDF& _d, double _eps, int _quadratureOrder)
+ const TDF& _d, double _eps, double _tol, int _max, int _quadratureOrder)
 : gv (_gv), a (_a), f (_f), p (_p), g(_g), d(_d), eps(1.0/_eps),
-  quadratureOrder(_quadratureOrder)
+  tolerance (_tol), maxsteps (_max), quadratureOrder (_quadratureOrder)
 {
   I = 0.0;
   for (int i=0; i < dim; ++i)
@@ -482,9 +483,10 @@ void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::solveSystem ()
 
 
 template<class TGV, class TET, class TFT, class TTT, class TGT, class TDF, class TSS>
-void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::solve (int maxsteps,
-                                                                   double tolerance)
+void SignoriniFEPenalty<TGV, TET, TFT, TTT, TGT, TDF, TSS>::solve ()
 {
+  initialize();
+  
   VertexMapper mapper (gv.grid());
   PostProcessor<TGV, TET, VertexMapper, TSS> post (gv, mapper, a);
   
