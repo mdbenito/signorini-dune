@@ -1,6 +1,6 @@
 /* A prism extruded from a square */
 
-ms = 0.1;     // Mesh size
+ms = 0.4;     // Mesh size
 height = 1.0; // Prism height
 
 Point(1) = {0, -0.01, 0, ms};
@@ -21,7 +21,7 @@ Plane Surface(6) = {5};
 
 cube[] = Extrude {0, -height, 0} { 
   Surface {6};
-  Layers {10};
+  Layers {10*(1-ms)};
   //Recombine;
 };
 
