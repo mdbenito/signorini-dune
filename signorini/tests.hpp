@@ -119,7 +119,7 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
           auto global = it->geometry().global (ref.position (subi, dim));
           auto  ret = func (global);
           for (int c = 0; c < ret_dim; ++c)
-            values.at(idx*ret_dim+c) = ret[c];
+            values.at (idx*ret_dim+c) = ret[c];
         }
       }
     }
@@ -129,7 +129,7 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
   vtkwriter.addVertexData (values, "value", ret_dim);
   base = base + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
-  vtkwriter.write (base, VTK::appendedraw);
+  vtkwriter.write (base, VTK_OUTPUT_MODE);
 }
 
 
@@ -164,7 +164,7 @@ void testContactSurfaces (const Glue& glue, std::string base)
   vtkwriter.addVertexData (support, "contact", 1);
   base = base + std::string("-") + body + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
-  vtkwriter.write (base, VTK::appendedraw);
+  vtkwriter.write (base, VTK_OUTPUT_MODE);
 }
 
 #endif  // SIGNORINI_TESTS_HPP

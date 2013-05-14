@@ -4,6 +4,7 @@
 #define ENABLE_ALUGRID 1
 #define DUNE_FMatrix_WITH_CHECKING 1
 #define DUNE_ISTL_WITH_CHECKING 1
+#define VTK_OUTPUT_MODE VTK::ascii // VTK::appendedraw
 
 // The following is only possible if all libraries are built with it!
 // This is because STL method's signatures change with this activated (?)

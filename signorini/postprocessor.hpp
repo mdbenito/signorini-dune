@@ -212,7 +212,7 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   }
   vtkwriter.addVertexData (uu, "u", dim);
   vtkwriter.addVertexData (vvmm, "vm", 1);
-  vtkwriter.write (oss.str(), VTK::ascii);
+  vtkwriter.write (oss.str(), VTK_OUTPUT_MODE);
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
 }
