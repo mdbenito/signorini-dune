@@ -640,8 +640,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   assert (n_S > 1);  // The slave boundary must have at least two [?] nodes!
   assert (n_M > 0);
 
-  cout << "n_T= " << n_T << ", n_N= " << n_N << ", n_M= " << n_M
-       << ", n_S= " << n_S << ", n_I= " << n_I << ", n_A= " << n_A << LF;
+//  cout << "n_T= " << n_T << ", n_N= " << n_N << ", n_M= " << n_M
+//       << ", n_S= " << n_S << ", n_I= " << n_I << ", n_A= " << n_A << LF;
   
     // M = D^-1*MM
   BlockMatrix M;
@@ -809,6 +809,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     // Fill the lines:
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
+  std::cerr << "***********************\n"
+            << "FIXME!! hardcoded normal in TwoBodiesIASet::step()\n"
+            << "***********************\n";
   
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
@@ -822,6 +825,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
         int    ib = twoMapper->mapInBoundary (SLAVE, id);
 
           // There's no unitOuterNormal in grid-glue's Intersection
+//        coord_t slaveVertex = is->geometry().corner (subi);
 //        const auto& localSlave = is->geometryInInside().local (slaveVertex);
 //        coord_t   nr = is->unitOuterNormal (localSlave);
 
