@@ -354,13 +354,11 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive ()
   }
 
   twoMapper->update (active, inactive, other);
-  
-  TwoToOneBodyMapper<dim, TGV> mapper_s (SLAVE, *twoMapper);
-  
+
   cout << "\nInactive: " << inactive[SLAVE].size() << ": ";
-  for (auto x : inactive[SLAVE]) cout << mapper_s.map (x) << " ";
+  for (auto x : inactive[SLAVE]) cout << twoMapper->mapInBody (SLAVE, x) << " ";
   cout << "\nActive: " << active[SLAVE].size() << ": ";
-  for (auto x : active[SLAVE])   cout << mapper_s.map (x) << " ";
+  for (auto x : active[SLAVE])   cout << twoMapper->mapInBody (SLAVE, x) << " ";
   cout << "\n";
 }
 
@@ -447,9 +445,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
               const auto& global = igeo.global (x.position ());
               const auto& local  = it->geometry().local (global);
               b[ii] += p[body] (global) *
-              basis[subi].evaluateFunction (local) *
-              x.weight () *
-              igeo.integrationElement (x.position ());
+                       basis[subi].evaluateFunction (local) *
+                       x.weight () *
+                       igeo.integrationElement (x.position ());
             }
           }
         }
@@ -956,9 +954,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::solve ()
   MapperAdapter mapper_m (MASTER, *twoMapper);
   MapperAdapter mapper_s (SLAVE, *twoMapper);
 
-  PostProcessor<TGV, TET, MapperAdapter, TSS> post_m (gv[MASTER], mapper_m, a[MASTER]);
-  PostProcessor<TGV, TET, MapperAdapter, TSS> post_s (gv[SLAVE], mapper_s, a[SLAVE]);
-    //TwoRefs<PostProcessor<TGV, TET, MapperAdapter, TSS> > post (post_m, post_s);
+  typedef PostProcessor<TGV, TET, MapperAdapter, TSS> PostProc;
+  PostProc post_m (gv[MASTER], mapper_m, a[MASTER]);
+  PostProc post_s (gv[SLAVE], mapper_s, a[SLAVE]);
+  TwoRefs<PostProc> post (post_m, post_s);
 
   std::string filename[2];
   filename[MASTER] = "/tmp/TwoBodiesIA_MASTER";
@@ -985,25 +984,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::solve ()
     bench().start ("Stepping");
     step (cnt);
     bench().stop ("Stepping");
-
     bench().start ("Postprocessing", false);
     DOBOTH (body) {
-      cu[body] = 0.0;
-      for (auto it = gv[body].template begin<dim>(); it != gv[body].template end<dim>(); ++it) {
-        int from = twoMapper->map (body, *it);
-        int to = twoMapper->mapInBody (body, *it);
-//        cout << "from: " << from << ", to: " << to << LF;
-        cu[body][to] = u[from];
-      }
-//      writeVectorToFile (cu[body], string ("/tmp/cu-")+body);
+      const_cast<PostProc&>(post[body]).computeError (u);
+      const_cast<PostProc&>(post[body]).computeVonMisesSquared ();
+      post[body].writeVTKFile (filename[body], cnt);
     }
-    (void) post_m.computeError (cu[MASTER]);
-    post_m.computeVonMisesSquared ();
-    post_m.writeVTKFile (filename[MASTER], cnt);
-    (void) post_s.computeError (cu[SLAVE]);
-    post_s.computeVonMisesSquared ();
-    post_s.writeVTKFile (filename[SLAVE], cnt);
-
     bench().stop ("Postprocessing");
   }
   bench().stop ("Solving");

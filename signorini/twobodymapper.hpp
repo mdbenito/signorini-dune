@@ -229,15 +229,15 @@ class TwoToOneBodyMapper
 
 public:
   TwoToOneBodyMapper (int _body, const TwoBodyMapper<codim, TGV>& _mapper)
-    : body(_body), mapper(_mapper) {}
+    : body (_body), mapper (_mapper) { }
   
   template<class EntityType> int map (const EntityType& e) const {
-    return mapper.mapInBody (body, e);
+    return mapper.map (body, e);
   }
   int map (IdType id) const {
-    return mapper.mapInBody (body, id);
+    return mapper.map (body, id);
   }
-  int map (int body, const Element& e, int i, unsigned int cc) const {
+  int mapInBody (int body, const Element& e, int i, unsigned int cc) const {
     return mapper.mapInBody (body, e, i, cc);
   }
   bool contains (const Element& e, int i, int cc, int& result) const {
