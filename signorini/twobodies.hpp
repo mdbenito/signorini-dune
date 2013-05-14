@@ -524,7 +524,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   
     //// Compute mortar coupling matrix MM
   
-  /**********   FIXME FIXME FIXME FIXME FIXME *********
+  /**********   FIXME FIXME FIXME FIXME FIXME *********  
+   **********   UPD: is this still valid with grid-glue?
 
    because we traverse intersections, nodes in the master contribute
    several times (one if the node is at the boundary of the gap) to each node in
@@ -827,7 +828,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
         IdType id = gids[SLAVE].subId (*in, subi, dim);
         int    ib = twoMapper->mapInBoundary (SLAVE, id);
 
-          // There's no unitOuterNormal in grid-glue's Intersection
+          // There *was* no unitOuterNormal in grid-glue's Intersection (but it's not what I need anyway)
 //        coord_t slaveVertex = is->geometry().corner (subi);
 //        const auto& localSlave = is->geometryInInside().local (slaveVertex);
 //        coord_t   nr = is->unitOuterNormal (localSlave);
@@ -837,6 +838,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 //        coord_t nr = masterVertex - slaveVertex;
 //        nr /= nr.two_norm();
 //        cout << "at " << slaveVertex << " the normal is: " << nr << LF;
+        
+// This is what I want:
+//is->geometryInOutside().global(pos) - is->geometry().global(pos)
 
         coord_t nr = dim_if<ctype, dim>::ret();
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
@@ -920,7 +924,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   for (int i = 0; i < n_T; ++i) tu[i] = u[i];
   Q.mtv (tu, tu2);
   for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
-  
+
     //// Recompute normal component of solution and lagrange multipliers
   for (const auto& x : inactive[SLAVE]) {
     int i = twoMapper->mapInBoundary (SLAVE, x);
