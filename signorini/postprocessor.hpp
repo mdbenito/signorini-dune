@@ -114,7 +114,6 @@ template<class TGV, class TET, class TMP, class TSS>
 long double PostProcessor<TGV, TET, TMP, TSS>::computeError (const CoordVector& v)
 {
   check (v);
-  
   long double r = 0.0;
   VertexMapper defaultMapper (gv.grid ());
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
@@ -144,18 +143,20 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
   VertexMapper defaultMapper (gv.grid());
 
   std::fill (vm.begin(), vm.end(), 0.0);
+  std::vector<int> count (gv.size (dim), 1);
+  assert (defaultMapper.size() == gv.size (dim));
   
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto&  ref = GenericReferenceElements<ctype, dim>::general (it->type ());
     const int   vnum = ref.size (dim);
-
     for (int i = 0; i < vnum; ++i) {
       auto ii = defaultMapper.map (*it, i, dim);
+      ++count.at(ii);
       auto iipos = ref.position (i, dim);
       block_t  s = a.stress (u[ii], basis[i].evaluateGradient (iipos));
       double   t = trace(s);
       double r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
-        //cout << "stressing: " << ii << " ";
+//      cout << "stressing: " << ii << " at " << iipos << LF;
       /*
       r = 0.0;
       for (int k=0; k<dim; ++k) {
@@ -164,10 +165,12 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
         }
       }
        */
-      vm.at(ii) += r / vnum;
+      vm.at(ii) += r;
     }
   }
-  
+  for (int i = 0; i < vm.size(); ++i)
+    vm.at(i) /= count.at(i);
+
   bench().report ("Postprocessing", " done.");
 }
 
