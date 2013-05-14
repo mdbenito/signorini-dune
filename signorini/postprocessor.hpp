@@ -81,6 +81,9 @@ PostProcessor<TGV, TET, TMP, TSS>::PostProcessor (const TGV& _gv,
 {
   u.resize (gv.size (dim), 0.0);
   vm.resize (gv.size (dim), 0.0);
+
+  VertexMapper defaultMapper (gv.grid ());
+  assert (defaultMapper.size() == gv.size (dim)); // unnecessary!
 }
 
 /*! Copies the solution vector.
@@ -144,21 +147,20 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 
   std::fill (vm.begin(), vm.end(), 0.0);
   std::vector<int> count (gv.size (dim), 1);
-  assert (defaultMapper.size() == gv.size (dim));
-  
+
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
-    const auto&  ref = GenericReferenceElements<ctype, dim>::general (it->type ());
-    const int   vnum = ref.size (dim);
+    const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
+    const int  vnum = ref.size (dim);
     for (int i = 0; i < vnum; ++i) {
       auto ii = defaultMapper.map (*it, i, dim);
       ++count.at(ii);
-      auto iipos = ref.position (i, dim);
-      block_t  s = a.stress (u[ii], basis[i].evaluateGradient (iipos));
+      auto local = ref.position (i, dim);
+      block_t  s = a.stress (u[ii], basis[i].evaluateGradient (local));
       double   t = trace(s);
-      double r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
-//      cout << "stressing: " << ii << " at " << iipos << LF;
+      double   r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+//      cout << "stressing: " << ii << " at " << local << LF;
       /*
-      r = 0.0;
+      double r = 0.0;
       for (int k=0; k<dim; ++k) {
         for (int l=0; l<dim; ++l) {
           r += (s[k][l] + (k==l ? -0.5*t : 0))*(s[k][l] + (k==l ? -0.5*t : 0));
@@ -204,16 +206,12 @@ std::string PostProcessor<TGV, TET, TMP, TSS>::writeVTKFile (std::string base, i
   FlatVector vvmm (numVertices);
   for (auto it = gv.template begin<dim>(); it != gv.template end<dim>(); ++it) {
     int ii = defaultMapper.map (*it);
-    for (int c = 0; c < CoordVector::block_type::dimension; ++c) {
-      uu.at (ii*dim+c) = u[ii][c];
-      vvmm.at (ii) = vm.at(ii);
-    }
+    vvmm.at(ii) = vm.at(ii);
+    for (int c = 0; c < CoordVector::block_type::dimension; ++c)
+      uu.at(ii*dim+c) = u[ii][c];
   }
-  cout << "Adding vertex data" << LF;
   vtkwriter.addVertexData (uu, "u", dim);
   vtkwriter.addVertexData (vvmm, "vm", 1);
-  
-  cout << "Writing file" << LF;
   vtkwriter.write (oss.str(), VTK::ascii);
   bench().report ("Postprocessing", string ("Output written to ").append (oss.str()));
   return oss.str();
