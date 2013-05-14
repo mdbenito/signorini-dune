@@ -63,9 +63,10 @@ static const std::string meshNames[2][3] = {
 
 int main (int argc, char** argv)
 {
-  ProblemType problem = PRISM;
-  const int       dim = 3;
-  const bool    tests = true;
+  #define DIM 2                 // HACK because of VectorEval...
+  ProblemType problem = PLATE;
+  const int       dim = DIM;
+  const bool    tests = false;
   const double   E[2] = { 8.0e9, 8.0e9 };
   const double  nu[2] = { 0.3,     0.3 };
 
@@ -99,10 +100,8 @@ int main (int argc, char** argv)
    //  typedef BetterLinearShapeFunction<ctype, dim, 3, -1> LSShapeF;
    //  typedef LagrangeSpaceShapeFunction<ctype, dim>     LSShapeF;
    //  typedef Q1ShapeFunctionSet<ctype, dim, LSShapeF> LSShapeSet;
-   //  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet>
-   //          PMSolver;
-   //  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet>
-   //          IASolver;
+   //  typedef SignoriniFEPenalty<GV, HookeT, VolumeF, BoundaryF, Gap, Dirichlet, ShapeSet> PMSolver;
+   //  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet> IASolver;
    */
 
   factory_t        factories[2];
@@ -112,7 +111,7 @@ int main (int argc, char** argv)
   std::vector<int>     ei2pe[2]; // Element indices to gmsh physical entities
 
   std::set<int> volumeGroups[2], contactGroups[2], dirichletGroups[2], neumannGroups[2];
-  HookeT* a[2]; VolumeF* f[2];  Dirichlet* d[2];  BoundaryF* p[2]; //Gap* g[2];
+  HookeT* a[2]; VolumeF* f[2]; Dirichlet* d[2]; BoundaryF* p[2]; //Gap* g[2];
   VectorEval* fEval[2], *dEval[2], *pEval[2];
   FaceDescriptor*  descriptors[2];
   SurfaceExtractor* extractors[2];
@@ -123,12 +122,14 @@ int main (int argc, char** argv)
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
       dirichletGroups[MASTER] << 1;       dirichletGroups[SLAVE] << 3;
       neumannGroups  [MASTER] << 2 << 4;  neumannGroups  [SLAVE] << 2 << 4;
-/*      fEval[MASTER] = new VectorEval (coord2 (0.0,  4e8));
+#if DIM == 2
+      fEval[MASTER] = new VectorEval (coord2 (0.0,  4e8));
       fEval[SLAVE]  = new VectorEval (coord2 (0.0, -4e8));
       dEval[MASTER] = new VectorEval (coord2 (0.0, 0.01));
       dEval[SLAVE]  = new VectorEval (coord2 (0.0, -0.01));
       pEval[MASTER] = new VectorEval (coord2 (3e6, 0.0));
-      pEval[SLAVE]  = new VectorEval (coord2 (0.0, -3e6));*/
+      pEval[SLAVE]  = new VectorEval (coord2 (0.0, -3e6));
+#endif
       break;
     case PRISM:
       volumeGroups   [MASTER] << 1;      volumeGroups   [SLAVE] << 1;
@@ -136,24 +137,28 @@ int main (int argc, char** argv)
       dirichletGroups[MASTER] << 6;      dirichletGroups[SLAVE] << 6;
       neumannGroups  [MASTER] << 2 << 3 << 4 << 5;
       neumannGroups  [SLAVE]  << 2 << 3 << 4 << 5;
+#if DIM == 3
       fEval[MASTER] = new VectorEval (coord3 (0.0,  4e8, 0.0));
       fEval[SLAVE]  = new VectorEval (coord3 (0.0, -4e8, 0.0));
       dEval[MASTER] = new VectorEval (coord3 (0.0, 0.01, 0.0));
       dEval[SLAVE]  = new VectorEval (coord3 (0.0, -0.01, 0.0));
       pEval[MASTER] = new VectorEval (coord3 (3e6, 0.0, 0.0));
       pEval[SLAVE]  = new VectorEval (coord3 (0.0, -3e6, 0.0));
+#endif
       break;
     case CYLINDER:
       volumeGroups   [MASTER] << 1;       volumeGroups   [SLAVE] << 1;
       contactGroups  [MASTER] << 3 << 4;  contactGroups  [SLAVE] << 5 << 6;
       dirichletGroups[MASTER] << 1 << 2;  dirichletGroups[SLAVE] << 1 << 2;
       neumannGroups  [MASTER] << 5 << 6;  neumannGroups  [SLAVE] << 3 << 4;
-      fEval[MASTER] = new VectorEval (coord3 (0.0,  4e8, 0.0));
-      fEval[SLAVE]  = new VectorEval (coord3 (0.0, -4e8, 0.0));
+#if DIM == 3
+      fEval[MASTER] = new VectorEval (coord3 (0.0,  4e7, 0.0));
+      fEval[SLAVE]  = new VectorEval (coord3 (0.0, -4e7, 0.0));
       dEval[MASTER] = new VectorEval (coord3 (0.0, 0.01, 0.0));
       dEval[SLAVE]  = new VectorEval (coord3 (0.0, -0.01, 0.0));
       pEval[MASTER] = new VectorEval (coord3 (3e6, 0.0, 0.0));
       pEval[SLAVE]  = new VectorEval (coord3 (0.0, -3e6, 0.0));
+#endif
       break;
     default:
       std::cerr << "huh?" << LF;
@@ -167,7 +172,7 @@ int main (int argc, char** argv)
     descriptors[body] = new FaceDescriptor (factories[body], bi2pe[body], contactGroups[body]);
     
       ///FIXME!!! instantiating here the extractors[] results in both referring to the same GridView:
-      // the glue has then both views pointing to the master.
+      // the glue has then both views pointing to the master... WTF?!?!?
 //    extractors[body]  = new SurfaceExtractor (grids[body]->leafView(), *descriptors[body]);
     
     a[body] = new HookeT (E[body], nu[body]);
@@ -177,7 +182,7 @@ int main (int argc, char** argv)
 //    g[body] = new Gap (factories[body], bi2pe[body], contactGroups[body], new GapHack ());
   }
     // HACK: see above why we don't do this in the loop.
-  extractors[MASTER]  = new SurfaceExtractor (grids[MASTER]->leafView(), *descriptors[MASTER]);
+  extractors[MASTER] = new SurfaceExtractor (grids[MASTER]->leafView(), *descriptors[MASTER]);
   extractors[SLAVE]  = new SurfaceExtractor (grids[SLAVE]->leafView(), *descriptors[SLAVE]);
   
   SurfaceMergeImpl merger;
@@ -199,7 +204,7 @@ int main (int argc, char** argv)
     }
     testContactSurfaces<GlueType, MASTER> (glue, "/tmp/test-gap");
     testContactSurfaces<GlueType, SLAVE> (glue, "/tmp/test-gap");
-//    exit (1);
+    exit (1);
   }
 
 //  PMSolver fem (gv[MASTER], a[MASTER], f[MASTER], p[MASTER], g[MASTER], d[MASTER], 1.0e-14 / E, 1e-6, 10);
