@@ -619,6 +619,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
  n_As*dim columns, and N_A has n_As rows and n_As*dim columns.
  
  */
+
+  /// FIXME: how is this done properly?
+template<typename ctype, int d> struct dim_if {  };
+template<typename ctype> struct dim_if<ctype, 2> { static FieldVector<ctype, 2> ret() { return coord2 (0.0, -1.0);} };
+template<typename ctype> struct dim_if<ctype, 3> { static FieldVector<ctype, 3> ret() { return coord3 (0.0, -1.0, 0.0);} };
+
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGT, class TSS, class TLM>
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 {
@@ -812,7 +818,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   std::cerr << "***********************\n"
             << "FIXME!! hardcoded normal in TwoBodiesIASet::step()\n"
             << "***********************\n";
-  
+
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
     if (is->self() && is->neighbor()) {
@@ -834,12 +840,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 //        coord_t nr = masterVertex - slaveVertex;
 //        nr /= nr.two_norm();
 //        cout << "at " << slaveVertex << " the normal is: " << nr << LF;
-        std::cerr << "***********************\n"
-                  << "FIXME!! hardcoded normal in TwoBodiesIASet::step()\n"
-                  << "***********************\n";
-        coord_t nr = coord3(0.0, -1.0, 0.0);
+
+        coord_t nr = dim_if<ctype, dim>::ret();
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
-          
+        
         n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
         n_d_count.at(ib) += 1;
         
