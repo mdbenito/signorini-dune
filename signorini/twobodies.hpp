@@ -571,6 +571,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
     //printmatrix (cout, D, "D", "");
 }
 
+  /// FIXME: how is this done properly?
+template<typename ctype, int d> struct dim_if {  };
+template<typename ctype> struct dim_if<ctype, 2> { static FieldVector<ctype, 2> ret() { return coord2 (0.0, -1.0);} };
+template<typename ctype> struct dim_if<ctype, 3> { static FieldVector<ctype, 3> ret() { return coord3 (0.0, -1.0, 0.0);} };
 
 /*! HACK of the HACKS...
  
@@ -583,7 +587,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
  
      /                           \
      | A_NN   A_NM   A_NS      0 |
-     | A_MN   A_MM   A_MS  -MM^T |
+ A = | A_MN   A_MM   A_MS  -MM^T |
      | A_SN   A_SM   A_SS      D |
      \                           /
  
@@ -592,7 +596,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
  slave; and MM is the mortar mass matrix coupling the basis functions on both
  bodies at the interface.
  
- Instead of using this matrix, we transform the stiffness matrix A using Q
+ Instead of using this matrix, we transform it using Q
 
      /                 \
      | Id    0     0   |
@@ -612,17 +616,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
      |    0      0      0      0      0   T_A |
      |    0      0      0    N_A      0     0 |
      \                                        /
- 
- Note that this is a SQUARE scalar matrix, because T_A has n_As*(dim-1) rows and
- n_As*dim columns, and N_A has n_As rows and n_As*dim columns.
- 
+
+ Where the indices I, A denote the slave boundary nodes which are inactive and
+ active respectively (i.e. #S = #I + #A). Note that this is a SQUARE scalar
+ matrix, because T_A has n_As*(dim-1) rows and n_As*dim columns, and N_A has
+ n_As rows and n_As*dim columns.
  */
-
-  /// FIXME: how is this done properly?
-template<typename ctype, int d> struct dim_if {  };
-template<typename ctype> struct dim_if<ctype, 2> { static FieldVector<ctype, 2> ret() { return coord2 (0.0, -1.0);} };
-template<typename ctype> struct dim_if<ctype, 3> { static FieldVector<ctype, 3> ret() { return coord3 (0.0, -1.0, 0.0);} };
-
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGT, class TSS, class TLM>
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 {
@@ -657,7 +656,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   
   BlockMatrix MT;
   transpose (MT, M);
-  cout << "M was transposed.\n";
+//  cout << "M was transposed.\n";
   BlockMatrix Q;
   Q.setSize (n_T, n_T);
   Q.setBuildMode (BlockMatrix::row_wise);
@@ -693,7 +692,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   matMultMat (A, Q, AA);  // A is now the new Â.
   
 //  writeMatrixToMatlab (A, "/tmp/AA");
-  cout << "We have Â\n";
+//  cout << "We have Â\n";
   
   ScalarVector uu, c;
   c.resize (total*dim, false);
@@ -725,7 +724,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   ScalarMatrix B;
   B.setBuildMode (ScalarMatrix::row_wise);
   B.setSize (total*dim, total*dim);
-  cout << " B is " << B.N() << " x " << B.M() << "\n";
+//  cout << " B is " << B.N() << " x " << B.M() << "\n";
   
     // Flatten the adjacency pattern of A to scalar entries
   std::vector<std::set<int> > adjacencyPattern (total*dim);
@@ -773,7 +772,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
       assert ((im+1)*dim < total*dim);
     }
   }
-  cout << "Adjacency computed.\n";
+//  cout << "Adjacency computed.\n";
   
   for (auto row = B.createbegin(); row != B.createend(); ++row)
     for (const auto& col : adjacencyPattern.at(row.index()))
@@ -793,7 +792,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     }
   }
   
-  cout << "A was copied.\n";
+//  cout << "A was copied.\n";
   
     // Copy D
   for (int r = 0; r < n_I+n_A; ++r)
@@ -801,14 +800,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
       B[(r+n_N+n_M)*dim+i][(r+n_T)*dim+i] = D[r][r][i][i];
   
   
-  cout << "D was copied.\n";
+//  cout << "D was copied.\n";
   
     // Copy Id_I
   for (int r = 0; r < n_I; ++r)
     for (int i = 0; i < dim; ++i)
       B[(r+n_T)*dim+i][(r+n_T)*dim+i] = 1.0;
   
-  cout << "B initialized (1/2).\n";
+//  cout << "B initialized (1/2).\n";
   
     // Fill the lines:
     //             |    0      0      0      0   T_A |
@@ -820,9 +819,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
     if (is->self() && is->neighbor()) {
-      const auto&   in = is->inside();
-      const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
-      const int   vnum = ref.size (is->indexInInside (), 1, dim);
+      const auto&  in = is->inside();
+      const auto& ref = GenericReferenceElements<ctype, dim>::general (in->type());
+      const int  vnum = ref.size (is->indexInInside (), 1, dim);
       for (int i = 0 ; i < vnum; ++i) {
         int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
         IdType id = gids[SLAVE].subId (*in, subi, dim);
@@ -848,14 +847,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
           //cout << "ib= " << ib << ", nr= " << nr << "\n";
         if (active[SLAVE].find (id) != active[SLAVE].end()) {
           int ia = twoMapper->mapInActive (SLAVE, id);
-            //cout << "Found active: " << id << " -> " << ia << "\n";
-            //auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
-            
+//          cout << "Found active: " << id << " -> " << ia << "\n";
+//          auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
+          
             // first the tangential stuff for the multipliers.
           std::vector<coord_t> tg = basisOfPlaneNormalTo (nr);  // dim-1 items
             
           int ii = (n_T + n_I)*dim + ia*(dim-1);
-            //cout << "ii= " << ii << "\n";
+//          cout << "ii= " << ii << "\n";
           for (int j = 0; j < dim-1; ++j)
             for (int k = 0; k < dim; ++k)
               B[ii+j][(n_T+ib)*dim+k] += tg.at(j)[k]; //FIXME: why a sum?
@@ -865,7 +864,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
             // now the last rows
           ii = (n_T + n_I)*dim + n_A*(dim-1) + ia;
           int jj = twoMapper->map (SLAVE, id)*dim;
-            //cout << "ii= " << ii << ", jj= " << jj << "\n";
+//          cout << "ii= " << ii << ", jj= " << jj << "\n";
           for (int j = 0; j < dim; ++j)
             B[ii][jj+j] += D_nr[j]; //FIXME: why a sum?
         }
@@ -873,14 +872,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     }
   }
 
-  cout << "Scaling n_d.\n";
+//  cout << "Scaling n_d.\n";
     // Fix the computation of n_d averaging through the number of vertices
     // contributing to each node.
   for (int i = 0; i < n_d.size(); ++i)
     if (n_d_count.at(i) > 1)
       n_d[i] /= static_cast<double> (n_d_count.at(i));
   
-  cout << "B initialized (2/2).\n";
+//  cout << "B initialized (2/2).\n";
   bench().report ("Stepping", " done.");
   
   /*
@@ -908,14 +907,21 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
   }
   
   bench().report ("Stepping", " done.");
-  
-    //// FIXME: the following stuff doesn't belong here.
+ 
+    //// Copy results back
   
   for (int i = 0; i < total; ++i)
     for (int j = 0; j < dim; ++j)
       u[i][j] = uu[i*dim+j];
-
-    //// Copy results
+  
+    //// Transform back to original coordinates
+  
+  CoordVector tu (n_T), tu2 (n_T);
+  for (int i = 0; i < n_T; ++i) tu[i] = u[i];
+  Q.mtv (tu, tu2);
+  for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
+  
+    //// Recompute normal component of solution and lagrange multipliers
   for (const auto& x : inactive[SLAVE]) {
     int i = twoMapper->mapInBoundary (SLAVE, x);
     int j = twoMapper->map (SLAVE, x);
@@ -928,25 +934,18 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     n_u[i] = n_d[i] * u[j];
     n_m[i] = n_d[i] * u[n_T+i];
   }
-    //printvector (cout, n_d, "D * Normal", "");
-    //printvector (cout, n_u, "Solution Normal", "");
-    //printvector (cout, n_m, "Multiplier Normal", "");
-  
-    //// Transform back to original coordinates
 
-    // Is this the same as the code below with the loops?
-//    CoordVector tu (u);
-//    Q.mtv (tu, u);
-
-  CoordVector tu (n_T), tu2 (n_T);
-  for (int i = 0; i < n_T; ++i) tu[i] = u[i];
-  Q.mtv (tu, tu2);
-  for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
-  
 //  writeVectorToFile (u, string ("/tmp/u") + cnt);
+//  printvector (cout, n_d, "D * Normal", "");
+//  printvector (cout, n_u, "Solution Normal", "");
+//  printvector (cout, n_m, "Multiplier Normal", "");
 }
 
 
+/*! Blah.
+ TODO:
+   - Implement the stop condition.
+ */
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGT, class TSS, class TLM>
 void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::solve ()
 {
@@ -957,16 +956,9 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::solve ()
   typedef PostProcessor<TGV, TET, MapperAdapter, TSS> PostProc;
   PostProc post_m (gv[MASTER], mapper_m, a[MASTER]);
   PostProc post_s (gv[SLAVE], mapper_s, a[SLAVE]);
-  TwoRefs<PostProc> post (post_m, post_s);
+  TwoRefs<PostProc> post (post_m, post_s); // Don't use temporaries!!
 
-  std::string filename[2];
-  filename[MASTER] = "/tmp/TwoBodiesIA_MASTER";
-  filename[SLAVE] = "/tmp/TwoBodiesIA_SLAVE";
-  
-  CoordVector cu[2];
-  DOBOTH (body) {
-    cu[body].resize (gv[body].size (dim));
-  }
+  std::string filename[2] = { "/tmp/TwoBodiesIA_MASTER", "/tmp/TwoBodiesIA_SLAVE" };
   
   const int maxiter = 10;
   int cnt=0;
