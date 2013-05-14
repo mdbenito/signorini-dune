@@ -170,6 +170,7 @@ class TwoRefs {
   const T& b;
   
 public:
+  /********* WARNING!!!!  DON'T pass temporaries to the constructor **********/
   TwoRefs (const T& _a, const T& _b) : a(_a), b(_b) { }
     //TwoRefs (T& _a, T& _b) : a(_a), b(_b) { }
   TwoRefs (const TwoRefs<T>& other) : a(other.a), b(other.b) { }
@@ -180,13 +181,6 @@ public:
     if (idx == 1) return b;
     throw (new Exception ());
   }
-/*
-  T& operator[] (int idx) throw (Exception) {
-    if (idx == 0) return a;
-    if (idx == 1) return b;
-    throw (new Exception ());
-  }
-*/
 };
 
 

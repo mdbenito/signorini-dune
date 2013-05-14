@@ -8,8 +8,6 @@
 #include <map>
 #include <dune/grid/common/mapper.hh>
 
-  //template <int codim, class TGV> class TwoToOneBodyMapper;
-
 /*! A mapper to order entities according to their status as active or inactive.
  
  For each body the constructor is given three sets of entities representing those
@@ -208,31 +206,21 @@ template <int codim, class TGV>
 int TwoBodyMapper<codim, TGV>::calcOffset (int body, int idx) const
 {
 //  cout << "idx= " << idx;
-  if (idx >= offsetInner[body])
-    idx = idx + sizeOther[body] - offsetInner[body];
-  else
-    idx -= offsetBody[body];
-  
+  if (idx >= offsetInner[body]) idx += sizeOther[body] - offsetInner[body];
+  else                          idx -= offsetBody[body];
 //  cout << " --> " << idx  << " (" << body << ")" << LF;
   return idx;
 }
 
 
 /* Quick hack to return to the original mapper interface, for use in the
- Postprocessor. Maybe I should keep two references to this inside the 
- TwoBodyMapper and return them with operator[] there, e.g.:
-
-   twoMapper[SLAVE].map(id) would be the same as twoMapper.mapInBody(body, id)
- 
- but maybe this would just be confusing.
+ Postprocessor. 
  */
 template <int codim, class TGV>
 class TwoToOneBodyMapper
 : public Mapper<typename TGV::Grid, TwoToOneBodyMapper<codim, TGV> >
 {
   typedef typename TGV::template Codim<0>::Entity    Element;
-  typedef typename TGV::template Codim<codim>::Entity Entity;
-  typedef typename TGV::Grid::GlobalIdSet        GlobalIdSet;
   typedef typename TGV::Grid::GlobalIdSet::IdType     IdType;
   typedef std::set<IdType>                             IdSet;
 
