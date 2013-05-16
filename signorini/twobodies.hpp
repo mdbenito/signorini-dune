@@ -572,10 +572,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
     //printmatrix (cout, D, "D", "");
 }
 
-  /// FIXME: how is this done properly?
-template<typename ctype, int d> struct dim_if {  };
-template<typename ctype> struct dim_if<ctype, 2> { static FieldVector<ctype, 2> ret() { return coord2 (0.0, -1.0);} };
-template<typename ctype> struct dim_if<ctype, 3> { static FieldVector<ctype, 3> ret() { return coord3 (0.0, -1.0, 0.0);} };
 
 /*! HACK of the HACKS...
  
@@ -813,10 +809,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     // Fill the lines:
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
-  std::cerr << "***********************\n"
-            << "FIXME!! hardcoded normal in TwoBodiesIASet::step()\n"
-            << "***********************\n";
-
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
     if (is->self() && is->neighbor()) {
@@ -828,21 +820,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
         IdType id = gids[SLAVE].subId (*in, subi, dim);
         int    ib = twoMapper->mapInBoundary (SLAVE, id);
 
-          // There *was* no unitOuterNormal in grid-glue's Intersection (but it's not what I need anyway)
-//        coord_t slaveVertex = is->geometry().corner (subi);
-//        const auto& localSlave = is->geometryInInside().local (slaveVertex);
-//        coord_t   nr = is->unitOuterNormal (localSlave);
+          // Careful: unitOuterNormal is not what we need, instead we want the
+          // interpolated, continuous normal that psurface calculated and stored
+          // in the inside/outside geometries.
 
-//        coord_t slaveVertex = is->geometry().corner (subi);
-//        coord_t masterVertex = is->geometryOutside().corner (subi);
-//        coord_t nr = masterVertex - slaveVertex;
-//        nr /= nr.two_norm();
-//        cout << "at " << slaveVertex << " the normal is: " << nr << LF;
+        auto pos = is->geometryInInside().local (ref.position (i, dim));
+        coord_t nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
+        nr /= nr.two_norm ();
         
-// This is what I want:
-//is->geometryInOutside().global(pos) - is->geometry().global(pos)
-
-        coord_t nr = dim_if<ctype, dim>::ret();
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
         
         n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
