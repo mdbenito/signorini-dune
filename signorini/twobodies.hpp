@@ -381,6 +381,14 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
    transformed gradients, obtain global indices of vertices i and j and update
    the associated matrix entry and right-hand side.
    */
+  
+    // TODO: use something like
+    //     std::set<int> dirichlet;
+    // to exclude nodes from the contact zone
+    // BUT, remove them from the gap altogether, *don't* hack something in the
+    // computation of M, D, etc.
+  
+  
   DOBOTH (body) {
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
       GeometryType typ = it->type ();
@@ -416,10 +424,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
         for (int i = 0 ; i < vnum; ++i)
           b[twoMapper->map (body, *it, i, dim)] +=
                    f[body] (*it, it->geometry ().global (x.position ())) *
-                    basis[i].evaluateFunction (x.position ()) *
-                    x.weight () *
-                    it->geometry ().integrationElement (x.position ());
-      }
+                   basis[i].evaluateFunction (x.position ()) *
+                   x.weight () *
+                   it->geometry ().integrationElement (x.position ());
+        }
       
         //// Neumann Boundary conditions.
       
@@ -450,6 +458,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
     }
   
       //// Dirichlet boundary conditions.
+      // Dirichlet vertices at the interface with Neumann conditions take precedence.
     
     for (auto it = gv[body].template begin<0>(); it != gv[body].template end<0>(); ++it) {
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
@@ -474,7 +483,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   
   g = 0.0;
   
-    //// Compute submatrix D and  the gap at boundary for the computation of
+    //// Compute submatrix D and the gap at the boundary for the computation of
     //// the active index set (slave nodes!)
   
   std::set<int> check;
@@ -505,7 +514,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
           
           const auto& domainGlobal = is->geometry().global (x.position());
           const auto& targetGlobal = is->geometryOutside().global (x.position());
-          double gap = (domainGlobal - targetGlobal).two_norm();
+          double gap = (targetGlobal - domainGlobal).two_norm();
 //          cout << "gap at " << domainGlobal << " is " << gap << LF;
           g[ib] += gap *
                    multBasis[subi].evaluateFunction (local) *
@@ -816,20 +825,30 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
         IdType id = gids[SLAVE].subId (*in, subi, dim);
         int    ib = twoMapper->mapInBoundary (SLAVE, id);
 
+        /*
           // Careful: unitOuterNormal is not what we need, instead we want the
           // interpolated, continuous normal that psurface calculated and stored
           // in the inside/outside geometries.
-
-        auto pos = is->geometryInInside().local (ref.position (i, dim));
+//        auto slaveVertex = is->geometry().corner (subi);
+//        auto  localSlave = is->geometry().local (slaveVertex);
+//        coord_t nr = is->unitOuterNormal (localSlave);
+         */
+        auto   pos = is->geometryInInside().local (ref.position (i, dim));
         coord_t nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
         nr /= nr.two_norm ();
-        
+        /*
+        cout << "pos= " << pos << "\t\tfrom= " << ref.position (i, dim) << LF;
+        cout << "is->geometryInOutside().global (pos)= " << is->geometryInOutside().global (pos) << LF;
+        cout << " is->geometryInInside().global (pos)= " << is->geometryInInside().global (pos) << LF;
+        cout << "         is->geometry().global (pos)= " << is->geometry().global (pos) << LF;
+        cout << "  is->geometryOutside().global (pos)= " << is->geometryOutside().global (pos) << LF;
+        cout << "                                  nr= " << nr << LF;
+         */
         coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
-        
         n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
         n_d_count.at(ib) += 1;
         
-          //cout << "ib= " << ib << ", nr= " << nr << "\n";
+          //cout << "ib= " << ib << LF;
         if (active[SLAVE].find (id) != active[SLAVE].end()) {
           int ia = twoMapper->mapInActive (SLAVE, id);
 //          cout << "Found active: " << id << " -> " << ia << "\n";
@@ -842,7 +861,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 //          cout << "ii= " << ii << "\n";
           for (int j = 0; j < dim-1; ++j)
             for (int k = 0; k < dim; ++k)
-              B[ii+j][(n_T+ib)*dim+k] += tg.at(j)[k]; //FIXME: why a sum?
+              B[ii+j][(n_T+ib)*dim+k] = tg.at(j)[k]; //FIXME: why a sum?
             
           c[ii] = 0.0;
             
@@ -851,7 +870,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
           int jj = twoMapper->map (SLAVE, id)*dim;
 //          cout << "ii= " << ii << ", jj= " << jj << "\n";
           for (int j = 0; j < dim; ++j)
-            B[ii][jj+j] += D_nr[j]; //FIXME: why a sum?
+            B[ii][jj+j] = D_nr[j]; //FIXME: why a sum?
         }
       }
     }

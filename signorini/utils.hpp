@@ -163,7 +163,7 @@ public:
   virtual void post (X& x) { (void) x; }
 };
 
-/* Now, THIS is ugly... */
+/* Now, THIS is ugly... (and dangerous) */
 template <class T>
 class TwoRefs {
   const T& a;
