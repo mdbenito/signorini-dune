@@ -3,10 +3,10 @@
 ms = 0.4;     // Mesh size
 height = 1.0; // Prism height
 
-Point(1) = {0, -0.01, 0, ms};
-Point(2) = {1, -0.01, 0, ms};
-Point(3) = {1, -0.01, 1, ms};
-Point(4) = {0, -0.01, 1, ms};
+Point(1) = {-1, -0.01, -1, ms};
+Point(2) = {2, -0.01, -1, ms};
+Point(3) = {2, -0.01, 2, ms};
+Point(4) = {-1, -0.01, 2, ms};
 
 
 Line(1) = {1, 2};
