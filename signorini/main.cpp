@@ -140,10 +140,10 @@ int main (int argc, char** argv)
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -4e8)));
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.01)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)))
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
       pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
-      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)))
-      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)))
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
