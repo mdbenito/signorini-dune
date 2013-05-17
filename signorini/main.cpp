@@ -63,8 +63,8 @@ static const std::string meshNames[2][3] = {
 
 int main (int argc, char** argv)
 {
-  #define DIM 2                 // HACK because of VectorEval...
-  ProblemType problem = PLATE;
+  #define         DIM   3                 // HACK because of VectorEval...
+  ProblemType problem = PRISM;
   const int       dim = DIM;
   const bool    tests = false;
   const double   E[2] = { 8.0e9, 8.0e9 };
@@ -74,21 +74,36 @@ int main (int argc, char** argv)
   typedef GridFactory<grid_t>   factory_t;
   typedef grid_t::ctype             ctype;
   typedef FieldVector<ctype, dim> coord_t;
+  typedef FieldVector<ctype, 1>  scalar_t;
   typedef grid_t::LeafGridView         GV;
   typedef Codim1Extractor<GV>                    SurfaceExtractor;
   typedef PSurfaceMerge<dim-1, dim, double>      SurfaceMergeImpl;
   typedef ::GridGlue<SurfaceExtractor, SurfaceExtractor> GlueType;
   typedef PhysicalFaceDescriptor<GV, factory_t>    FaceDescriptor;
   typedef HookeTensor<ctype, dim>                          HookeT;
-  typedef Constraint<coord_t, dim>                 ConstraintHack;
   typedef ConstantEvaluation<ctype, dim, coord_t>      VectorEval;
-  typedef GmshVolumeFunctor<ctype, dim, factory_t, VectorEval>                     VolumeF;
-  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> BoundaryF;
-  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval, ConstraintHack> Dirichlet;
-  typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
+  typedef ConstantEvaluation<ctype, dim, scalar_t>     ScalarEval;
+  typedef std::map<int, shared_ptr<VectorEval> >   VectorEvalsMap;
+  typedef std::map<int, shared_ptr<ScalarEval> >   ScalarEvalsMap;
+  typedef GmshVolumeFunctor<ctype, dim, factory_t, VectorEval>      VolumeF;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval>   NeumannF;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, VectorEval> DirichletF;
+  typedef GmshBoundaryFunctor<ctype, dim, factory_t, ScalarEval>   ContactF;
+  
+  /*
+    //////HACK HACK HACK: what I want is a linked list of Constraints, but each has its
+    // own type, so for now I'm including the type of the next element in the list
+    // yep, this defeats its whole purpose...
+  typedef Constraint<coord_t, dim, DirichletF, DummyConstraint> EndDirichlet;
+  typedef Constraint<coord_t, dim, ContactF, EndDirichlet>           Contact;
+  typedef Constraint<coord_t, dim, DirichletF, Contact>            Dirichlet;
+  typedef Constraint<coord_t, dim, NeumannF, Dirichlet>              Neumann;
+   */
+  
+  typedef P1ShapeFunctionSet<ctype, dim, 1, 0>    ShapeSet;
   typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
-  typedef TwoBodiesIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, GlueType, ShapeSet, LSShapeSet>
-          TwoSolver;
+  typedef TwoBodiesIASet<GV, HookeT, VolumeF, DirichletF, NeumannF, GlueType, ShapeSet, LSShapeSet> TwoSolver;
+  
   /*
    //  typedef CylinderHackGapEvaluation<ctype, dim>                    GapHack;
    //  typedef PlateHackGapEvaluation<ctype, dim>                       GapHack;
@@ -111,53 +126,65 @@ int main (int argc, char** argv)
   std::vector<int>     ei2pe[2]; // Element indices to gmsh physical entities
 
   std::set<int> volumeGroups[2], contactGroups[2], dirichletGroups[2], neumannGroups[2];
-  HookeT* a[2]; VolumeF* f[2]; Dirichlet* d[2]; BoundaryF* p[2]; //Gap* g[2];
-  VectorEval* fEval[2], *dEval[2], *pEval[2];
+  HookeT* a[2]; VolumeF* f[2];  DirichletF* d[2];  NeumannF* p[2];  ContactF* g[2];
+  VectorEvalsMap fEvals[2], dEvals[2], pEvals[2];
+  ScalarEvalsMap cEvals[2];
   FaceDescriptor*  descriptors[2];
   SurfaceExtractor* extractors[2];
 
   switch (problem) {
     case PLATE:
-      volumeGroups   [MASTER] << 1;       volumeGroups   [SLAVE] << 1;
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
-      dirichletGroups[MASTER] << 1;       dirichletGroups[SLAVE] << 3;
-      neumannGroups  [MASTER] << 2 << 4;  neumannGroups  [SLAVE] << 2 << 4;
 #if DIM == 2
-      fEval[MASTER] = new VectorEval (coord2 (0.0,  4e8));
-      fEval[SLAVE]  = new VectorEval (coord2 (0.0, -4e8));
-      dEval[MASTER] = new VectorEval (coord2 (0.0, 0.01));
-      dEval[SLAVE]  = new VectorEval (coord2 (0.0, -0.01));
-      pEval[MASTER] = new VectorEval (coord2 (3e6, 0.0));
-      pEval[SLAVE]  = new VectorEval (coord2 (0.0, -3e6));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  4e8)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -4e8)));
+      dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.01)));
+      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)))
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)))
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)))
+      cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
       break;
     case PRISM:
-      volumeGroups   [MASTER] << 1;      volumeGroups   [SLAVE] << 1;
       contactGroups  [MASTER] << 1;      contactGroups  [SLAVE] << 1;
-      dirichletGroups[MASTER] << 6;      dirichletGroups[SLAVE] << 6;
-      neumannGroups  [MASTER] << 2 << 3 << 4 << 5;
-      neumannGroups  [SLAVE]  << 2 << 3 << 4 << 5;
 #if DIM == 3
-      fEval[MASTER] = new VectorEval (coord3 (0.0,  4e8, 0.0));
-      fEval[SLAVE]  = new VectorEval (coord3 (0.0, -4e8, 0.0));
-      dEval[MASTER] = new VectorEval (coord3 (0.0, 0.01, 0.0));
-      dEval[SLAVE]  = new VectorEval (coord3 (0.0, -0.01, 0.0));
-      pEval[MASTER] = new VectorEval (coord3 (3e6, 0.0, 0.0));
-      pEval[SLAVE]  = new VectorEval (coord3 (0.0, -3e6, 0.0));
+      fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  4e8, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e8, 0.0)));
+      dEvals[MASTER][6] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.01, 0.0)));
+      dEvals[SLAVE][6]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -0.01, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+
 #endif
       break;
     case CYLINDER:
-      volumeGroups   [MASTER] << 1;       volumeGroups   [SLAVE] << 1;
       contactGroups  [MASTER] << 3 << 4;  contactGroups  [SLAVE] << 5 << 6;
-      dirichletGroups[MASTER] << 1 << 2;  dirichletGroups[SLAVE] << 1 << 2;
-      neumannGroups  [MASTER] << 5 << 6;  neumannGroups  [SLAVE] << 3 << 4;
 #if DIM == 3
-      fEval[MASTER] = new VectorEval (coord3 (0.0,  4e7, 0.0));
-      fEval[SLAVE]  = new VectorEval (coord3 (0.0, -4e7, 0.0));
-      dEval[MASTER] = new VectorEval (coord3 (0.0, 0.01, 0.0));
-      dEval[SLAVE]  = new VectorEval (coord3 (0.0, -0.01, 0.0));
-      pEval[MASTER] = new VectorEval (coord3 (3e6, 0.0, 0.0));
-      pEval[SLAVE]  = new VectorEval (coord3 (0.0, -3e6, 0.0));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0,  4e6, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e6, 0.0)));
+      dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      dEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      dEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      dEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[MASTER][6] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[MASTER][4] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][5]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][6]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
       break;
     default:
@@ -176,10 +203,20 @@ int main (int argc, char** argv)
 //    extractors[body]  = new SurfaceExtractor (grids[body]->leafView(), *descriptors[body]);
     
     a[body] = new HookeT (E[body], nu[body]);
-    f[body] = new VolumeF (factories[body], ei2pe[body], volumeGroups[body], fEval[body]);
-    d[body] = new Dirichlet (factories[body], bi2pe[body], dirichletGroups[body], dEval[body]);
-    p[body] = new BoundaryF (factories[body], bi2pe[body], neumannGroups[body], pEval[body]);
-//    g[body] = new Gap (factories[body], bi2pe[body], contactGroups[body], new GapHack ());
+    f[body] = new VolumeF (factories[body], ei2pe[body], &fEvals[body]);
+    d[body] = new DirichletF (factories[body], bi2pe[body], &dEvals[body]);
+    p[body] = new NeumannF (factories[body], bi2pe[body], &pEvals[body]);
+    g[body] = new ContactF (factories[body], bi2pe[body], &cEvals[body]);
+
+    /*
+      //// Build constraints, taking the interfaces into account!
+      // Nodes marked as Dirichlet have "priority"
+    dd[body] = new Dirichlet (*d[body], true);
+      // Neumann nodes have the lowest priority (are overrriden by any other type)
+    pp[body] = new Neumann (*p[body], true, new Dirichlet (*d[body], false, new Contact (*g[body], false)));
+      // Contact nodes are overriden only by Dirichlet nodes
+    gg[body] = new Contact (*g[body], true, new EndDirichlet (*d[body], false));
+     */
   }
     // HACK: see above why we don't do this in the loop.
   extractors[MASTER] = new SurfaceExtractor (grids[MASTER]->leafView(), *descriptors[MASTER]);
@@ -200,10 +237,10 @@ int main (int argc, char** argv)
     DOBOTH (body) {
       testGmshBoundaryFunctor (gv[body], *p[body], string ("/tmp/test-neumann-") + body);
       testGmshBoundaryFunctor (gv[body], *d[body], string ("/tmp/test-dirichlet-") + body);
-//    testGmshBoundaryFunctor (gv[body], *g[body], string ("/tmp/test-gap-") + body);
+      testGmshBoundaryFunctor (gv[body], *g[body], string ("/tmp/test-gap-") + body);
     }
-    testContactSurfaces<GlueType, MASTER> (glue, "/tmp/test-gap");
-    testContactSurfaces<GlueType, SLAVE> (glue, "/tmp/test-gap");
+    testContactSurfaces<GlueType, MASTER> (glue, "/tmp/test-glue");
+    testContactSurfaces<GlueType, SLAVE> (glue, "/tmp/test-glue");
     exit (1);
   }
 

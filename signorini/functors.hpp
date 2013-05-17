@@ -136,91 +136,175 @@ public:
   }
 };
 
-
-  /// FIXME: REMOVE ME!!! Use PSurface!
-template <typename ctype, int dim>
-class CylinderHackGapEvaluation {
-  typedef FieldVector<ctype, dim> coord_t;
-  typedef FieldVector<ctype, 1> scalar_t;
-public:
-  typedef scalar_t return_t;
-  static const int return_dim = 1;
-  
-  CylinderHackGapEvaluation () { assert (dim == 3); }
-  
-    // Careful! remember that it must be g(x) >= 0
-  return_t operator() (const coord_t& global) const
-  {
-    if (std::abs (global[0]) > 1.0 || std::abs (global[2]) > 1.0)
-      return 100000.0;
-    return 1.0 - std::sqrt (1.0 - global[0]*global[0]) +
-           2.0 - std::sqrt (1.0 - global[2]*global[2]) - 1.0;
-  }
-};
-
-
-  /// FIXME: REMOVE ME!!! Use PSurface!
-template <typename ctype, int dim>
-class PlateHackGapEvaluation {
-  typedef FieldVector<ctype, dim> coord_t;
-  typedef FieldVector<ctype, 1> scalar_t;
-public:
-  typedef scalar_t return_t;
-  static const int return_dim = 1;
-  
-  PlateHackGapEvaluation () { assert (dim == 2); }
-  
-    // Careful! remember that it must be g(x) >= 0
-  return_t operator() (const coord_t& global) const
-  {
-    return 0.01;
-  }
-};
-
-  /// FIXME: REMOVE ME!!! Use PSurface!
-template <typename ctype, int dim>
-class PrismHackGapEvaluation {
-  typedef FieldVector<ctype, dim> coord_t;
-  typedef FieldVector<ctype, 1> scalar_t;
-public:
-  typedef scalar_t return_t;
-  static const int return_dim = 1;
-  
-  PrismHackGapEvaluation () { assert (dim == 3); }
-  
-    // Careful! remember that it must be g(x) >= 0
-  return_t operator() (const coord_t& global) const
-  {
-    return 0.01;
-  }
-};
-
-
-/*! A quick hack to specify constraints to apply to GmshFunctors.
+/*! A functor which has support on some Physical Entity defined in Gmsh.
  
- I only need this until I understand what's wrong with the GmshReader and the
- Physical Entities.
+ class Evaluation must define operator() and export return_t.
  */
-template <typename coord_t, int dim>
-class Constraint {
-  typedef bool (*Predicate)(const coord_t&);
-  Predicate      f;
-  bool      negate;
-  Constraint* next;
+template <typename ctype, int dim, class TGF, class Evaluation>
+class GmshBoundaryFunctor
+{
+  typedef shared_ptr<Evaluation> EvaluationPtr;
+  const TGF&          gf;   //!< Grid factory
+  std::vector<int> bi2pe;
+  std::map<int, EvaluationPtr>* evals;  //!< Physical group --> Evaluation function
+  std::string       name;
 
 public:
-    // use the argument "affirmative" to negate the Predicate
-  Constraint (Predicate _f=0, bool affirmative=true, Constraint* _next=0)
-    : f (_f), negate (!affirmative), next (_next) { };
+  typedef FieldVector<ctype, dim> coord_t;
+  typedef typename Evaluation::return_t return_t;
+  static const int return_dim = Evaluation::return_dim;  
+  static const int codim = 1;
   
-  bool at (const coord_t& global) const
+  GmshBoundaryFunctor (const TGF& _gf,
+                       const std::vector<int>& boundary_id_to_physical_entity,
+                       std::map<int, EvaluationPtr>* _evals,
+                       std::string _name="")
+  : gf (_gf), bi2pe (boundary_id_to_physical_entity), evals (_evals), name (_name)
+  { }
+  
+  ~GmshBoundaryFunctor () { /*delete evals;*/ }
+
+  /*! We need the intersection to know which Evaluation is needed, otherwise
+   a costly search would be necessary per each evaluation.
+   NOTE that we don't perform any checks here!
+   */
+  template <class Intersection>
+  return_t operator() (const Intersection& is, const coord_t& global) const
   {
-    if (f && (negate == f (global))) return false;  // == is a xor for booleans!
-    if (next)            return next->at (global);
+    auto ev = (*evals) [bi2pe [is.boundarySegmentIndex()]];
+    return (*ev)(global);
+  }
+  
+  template <class Intersection>
+  bool isSupported (const Intersection& is) const
+  {
+      // FIXME! adding: || !gf.wasInserted (is))  evaluates to false always?!??! (cube grids only??!)
+    if (is.neighbor() || !is.boundary())
+      return false;
+      //    auto idx = gf.insertionIndex (is);  // not implemented for UGGrid
+    auto idx = is.boundarySegmentIndex();       // but it's ok since indices are not reordered ("if not load balancing"?)
+    if (!(idx > 0 && idx < bi2pe.size() && evals->find (bi2pe[idx]) != evals->end()))
+      return false;
     return true;
   }
 };
 
+
+/*! A functor which has support on some Physical Entity defined in Gmsh.
+ 
+ class Evaluation must define operator() and export return_t.
+  */
+template <typename ctype, int dim, class TGF, class Evaluation>
+class GmshVolumeFunctor
+{
+//  typedef typename TGF::GridType GridType;
+  typedef UGGrid<dim> GridType;
+  typedef shared_ptr<Evaluation> EvaluationPtr;
+  const TGF&          gf;   //!< Grid factory
+  std::vector<int> ei2pe;
+  std::map<int, EvaluationPtr>* evals;  //!< Physical group --> Evaluation function
+  
+  template <class E>
+  class ExportEntityImplementation : public E
+  {
+  public:
+    typedef typename E::Implementation Implementation;
+  private:
+    ExportEntityImplementation (const E& e) : E(e) { }
+  };
+
+public:
+  typedef typename TGF::template Codim<0>::Entity Entity;
+  typedef FieldVector<ctype, dim>                coord_t;
+  typedef typename Evaluation::return_t         return_t;
+
+  static const int return_dim = Evaluation::return_dim;
+  static const int codim = 0;
+  
+  GmshVolumeFunctor (const TGF& _gf,
+                     const std::vector<int>& element_id_to_physical_entity,
+                     std::map<int, EvaluationPtr>* _evals)
+  : gf (_gf), ei2pe (element_id_to_physical_entity), evals (_evals)
+  { }
+  
+  ~GmshVolumeFunctor () { delete evals; }
+
+  return_t operator() (const Entity& en, const coord_t& global) const
+  {
+      // There's no insertionIndex() in UGGrid
+//    auto ev = (*evals) [ei2pe [gf.insertionIndex (en)]];
+    
+      // Maybe something like:
+//    grid.levelIndexSet(0).index (en);
+    
+    auto ev = (*evals) [1];  //HACK
+    return (*ev) (global);
+  }
+  
+  bool isSupported (const Entity& en) const
+  {
+    auto idx = gf.insertionIndex (en);
+    return (idx > 0 && idx < ei2pe.size() && evals->find (ei2pe[idx]) != evals->end());
+  }
+};
+
+
+/*! Build complex constraints using chains of functors linked with AND and NOT.
+ 
+ Constraints build a single linked list. The head of the list deletes all items
+ when it dies.
+ 
+ HACK: I don't know how to create a pointer to a generic Constraint object since
+ this is a template: if I use Constraint* then I get this particular instantiation
+ So I need the extra template parameter TNextConstraint. This sucks big time.
+ 
+ REMOVE ME. This won't work, since the interfaces of the subsets of the boundary
+ are nodes and we are checking whole Intersections...
+
+template <typename coord_t, int dim, class TFunctor, class TNextConstraint>
+class Constraint
+{
+public:
+  typedef typename TFunctor::return_t return_t;
+
+  static const int return_dim = TFunctor::return_dim;
+  static const int codim = TFunctor::codim;
+  
+    // use the argument "affirmative" to negate the action of the functor
+  Constraint (const TFunctor& _f, bool affirmative=true, TNextConstraint* _next=0)
+    : func (_f), negate (!affirmative), next (_next) { };
+  ~Constraint() { delete next; }
+  
+  return_t operator() (const coord_t& global) const { return func(global); }
+  
+  void insert (TNextConstraint* _next)
+  {
+    if (next) next->insert (_next);
+    else      next = _next;
+  }
+  
+  template <typename Entity>
+  bool isSupported (const Entity& is) const
+  {
+    if (negate == func.isSupported (is))  // == is a xor for booleans!
+      return false;
+    if (next)
+      return next->isSupported (is);
+    return true;
+  }
+
+private:
+  const TFunctor&  func;
+  bool           negate;
+  TNextConstraint* next;
+};
+
+
+struct DummyConstraint {
+  template <typename Entity>
+  bool isSupported(const Entity& e) const { return true; }
+};
+*/
 
 /*! An evaluation to model constant scalar data
  */
@@ -238,123 +322,9 @@ public:
     (void) global;  // ignored!
     return ret;
   }
-
+  
 private:
   return_t ret;
-};
-
-
-/*! A functor which has support on some Physical Entity defined in Gmsh.
- 
- class Evaluation must define operator() and export return_t.
- class Constraint must define at(). REMOVE THIS! it's just a hack!
- 
- We take ownership of the Evaluation and Constraints objects and delete them
- when necessary.
- */
-template <typename ctype, int dim, class TGF, class Evaluation, class Constraint>
-class GmshBoundaryFunctor {
-  typedef FieldVector<ctype, dim> coord_t;
-  
-  const TGF&          gf;   //!< Grid factory
-  std::vector<int> bi2pe;
-  std::set<int>   groups;   //!< List of physical groups managed by this functor
-  Evaluation*       eval;
-  Constraint* constraint;
-  std::string       name;
-
-public:
-  typedef typename Evaluation::return_t return_t;
-  static const int return_dim = Evaluation::return_dim;  
-  static const int codim = 1;
-  
-  GmshBoundaryFunctor (const TGF& _gf,
-                       const std::vector<int>& boundary_id_to_physical_entity,
-                       const std::set<int>& _groups,
-                       Evaluation* _eval,
-                       Constraint* _cons=0,
-                       std::string _name="")
-  : gf (_gf), bi2pe (boundary_id_to_physical_entity), groups (_groups),
-    eval (_eval), constraint (_cons), name (_name)
-  { }
-  
-  ~GmshBoundaryFunctor () { delete eval; delete constraint; }
-  
-  return_t operator() (const coord_t& global) const
-  {
-    return (*eval) (global);
-  }
-  
-  template <class Intersection>
-  bool isSupported (const Intersection& is) const
-  {
-    if (is.neighbor() || !is.boundary())
-           // FIXME! adding: || !gf.wasInserted (is))  evaluates to false always?!??! (cube grids only??!)
-      return false;
-
-      //    auto idx = gf.insertionIndex (is);  // not implemented for UGGrid
-    auto idx = is.boundarySegmentIndex();       // but it's ok since indices are not reordered ("if not load balancing"?)
-    if (!(idx > 0 && idx < bi2pe.size() && groups.find (bi2pe[idx]) != groups.end()))
-      return false;
-
-    if (constraint) {
-      const auto&   in = is.inside();
-      const auto&  ref = GenericReferenceElements<ctype, dim>::general (in->type());
-      const int   vnum = ref.size (is.indexInInside(), 1, dim);
-      for (int i = 0; i < vnum; ++i) {
-        int  subi = ref.subEntity (is.indexInInside (), 1, i, dim);
-        auto global = in->geometry().global (ref.position (subi, dim));
-        if (! constraint->at (global)) {
-            //        cout << "ConstraintHack " << name << " not fulfilled! (at " << global << ")\n";
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-};
-
-
-/*! A functor which has support on some Physical Entity defined in Gmsh.
- 
- class Evaluation must define operator() and export return_t.
- 
- We take ownership of the Evaluation object and delete it when necessary.
- */
-template <typename ctype, int dim, class TGF, class Evaluation>
-class GmshVolumeFunctor {
-  typedef FieldVector<ctype, dim>                coord_t;
-  typedef typename TGF::template Codim<0>::Entity Entity;
-
-  const TGF&          gf;   //!< Grid factory
-  std::vector<int> ei2pe;
-  std::set<int>   groups;   //!< List of physical groups managed by this functor
-  Evaluation*       eval;
-  
-public:
-  typedef typename Evaluation::return_t return_t;
-  static const int return_dim = Evaluation::return_dim;
-  static const int codim = 0;
-  
-  GmshVolumeFunctor (const TGF& _gf,
-                     const std::vector<int>& element_id_to_physical_entity,
-                     const std::set<int>& _groups,
-                     Evaluation* _eval)
-  : gf (_gf), ei2pe (element_id_to_physical_entity), groups (_groups), eval (_eval)
-  { }
-  
-  ~GmshVolumeFunctor () { delete eval; }
-  
-  return_t operator() (const coord_t& global) const
-  {
-    return (*eval) (global);
-  }
-  
-  bool isSupported (const Entity& en) const
-  {
-    auto idx = gf.insertionIndex (en);
-    return (idx > 0 && idx < ei2pe.size() && groups.find (ei2pe[idx]) != groups.end());
-  }
 };
 
 #endif // FUNCTORS_HPP

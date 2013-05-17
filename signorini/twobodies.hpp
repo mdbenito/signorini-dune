@@ -415,7 +415,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
         
         for (int i = 0 ; i < vnum; ++i)
           b[twoMapper->map (body, *it, i, dim)] +=
-                    f[body] (it->geometry ().global (x.position ())) *
+                   f[body] (*it, it->geometry ().global (x.position ())) *
                     basis[i].evaluateFunction (x.position ()) *
                     x.weight () *
                     it->geometry ().integrationElement (x.position ());
@@ -439,7 +439,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
                 // Transform relative (dim-1)-dimensional coord. in local coord.
               const auto& global = igeo.global (x.position ());
               const auto& local  = it->geometry().local (global);
-              b[ii] += p[body] (global) *
+              b[ii] += p[body] (*is, global) *
                        basis[subi].evaluateFunction (local) *
                        x.weight () *
                        igeo.integrationElement (x.position ());
@@ -460,11 +460,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
             auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             auto global = it->geometry().global (ref.position (subi, dim));
             int ii = twoMapper->map (body, *it, subi , dim);
+//            dirichlet << ii;
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             // Replace the associated line of A and b with a trivial one.
             A[ii] = 0.0;
             A[ii][ii] = I;
-            b[ii] = dir[body] (global);            
+            b[ii] = dir[body] (*is, global);
           }
         }
       }

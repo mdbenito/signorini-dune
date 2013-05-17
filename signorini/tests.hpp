@@ -117,7 +117,7 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
           support.at(idx) = 1.0;
           
           auto global = it->geometry().global (ref.position (subi, dim));
-          auto  ret = func (global);
+          auto  ret = func (*is, global);
           for (int c = 0; c < ret_dim; ++c)
             values.at (idx*ret_dim+c) = ret[c];
         }
@@ -142,14 +142,16 @@ void testContactSurfaces (const Glue& glue, std::string base)
   typedef typename GV::ctype ctype;
   typedef LeafMultipleCodimMultipleGeomTypeMapper <typename GV::Grid, MCMGVertexLayout> VertexMapper;
   
-  const int     dim = GV::dimension;
-  const int domdimw = GV::dimensionworld;
-  const auto& gv    = glue.template gridView<body>();
+  const int         dim = GV::dimension;
+  const int     domdimw = GV::dimensionworld;
+  const auto&        gv = glue.template gridView<body>();
+  const int numVertices = gv.size(dim);
   
   VertexMapper mapper (gv.grid());
   VTKWriter<GV> vtkwriter (gv);
-  std::vector<ctype> support (gv.size (dim), 0.0);
-
+  std::vector<ctype> support (numVertices, 0.0);
+  std::vector<ctype> projection (numVertices * dim, 0.0);
+  std::vector<ctype> normal (numVertices * dim, 0.0);
   for (auto is = glue.template ibegin<body>(); is != glue.template iend<body>(); ++is) {
     if (is->self() && is->neighbor()) {
       const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
@@ -158,10 +160,24 @@ void testContactSurfaces (const Glue& glue, std::string base)
         int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
         auto  idx = mapper.map (*(is->inside()), subi, dim);
         support.at(idx) = 1.0;
+        auto pos = is->geometryInInside().local (ref.position (i, dim));
+        auto nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
+        nr /= nr.two_norm ();
+        for (int c = 0; c < dim; ++c)
+          projection.at (idx*dim + c) = nr[c];
+        
+        auto slaveVertex = is->geometry().corner (subi);
+        auto localSlave = is->geometry().local (slaveVertex);
+        nr = is->unitOuterNormal (localSlave);
+        for (int c = 0; c < dim; ++c)
+          normal.at (idx*dim + c) = nr[c];
       }
     }
   }
   vtkwriter.addVertexData (support, "contact", 1);
+  vtkwriter.addVertexData (projection, "projection", dim);
+  vtkwriter.addVertexData (normal, "normal", dim);
+
   base = base + std::string("-") + body + std::string("-") + dim + std::string("d");
   cout << "Writing file " << base  << LF;
   vtkwriter.write (base, VTK_OUTPUT_MODE);
