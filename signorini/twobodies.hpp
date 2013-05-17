@@ -168,27 +168,22 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
   }
   
     // Then traverse the glued grid
-    // TODO: couldn't I use outside() instead of traversing the intersections from the master?
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
     if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
+      const auto& iref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+      const int ivnum = iref.size (is->indexInInside (), 1, dim);
       for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+        int  subi = iref.subEntity (is->indexInInside (), 1, i, dim);
         IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
         if (other[SLAVE].find (id) != other[SLAVE].end())
           other[SLAVE].erase (id);
         inactive[SLAVE] << id;
       }
-    }
-  }
-  for (auto is = glue.template ibegin<MASTER>(); is != glue.template iend<MASTER>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        IdType id = gids[MASTER].subId (*(is->inside()), subi, dim);
+      const auto& oref = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
+      const int ovnum = oref.size (is->indexInOutside (), 1, dim);
+      for (int i = 0; i < ovnum; ++i) {
+        int  subi = oref.subEntity (is->indexInOutside (), 1, i, dim);
+        IdType id = gids[MASTER].subId (*(is->outside()), subi, dim);
         if (other[MASTER].find (id) != other[MASTER].end())
           other[MASTER].erase (id);
         inactive[MASTER] << id;
