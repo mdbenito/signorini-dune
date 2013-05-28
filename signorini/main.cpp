@@ -137,13 +137,13 @@ int main (int argc, char** argv)
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  4e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -4e8)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -4e8)));  //// WTF??!?! Set this to +4e8 and the bodies penetrate!
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.01)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
       pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
       pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
-      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
+      pEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
