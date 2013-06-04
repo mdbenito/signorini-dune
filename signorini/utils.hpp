@@ -342,17 +342,21 @@ void transpose (BCRSMatrix<B>& dest, const BCRSMatrix<B>& A) {
  plane whose normal is this functions argument.
  
  FIXME: avoid the idiotic copy and removal of the argument.
+ FIXME: the call to ourselves results in infinite recursion if the random vectors 
+        are initialized using
+   v[i][j] = static_cast<ctype>(2.0 * (std::rand() / RAND_MAX + 1.0) - 0.5); // v[i][j] ∈ (-1,1)
  */
 template <class ctype, int dim>
 std::vector<FieldVector<ctype, dim> > basisOfPlaneNormalTo (const FieldVector<ctype, dim>& vec) {
   typedef FieldVector<ctype, dim> coord_t;
 
   std::vector<coord_t> v (dim);
-  std::srand (static_cast<unsigned int> (std::time (0)));
+
+    // start with a basis made of vec and dim-1 random vectors.
   v[0] = vec;
   for (int i = 1; i < dim; ++i) {
     for (int j = 0; j < dim; ++j) {
-      v[i][j] = (double)(std::rand() % 1000) * 1e-3;
+      v[i][j] = static_cast<ctype>((std::rand() % 1000) * 1e-3);
     }
   }
   
@@ -361,26 +365,12 @@ std::vector<FieldVector<ctype, dim> > basisOfPlaneNormalTo (const FieldVector<ct
     for (int j = i+1; j < dim; ++j) {
       v[j] -= v[i] * (v[j] * v[i]); // v[i] * <v[j], v[i]>
       if (v[j] == 0.0)
-        return basisOfPlaneNormalTo (vec);
+        return basisOfPlaneNormalTo (vec);  // FIXME! possible infinite recursion!
     }
   }
   
   v.erase (v.begin ());
   return v;
-}
-
-  // TODO: FINISH THIS! (check orthonormality)
-template <class ctype, int dim>
-bool test_basisOfPlaneNormalTo () {
-  typedef FieldVector<ctype, dim> coord_t;
-  coord_t n(0); n[0] = n[1] = 1.0;
-  auto r = basisOfPlaneNormalTo (n);
-  cout << "n= " << n << LF;
-
-  for (int i=0; i<dim-1; ++i)
-    cout << "\t\tr[" << i << "]= " << r[i] << ", norm= " << r[i].two_norm() << LF;
-  
-  return true;
 }
 
   // More hacks...

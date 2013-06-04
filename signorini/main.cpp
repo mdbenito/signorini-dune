@@ -63,10 +63,12 @@ static const std::string meshNames[2][3] = {
 
 int main (int argc, char** argv)
 {
+  std::srand (clock ());   // Needed somewhere...
+  
   #define         DIM   3                 // HACK because of VectorEval...
   ProblemType problem = PRISM;
   const int       dim = DIM;
-  const bool    tests = false;
+  const bool    tests = true;
   const double   E[2] = { 8.0e9, 8.0e9 };
   const double  nu[2] = { 0.3,     0.3 };
 

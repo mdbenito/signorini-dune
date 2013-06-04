@@ -9,6 +9,9 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <limits>
+#include <cstdlib>
+#include <ctime>
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
@@ -20,6 +23,43 @@
 #include "utils.hpp"
 
 using namespace Dune;
+
+template <class ctype, int dim>
+bool test_basisOfPlaneNormalTo () {
+  typedef FieldVector<ctype, dim> coord_t;
+  static const double tolerance = 1.0e-15;
+  
+  std::cout << "Testing basis of plane normal to a vector n (tolerance= " << tolerance << "):\n";
+  bool ret = true;
+  for (int c = 0; c < 5; ++c) {
+    coord_t n;
+    for (int d = 0; d < dim; ++d)
+      n[d] = 2.0 * (-0.5 + rand() / (RAND_MAX + 1.0));  // n[d] ∈ (-1,1)
+    
+    std::cout << "\tTest #" << c <<": n= " << n << LF;
+    auto t = basisOfPlaneNormalTo (n);
+    for (int i = 0; i < dim - 1; ++i) {
+      ctype prod = n * t[i];
+      bool orth = std::abs(prod) <= tolerance;
+      ret = ret && orth;
+      std::cout << "\t\tt[" << i << "]= " << t[i] << ", norm= " << t[i].two_norm();
+      if (orth) std::cout << " is orthogonal to n.\n";
+      else      std::cout << " is NOT orthogonal to n (" << prod << ")." << LF;
+    }
+    for (int i = 0; i < dim - 1; ++i) {
+      for (int j = i+1; j < dim - 1; ++j) {
+        ctype prod = t[i] * t[j];
+        bool orth = std::abs(prod) <= tolerance;
+        ret = ret && orth;
+        std::cout << "\t\tt[" << i << "] and t[" << j << "]";
+        if (orth) std::cout << " are orthogonal to each other.\n";
+        else      std::cout << " are NOT orthogonal to each other (" << prod << ")." << LF;
+      }
+    }
+  }
+  return ret;
+}
+
 
 template <class ctype, int dim, class ShapeSet>
 bool testShapes (const std::string& filename)
@@ -73,7 +113,7 @@ bool testShapes (const std::string& filename)
     }
   }
   
-  cout << "Testing quadrature points of order two:\n";
+  cout << "Testing quadrature points of order two (TODO):\n";
   for (int i=0; i < basis.size(); ++i) {
     for (auto& x : QuadratureRules<ctype, dim>::rule (gt, 2)) {
       cout << "   Basis[" << i << "](" << x.position() << ") = "
