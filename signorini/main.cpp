@@ -66,10 +66,10 @@ int main (int argc, char** argv)
   std::srand (clock ());   // Needed somewhere...
   
   #define         DIM   3                 // HACK because of VectorEval...
-  ProblemType problem = PRISM;
+  ProblemType problem = CYLINDER;
   const bool    tests = false;
   const int       dim = DIM;
-  const double   E[2] = { 4.0e9, 1.0e10 };
+  const double   E[2] = { 1.0e10, 1.0e10 };
   const double  nu[2] = { 0.3,     0.3 };
 
   typedef UGGrid<dim>              grid_t;
@@ -171,10 +171,10 @@ int main (int argc, char** argv)
 #endif
       break;
     case CYLINDER:
-      contactGroups  [MASTER] << 3 << 4;  contactGroups  [SLAVE] << 5 << 6;
+      contactGroups  [MASTER] << 3 << 4;  contactGroups  [SLAVE] << 4;
 #if DIM == 3
-      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0,  4e6, 0.0)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e6, 0.0)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0,  4e7, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e7, 0.0)));
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       dEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       dEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
@@ -182,11 +182,10 @@ int main (int argc, char** argv)
       pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       pEvals[MASTER][6] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
-      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[MASTER][4] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
-      cEvals[SLAVE][5]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
-      cEvals[SLAVE][6]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][4]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
       break;
     default:

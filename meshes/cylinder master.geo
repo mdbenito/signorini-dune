@@ -6,7 +6,7 @@
  UPD: I removed some of the middle layers of the extrusion.
 ******************************************************************************/
 
-ms = 0.8;                       // Mesh size
+ms = 0.4;                       // Mesh size
 
 Point(1) = {0, 0, -5, 2*ms};  // Center of the base of the cylinder
 
