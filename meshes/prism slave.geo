@@ -1,6 +1,6 @@
 /* A prism extruded from a square */
 
-ms = 0.4;     // Mesh size
+ms = 0.2;     // Mesh size
 height = 1.0; // Prism height
 
 Point(1) = {0,0,0, ms};
