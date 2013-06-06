@@ -918,14 +918,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     for (int j = 0; j < dim; ++j)
       u[i][j] = uu[i*dim+j];
   
-    //// Transform back to original coordinates
-  
-  CoordVector tu (n_T), tu2 (n_T);
-  for (int i = 0; i < n_T; ++i) tu[i] = u[i];
-  Q.mtv (tu, tu2);
-  for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
-
     //// Recompute normal component of solution and lagrange multipliers
+    // NOTE that the latter are not affected by the change of basis with matrix Q
   for (const auto& x : inactive[SLAVE]) {
     int i = twoMapper->mapInBoundary (SLAVE, x);
     int j = twoMapper->map (SLAVE, x);
@@ -938,6 +932,12 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     n_u[i] = n_d[i] * u[j];
     n_m[i] = n_d[i] * u[n_T+i];
   }
+    //// Transform solution back to original basis
+    // This must be done at the end! (see [HW05, p.3158]) Really? FIXME!!
+  CoordVector tu (n_T), tu2 (n_T);
+  for (int i = 0; i < n_T; ++i) tu[i] = u[i];
+  Q.mtv (tu, tu2);
+  for (int i = 0; i < n_T; ++i) u[i] = tu2[i];
 
 //  writeVectorToFile (u, string ("/tmp/u") + cnt);
 //  printvector (cout, n_d, "D * Normal", "");
