@@ -67,9 +67,9 @@ int main (int argc, char** argv)
   
   #define         DIM   3                 // HACK because of VectorEval...
   ProblemType problem = PRISM;
+  const bool    tests = false;
   const int       dim = DIM;
-  const bool    tests = true;
-  const double   E[2] = { 8.0e9, 8.0e9 };
+  const double   E[2] = { 4.0e9, 1.0e10 };
   const double  nu[2] = { 0.3,     0.3 };
 
   typedef UGGrid<dim>              grid_t;
@@ -139,7 +139,7 @@ int main (int argc, char** argv)
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  4e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -4e8)));  //// WTF??!?! Set this to +4e8 and the bodies penetrate!
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -1e8)));
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.01)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
@@ -159,10 +159,10 @@ int main (int argc, char** argv)
       dEvals[SLAVE][6]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -0.01, 0.0)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
       pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
-      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
-      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
-      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
-      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
+      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, -3e6)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, -3e6)));
       pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
       pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
       cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
@@ -248,7 +248,7 @@ int main (int argc, char** argv)
 
 //  PMSolver fem (gv[MASTER], a[MASTER], f[MASTER], p[MASTER], g[MASTER], d[MASTER], 1.0e-14 / E, 1e-6, 10);
 //  IASolver fem (gv[MASTER], a[MASTER], f[MASTER], d[MASTER], p[MASTER], g[MASTER]);
-  TwoSolver fem (gv[MASTER], gv[SLAVE], *a[MASTER], *a[SLAVE], *f[MASTER], *f[SLAVE], *d[MASTER], *d[SLAVE], *p[MASTER], *p[SLAVE], glue, 3);
+  TwoSolver fem (gv[MASTER], gv[SLAVE], *a[MASTER], *a[SLAVE], *f[MASTER], *f[SLAVE], *d[MASTER], *d[SLAVE], *p[MASTER], *p[SLAVE], glue);
   
   try {   // Pokemon Exception Handling
     fem.solve();

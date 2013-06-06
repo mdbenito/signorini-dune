@@ -111,7 +111,7 @@ public:
   TwoBodiesIASet (const TGV& _mgv, const TGV& _sgv, const TET& _ma, const TET& _sa,
                   const TFT& _mf, const TFT& _sf, const TDF& _md, const TDF& _sd,
                   const TTF& _mp, const TTF& _sp, const TGT& _glue,
-                  int _quadratureOrder = 4);
+                  int _quadratureOrder = 3);
   
   void setupMatrices ();
   void assemble ();
@@ -434,23 +434,20 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
       for (auto is = gv[body].ibegin (*it) ; is != gv[body].iend (*it) ; ++is) {
         if (p[body].isSupported (*is)) {
           const int  ivnum = ref.size (is->indexInInside (), 1, dim);
-          const auto& igeo = is->geometry ();
-          const auto& ityp = is->type ();
             //cout << "Neumann'ing: "; printCorners (igeo);
           for (int i = 0 ; i < ivnum; ++i) {
             int subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             int   ii = twoMapper->map (body, *it, subi, dim);
               //auto   v = it->template subEntity<dim> (subi)->geometry().center();
               //cout << "Neumann'ing node: " << ii << " at " << v << "\n";
-            
-            for (auto& x : QuadratureRules<ctype, dim-1>::rule (ityp, quadratureOrder)) {
-                // Transform relative (dim-1)-dimensional coord. in local coord.
-              const auto& global = igeo.global (x.position ());
-              const auto& local  = it->geometry().local (global);
+            for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+              const auto&  local = is->geometryInInside().global (x.position ());
+              const auto& global = is->geometry().global (x.position ());
               b[ii] += p[body] (*is, global) *
                        basis[subi].evaluateFunction (local) *
                        x.weight () *
-                       igeo.integrationElement (x.position ());
+//                       is->geometry().integrationElement (x.position()) *
+                       1.0;
             }
           }
         }
@@ -469,7 +466,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
             auto subi = ref.subEntity (is->indexInInside (), 1, i, dim);
             auto global = it->geometry().global (ref.position (subi, dim));
             int ii = twoMapper->map (body, *it, subi , dim);
-//            dirichlet << ii;
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             // Replace the associated line of A and b with a trivial one.
             A[ii] = 0.0;
@@ -482,6 +478,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   }  // end of DOBOTH
   
   g = 0.0;
+
+  const double MAGIC_PARAMETER = 20.0;
   
     //// Compute submatrix D and the gap at the boundary for the computation of
     //// the active index set (slave nodes!)
@@ -491,35 +489,33 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
     if (is->self() && is->neighbor()) {
       const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
       const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        int    ib = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi, dim);
-        check << ib;
-            //auto   v = it->template subEntity<dim> (subi)->geometry().center();
-            //cout << "Setting index for D: " << kk << " at " << v << "\n";
-        for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
-            // Transform relative (dim-1)-dimensional coord. in local coord.
-          const auto&  igeo = is->geometryInInside();
-          const auto& local = igeo.global (x.position ());
+      for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+        const auto&  local_slave = is->geometryInInside().global (x.position ());
+//        const auto& local_master = is->geometryInOutside().global (x.position());
 
-            //               cout << "        quadrature point= " << global << " (" << local
-            //               << ")\n" << "           basis eval[" << subi
-            //               << "]= " << basis[subi].evaluateFunction (local)
-            //               << "\n" << "       multbasis eval[" << subi
-            //               << "]= " << multBasis[subi].evaluateFunction (local) << "\n";
-          D[ib][ib] += I * basis[subi].evaluateFunction (local) *
-                       multBasis[subi].evaluateFunction (local) *
+        for (int i = 0; i < ivnum; ++i) {
+          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+          int    ib = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi, dim);
+          check << ib;
+            // NOTE: we evaluate basis[subi] at local_slave because we are using slave indices, i.e.
+            // the vertex where the basis function is one is based on numbering on the slave.
+            // If we used local_master, because the numbering is inverted (normals are opposed!)
+            // we'd get lots of zeroes, I guess, and this results in a singular matrix (at least
+            // for some 2D problems)
+          D[ib][ib] += I * basis[subi].evaluateFunction (local_slave) *
+                       multBasis[subi].evaluateFunction (local_slave) *
                        x.weight () *
-                       igeo.integrationElement (x.position ());
-          
-          const auto& domainGlobal = is->geometry().global (x.position());
-          const auto& targetGlobal = is->geometryOutside().global (x.position());
-          double gap = (targetGlobal - domainGlobal).two_norm();
+//                       is->geometry().integrationElement (x.position()) *
+                       1.0;
+          const auto&  global_slave = is->geometry().global (x.position());
+          const auto& global_master = is->geometryOutside().global (x.position());
+          double gap = (global_master - global_slave).two_norm();
 //          cout << "gap at " << domainGlobal << " is " << gap << LF;
           g[ib] += gap *
-                   multBasis[subi].evaluateFunction (local) *
+                   multBasis[subi].evaluateFunction (local_slave) *
                    x.weight () *
-                   igeo.integrationElement (x.position ());
+//                   is->geometry().integrationElement (x.position()) *
+                   1.0;
           }
       }
     }
@@ -528,18 +524,6 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   assert (check.size() >= D.N()); // we should've gone through all vertices in the slave gap
   
     //// Compute mortar coupling matrix MM
-  
-  /**********   FIXME FIXME FIXME FIXME FIXME *********  
-   **********   UPD: is this still valid with grid-glue?
-
-   because we traverse intersections, nodes in the master contribute
-   several times (one if the node is at the boundary of the gap) to each node in
-   the slave. Using the hack with std::set<int> visited to fix this seems not to
-   work very well.
-   
-   */
-  
-//  assert ("Check use of geometries here" && false);
   
   for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
     if (is->self() && is->neighbor()) {
@@ -552,23 +536,19 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
       for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
         const auto&  local_slave = is->geometryInInside().global (x.position());
         const auto& local_master = is->geometryInOutside().global (x.position());
-
+        
         for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
           int subi_s = ref_s.subEntity (is->indexInInside (), 1, i_s, dim);
           int   ii_s = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi_s, dim);
           for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
             int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
             int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
-          
-              // cout << " global= " << global << "    local_m= " << local_m
-              //      << "         local_s= " << local_s << LF << "    basis[" << subi_m
-              //      << "]= " << basis[subi_m].evaluateFunction (local_m)
-              //      << "    multbasis[" << subi_s
-              //      << "]= " << multBasis[subi_s].evaluateFunction (local_s) << LF;
+
             MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_master) *
                               multBasis[subi_s].evaluateFunction (local_slave) *
                               x.weight () *
-                              is->geometryInInside().integrationElement (x.position ());
+//                              is->geometry().integrationElement (x.position()) *
+                              MAGIC_PARAMETER;
           }
         }
       }
@@ -833,9 +813,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
 //        auto  localSlave = is->geometry().local (slaveVertex);
 //        coord_t nr = is->unitOuterNormal (localSlave);
          */
-        auto   pos = is->geometryInInside().local (ref.position (i, dim));
+        auto   pos = is->geometryInInside().local (ref.position (i, dim));  // vertex position in intersection local coords
         coord_t nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
         nr /= nr.two_norm ();
+        
         /*
         cout << "pos= " << pos << "\t\tfrom= " << ref.position (i, dim) << LF;
         cout << "is->geometryInOutside().global (pos)= " << is->geometryInOutside().global (pos) << LF;
