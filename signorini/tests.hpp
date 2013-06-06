@@ -209,6 +209,7 @@ void testContactSurfaces (const Glue& glue, std::string base)
         auto slaveVertex = is->geometry().corner (subi);
         auto localSlave = is->geometry().local (slaveVertex);
         nr = is->unitOuterNormal (localSlave);
+        nr *= (body == 0) ? 1.0 : -1.0;
         for (int c = 0; c < dim; ++c)
           normal.at (idx*dim + c) = nr[c];
       }
