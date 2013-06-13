@@ -66,7 +66,7 @@ int main (int argc, char** argv)
   std::srand (clock ());   // Needed somewhere...
   
   #define         DIM   3                 // HACK because of VectorEval...
-  ProblemType problem = PRISM;
+  ProblemType problem = CYLINDER;
   const bool    tests = false;
   const int       dim = DIM;
   const double   E[2] = { 1.0e9, 1.0e9 };
