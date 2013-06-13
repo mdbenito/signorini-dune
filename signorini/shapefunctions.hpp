@@ -361,6 +361,122 @@ private:
 template <class C, int D, class TS>
 Q1ShapeFunctionSet<C, D, TS>* Q1ShapeFunctionSet<C, D, TS>::_instance = 0;
 
+template<class ctype, int dim>
+class NewLagrangeBasisFunction
+{
+  typedef FieldVector<ctype, dim> coord_t;
+  
+  unsigned long mask;
+  
+  ctype g (ctype l, ctype p) const
+  {
+    return 0.0;
+    /*
+    ctype r = 1.0-3.0*l;
+    r *= r*(1.0-1.5*l);
+    r -= 1.5*l*(1.0-l)*(7.0-11.0*l);
+    r += 30.0*p;
+    return r;
+     */
+  }
+  
+public:
+  static const GeometryType::BasicType basicType = GeometryType::simplex;
+  
+  NewLagrangeBasisFunction (unsigned long _mask = 0) : mask (_mask) {
+    dune_static_assert (dim==3, "dim must be 3 for NewLagrangeBasisFunctions");
+  }
+  
+  ctype evaluateFunction (const coord_t& local) const
+  {
+    if (! isSupported (local)) return 0.0;
+    ctype sum = 0.0, prod = 1.0;
+    for (int i=0; i < dim; ++i) {
+      sum += local[i];
+      prod *= local[i];
+    }
+    ctype l0 = 1.0 - sum;
+    
+    switch (mask) {
+      case 0:  // (0,0,0)
+        return 3.0*l0 - local[0] - local[1] - local[2] + g(l0, prod);
+      case 1:  // (1,0,0)
+        return 3.0*local[0] - local[1] - local[2] - l0 + g(local[0], prod);
+      case 2:  // (0,1,0)
+        return 3.0*local[1] - local[2] - local[0] - l0 + g(local[1], prod);
+      case 3:  // (0,0,1)
+        return 3.0*local[2] - local[0] - local[1] - l0 + g(local[2], prod);
+    }
+  }
+  
+    /// TOTALLY WRONG (and unused)
+  inline coord_t evaluateGradient (const coord_t& local) const
+  {
+    switch (mask) {
+      case 0:  // (0,0,0)
+        return coord3(3.0, 3.0, 3.0);
+      case 1:  // (1,0,0)
+        return coord3(3.0, 0.0, 0.0);
+      case 2:  // (0,1,0)
+        return coord3(0.0, 3.0, 0.0);
+      case 3:  // (0,0,1)
+        return coord3(0.0, 0.0, 3.0);
+    }
+  }
+  
+  inline bool isSupported (const coord_t& local) const
+  {
+    ctype sum = 0.0;
+    for (int i=0; i < dim; ++i) {
+      if (local[i] < 0) return false;
+      sum += local[i];
+    }
+    return sum <= 1.0;
+  }
+};
+
+/*! LagrangeShapeFunctionSet
+ 
+ Singleton collection of basis functions... This sucks big time. Should be generic
+ */
+template<class ctype, int dim>
+class LagrangeShapeFunctionSet
+{
+  static const size_t N = dim + 1;
+
+public:
+  static const GeometryType::BasicType basicType = GeometryType::simplex;
+  
+  typedef NewLagrangeBasisFunction<ctype, dim> ShapeFunction;
+  
+  static const LagrangeShapeFunctionSet& instance()
+  {
+    static const LagrangeShapeFunctionSet sfs;
+    return sfs;
+  }
+  
+  inline const ShapeFunction& operator[] (int i) const
+  {
+    if (i < 0 || i >= N)
+      DUNE_THROW (Exception, "Index out of bounds for shape function.");
+    return *(f[i]);
+  }
+  
+  static size_t size() { return N; }
+  
+private:
+  
+  LagrangeShapeFunctionSet()
+  {
+    for (int i = 0; i < N; ++i)
+      f[i] = new ShapeFunction (i);
+  }
+  
+  LagrangeShapeFunctionSet (const LagrangeShapeFunctionSet& other) {}
+  
+  ShapeFunction* f[N];
+};
+
 
 /******************************************************************************
  *                                                                            *
