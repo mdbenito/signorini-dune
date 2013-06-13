@@ -479,7 +479,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   
   g = 0.0;
 
-  const double MAGIC_PARAMETER = 1.0;//20.0;
+    /// HACK HACK HACK
+  double MAGIC_PARAMETER = 1.0; if (dim==3) MAGIC_PARAMETER = 1.0;
   
     //// Compute submatrix D and the gap at the boundary for the computation of
     //// the active index set (slave nodes!)
@@ -503,10 +504,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
             // we'd get lots of zeroes, I guess, and this results in a singular matrix (at least
             // for some 2D problems)
           D[ib][ib] += I * basis[subi].evaluateFunction (local_slave) *
-                       multBasis[subi].evaluateFunction (local_slave) *
+//                       multBasis[subi].evaluateFunction (local_slave) *  // biorthogonality => this is not needed
                        x.weight () *
-//                       is->geometry().integrationElement (x.position()) *
-                       1.0;
+                       is->geometry().integrationElement (x.position()) *
+                       MAGIC_PARAMETER;
           const auto&  global_slave = is->geometry().global (x.position());
           const auto& global_master = is->geometryOutside().global (x.position());
           double gap = (global_master - global_slave).two_norm();
@@ -547,7 +548,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
             MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_master) *
                               multBasis[subi_s].evaluateFunction (local_slave) *
                               x.weight () *
-//                              is->geometry().integrationElement (x.position()) *
+                              is->geometry().integrationElement (x.position()) *
                               MAGIC_PARAMETER;
           }
         }

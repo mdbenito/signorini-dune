@@ -54,11 +54,11 @@ pdo.SetPoints(newPoints)
 
   //// Ok, this sucks big time...
 
-typedef enum { PLATE=0, PRISM=1, CYLINDER=2 } ProblemType;
+typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4 } ProblemType;
 static const std::string meshPath ("/Users/miguel/Devel/Signorini/meshes/");
-static const std::string meshNames[2][3] = {
-  {"plate master.msh", "prism master.msh", "cylinder master.msh"},
-  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh"}
+static const std::string meshNames[2][5] = {
+  {"plate master.msh", "prism master.msh", "cylinder master.msh", "prism master.msh", "plate master.msh"},
+  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh", "cylinder vertical.msh", "indent slave.msh"}
 };
 
 int main (int argc, char** argv)
@@ -66,10 +66,10 @@ int main (int argc, char** argv)
   std::srand (clock ());   // Needed somewhere...
   
   #define         DIM   3                 // HACK because of VectorEval...
-  ProblemType problem = CYLINDER;
+  ProblemType problem = PRISM;
   const bool    tests = false;
   const int       dim = DIM;
-  const double   E[2] = { 1.0e10, 1.0e10 };
+  const double   E[2] = { 1.0e9, 1.0e9 };
   const double  nu[2] = { 0.3,     0.3 };
 
   typedef UGGrid<dim>              grid_t;
@@ -103,7 +103,8 @@ int main (int argc, char** argv)
    */
   
   typedef P1ShapeFunctionSet<ctype, dim, 1, 0>    ShapeSet;
-  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
+//  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
+  typedef LagrangeShapeFunctionSet<ctype, dim> LSShapeSet;
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, DirichletF, NeumannF, GlueType, ShapeSet, LSShapeSet> TwoSolver;
   
   /*
@@ -136,13 +137,14 @@ int main (int argc, char** argv)
 
   switch (problem) {
     case PLATE:
+    case INDENT:
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
-      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  4e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0,  -1e8)));
-      dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.01)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 2e8)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -2e8)));
+      dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
       pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
       pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
       pEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
@@ -153,18 +155,18 @@ int main (int argc, char** argv)
     case PRISM:
       contactGroups  [MASTER] << 1;      contactGroups  [SLAVE] << 1;
 #if DIM == 3
-      fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  4e8, 0.0)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e8, 0.0)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  0.0, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       dEvals[MASTER][6] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.01, 0.0)));
       dEvals[SLAVE][6]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -0.01, 0.0)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
-      pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
-      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
-      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
-      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, -3e6)));
-      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, -3e6)));
-      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
-      pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 3e6)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 
@@ -186,6 +188,25 @@ int main (int argc, char** argv)
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[MASTER][4] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][4]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+#endif
+      break;
+    case PEG:
+      contactGroups  [MASTER] << 1;  contactGroups  [SLAVE] << 1;
+#if DIM == 3
+      fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  4e8, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e7, 0.0)));
+      dEvals[MASTER][6] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.01, 0.0)));
+      dEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -0.01, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord3 (3e6, 0.0, 0.0)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
+      pEvals[MASTER][5] = shared_ptr<VectorEval> (new VectorEval (coord3 (-3e6, 0.0, 0.0)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][4]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      pEvals[SLAVE][6]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
+      cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
       break;
     default:
