@@ -446,8 +446,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
               b[ii] += p[body] (*is, global) *
                        basis[subi].evaluateFunction (local) *
                        x.weight () *
-                       is->geometry().integrationElement (x.position()) *
-                       1.0;
+                       is->geometry().integrationElement (x.position());
             }
           }
         }
@@ -479,7 +478,10 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   
   g = 0.0;
 
-    /// HACK HACK HACK
+    /// (DISABLED) HACK HACK HACK
+    // With the old lagrange multipliers (+2 and -1 at other vertices) this
+    // parameter seemed to fix things. With the NewLagrangeBasisFunction it is
+    // no longer needed.
   double MAGIC_PARAMETER = 1.0; if (dim==3) MAGIC_PARAMETER = 1.0;
   
     //// Compute submatrix D and the gap at the boundary for the computation of
@@ -515,8 +517,7 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
           g[ib] += gap *
                    multBasis[subi].evaluateFunction (local_slave) *
                    x.weight () *
-                   is->geometry().integrationElement (x.position()) *
-                   1.0;
+                   is->geometry().integrationElement (x.position());
           }
       }
     }

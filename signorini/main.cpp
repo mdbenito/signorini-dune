@@ -66,7 +66,7 @@ int main (int argc, char** argv)
   std::srand (clock ());   // Needed somewhere...
   
   #define         DIM   3                 // HACK because of VectorEval...
-  ProblemType problem = PRISM;
+  ProblemType problem = CYLINDER;
   const bool    tests = false;
   const int       dim = DIM;
   const double   E[2] = { 1.0e9, 1.0e9 };
@@ -102,9 +102,12 @@ int main (int argc, char** argv)
   typedef Constraint<coord_t, dim, NeumannF, Dirichlet>              Neumann;
    */
   
-  typedef P1ShapeFunctionSet<ctype, dim, 1, 0>    ShapeSet;
-//  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
+  typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
+#if DIM == 2
+  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
+#elif DIM == 3
   typedef LagrangeShapeFunctionSet<ctype, dim> LSShapeSet;
+#endif
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, DirichletF, NeumannF, GlueType, ShapeSet, LSShapeSet> TwoSolver;
   
   /*
