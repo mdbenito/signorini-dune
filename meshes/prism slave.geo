@@ -21,7 +21,7 @@ Plane Surface(6) = {5};
 
 cube[] = Extrude {0, height, 0} {
   Surface {6};
-  Layers {10*(1-ms)};
+  Layers {{2,1,1,1,2},{1/30,1/15,1/10,1/5,1}};
   //Recombine;
 };
 
