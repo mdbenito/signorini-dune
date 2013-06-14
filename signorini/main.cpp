@@ -54,19 +54,19 @@ pdo.SetPoints(newPoints)
 
   //// Ok, this sucks big time...
 
-typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4 } ProblemType;
+typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4, COGS=5 } ProblemType;
 static const std::string meshPath ("/Users/miguel/Devel/Signorini/meshes/");
-static const std::string meshNames[2][5] = {
-  {"plate master.msh", "prism master.msh", "cylinder master.msh", "prism master.msh", "plate master.msh"},
-  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh", "cylinder vertical.msh", "indent slave.msh"}
+static const std::string meshNames[2][6] = {
+  {"plate master.msh", "prism master.msh", "cylinder master.msh", "prism master.msh", "plate master.msh", "cog master.msh"},
+  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh", "cylinder vertical.msh", "indent slave.msh", "cog slave.msh"}
 };
 
 int main (int argc, char** argv)
 {
   std::srand (clock ());   // Needed somewhere...
   
-  #define         DIM   3                 // HACK because of VectorEval...
-  ProblemType problem = CYLINDER;
+  #define         DIM   2                 // HACK because of VectorEval...
+  ProblemType problem = COGS;
   const bool    tests = false;
   const int       dim = DIM;
   const double   E[2] = { 1.0e9, 1.0e9 };
@@ -155,6 +155,19 @@ int main (int argc, char** argv)
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
       break;
+    case COGS:
+      contactGroups  [MASTER] << 1;       contactGroups  [SLAVE] << 1;
+#if DIM == 2
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 2e8)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -2e8)));
+      dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+#endif
+      break;
     case PRISM:
       contactGroups  [MASTER] << 1;      contactGroups  [SLAVE] << 1;
 #if DIM == 3
@@ -172,7 +185,6 @@ int main (int argc, char** argv)
       pEvals[SLAVE][5]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
       cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
-
 #endif
       break;
     case CYLINDER:
