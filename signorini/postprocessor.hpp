@@ -147,31 +147,44 @@ void PostProcessor<TGV, TET, TMP, TSS>::computeVonMisesSquared ()
 
   std::fill (vm.begin(), vm.end(), 0.0);
   std::vector<int> count (gv.size (dim), 1);
-
+  const int quadOrder = dim;  // TODO
+  
   for (auto it = gv.template begin<0>(); it != gv.template end<0>(); ++it) {
     const auto& ref = GenericReferenceElements<ctype, dim>::general (it->type());
     const int  vnum = ref.size (dim);
-    for (int i = 0; i < vnum; ++i) {
-      auto ii = defaultMapper.map (*it, i, dim);
-      ++count.at(ii);
-      auto local = ref.position (i, dim);
-      block_t  s = a.stress (u[ii], basis[i].evaluateGradient (local));
-      double   t = trace(s);
-      double   r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
-//      cout << "stressing: " << ii << " at " << local << LF;
-      /*
-      double r = 0.0;
-      for (int k=0; k<dim; ++k) {
-        for (int l=0; l<dim; ++l) {
-          r += (s[k][l] + (k==l ? -0.5*t : 0))*(s[k][l] + (k==l ? -0.5*t : 0));
+
+    for (auto& x : QuadratureRules<ctype, dim>::rule (it->type(), quadOrder)) {
+      for (int i = 0; i < vnum; ++i) {
+        auto ii = defaultMapper.map (*it, i, dim);
+        ++count.at(ii);
+        
+        auto local = x.position();
+        auto val = u[ii];
+          // Use barycentric coordinates to interpolate value of u at x
+        if (i > 0) { val *= local[i-1]; }
+        else {
+          ctype sum = 1.0;
+          for (int j = 0; j < dim; ++j) sum -= local[i];
+          val *= sum;
         }
-      }
+        block_t s = a.stress (val, basis[i].evaluateGradient (x.position ()));
+        double  t = trace(s);
+        double  r = -0.5*t*t + 1.5*trace (s.rightmultiplyany (s));
+          //      cout << "stressing: " << ii << " at " << local << LF;
+        /*
+         double r = 0.0;
+         for (int k=0; k<dim; ++k) {
+           for (int l=0; l<dim; ++l) {
+             r += (s[k][l] + (k==l ? -0.5*t : 0))*(s[k][l] + (k==l ? -0.5*t : 0));
+           }
+         }
        */
-      vm.at(ii) += r;
+        vm.at(ii) += r;
+      }
     }
   }
   for (int i = 0; i < vm.size(); ++i)
-    vm.at(i) /= count.at(i);
+    vm.at(i) /= (count.at(i)/quadOrder);
 
   bench().report ("Postprocessing", " done.");
 }

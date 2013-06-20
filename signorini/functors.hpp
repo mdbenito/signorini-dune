@@ -98,7 +98,7 @@ public:
       for (int j = 0; j < dim; ++j)
         for (int k = 0; k < dim; ++k)
           for (int l = 0; l < dim; ++l)
-            s[i][j] += a[i][j][k][l] * u[k] * phi[l];
+            s[i][j] += a[i][j][k][l] * u[k] * phi[l] * u[l] * phi[k] * 0.5;
 
     return s;
   }
