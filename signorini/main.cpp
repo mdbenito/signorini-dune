@@ -103,11 +103,7 @@ int main (int argc, char** argv)
    */
   
   typedef P1ShapeFunctionSet<ctype, dim, 1, 0> ShapeSet;
-#if DIM == 2
-  typedef P1ShapeFunctionSet<ctype, dim, 3, -1> LSShapeSet;
-#elif DIM == 3
   typedef LagrangeShapeFunctionSet<ctype, dim> LSShapeSet;
-#endif
   typedef TwoBodiesIASet<GV, HookeT, VolumeF, DirichletF, NeumannF, GlueType, ShapeSet, LSShapeSet> TwoSolver;
   
   /*

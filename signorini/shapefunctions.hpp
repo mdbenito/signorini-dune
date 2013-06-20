@@ -384,44 +384,36 @@ public:
   static const GeometryType::BasicType basicType = GeometryType::simplex;
   
   NewLagrangeBasisFunction (unsigned long _mask = 0) : mask (_mask) {
-    dune_static_assert (dim==3, "dim must be 3 for NewLagrangeBasisFunctions");
+    dune_static_assert ((dim==2)||(dim==3), "dim must be 2 or 3");
   }
   
+    // Should work for 2D as well.
   ctype evaluateFunction (const coord_t& local) const
   {
     if (! isSupported (local)) return 0.0;
-    ctype sum = 0.0, prod = 1.0;
+    ctype sum = 0.0;//, prod = 1.0;
     for (int i=0; i < dim; ++i) {
       sum += local[i];
-      prod *= local[i];
+//      prod *= local[i];
     }
     ctype l0 = 1.0 - sum;
-    
+    ctype  c = 1.0 * dim;
     switch (mask) {
       case 0:  // (0,0,0)
-        return 3.0*l0 - local[0] - local[1] - local[2] + g(l0, prod);
+        return c*l0 - sum;// + g(l0, prod);
       case 1:  // (1,0,0)
-        return 3.0*local[0] - local[1] - local[2] - l0 + g(local[0], prod);
+        return (c+1.0)*local[0] - 1.0;// + g(local[0], prod);
       case 2:  // (0,1,0)
-        return 3.0*local[1] - local[2] - local[0] - l0 + g(local[1], prod);
+        return (c+1.0)*local[1] - 1.0;// + g(local[1], prod);
       case 3:  // (0,0,1)
-        return 3.0*local[2] - local[0] - local[1] - l0 + g(local[2], prod);
+        return (c+1.0)*local[2] - 1.0;// + g(local[2], prod);
     }
   }
   
-    /// TOTALLY WRONG (and unused)
+    // Unused!
   inline coord_t evaluateGradient (const coord_t& local) const
   {
-    switch (mask) {
-      case 0:  // (0,0,0)
-        return coord3(3.0, 3.0, 3.0);
-      case 1:  // (1,0,0)
-        return coord3(3.0, 0.0, 0.0);
-      case 2:  // (0,1,0)
-        return coord3(0.0, 3.0, 0.0);
-      case 3:  // (0,0,1)
-        return coord3(0.0, 0.0, 3.0);
-    }
+    return coord_t(0.0);
   }
   
   inline bool isSupported (const coord_t& local) const
