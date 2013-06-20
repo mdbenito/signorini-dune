@@ -54,11 +54,11 @@ pdo.SetPoints(newPoints)
 
   //// Ok, this sucks big time...
 
-typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4, COGS=5 } ProblemType;
+typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4, COGS=5, TOOTH=6 } ProblemType;
 static const std::string meshPath ("/Users/miguel/Devel/Signorini/meshes/");
-static const std::string meshNames[2][6] = {
-  {"plate master.msh", "prism master.msh", "cylinder master.msh", "prism master.msh", "plate master.msh", "cog master.msh"},
-  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh", "cylinder vertical.msh", "indent slave.msh", "cog slave.msh"}
+static const std::string meshNames[2][7] = {
+  {"plate master.msh", "prism master.msh", "cylinder master.msh", "prism master.msh", "plate master.msh", "cog master.msh", "tooth master.msh"},
+  {"plate slave.msh",  "prism slave.msh",  "cylinder slave.msh", "cylinder vertical.msh", "indent slave.msh", "cog slave.msh", "tooth slave.msh"}
 };
 
 int main (int argc, char** argv)
@@ -139,14 +139,14 @@ int main (int argc, char** argv)
     case INDENT:
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
-      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 2e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -2e8)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 1e8)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -1e8)));
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
-      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
-      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
-      pEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -3e6)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
@@ -159,7 +159,20 @@ int main (int argc, char** argv)
       dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      pEvals[SLAVE][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+#endif
+      break;
+    case TOOTH:
+      contactGroups  [MASTER] << 1;       contactGroups  [SLAVE] << 1;
+#if DIM == 2
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
+      pEvals[SLAVE][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
       cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
