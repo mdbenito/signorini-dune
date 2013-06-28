@@ -294,7 +294,12 @@ Translate {-0.05, 0, 0} {
 Physical Surface(1) = {9};
 //Physical Line(1) = { 17, 16, 15, 14, 13, 108, 107, 106, 105 };  // Teeth in contact
 //Physical Line(2) = { 117, 116, 18, 113, 114 }; // Neumann
-Physical Line(1) = { 13 };  // Teeth in contact
-Physical Line(2) = { 117, 116, 18, 113, 114, 17, 16, 15, 14, 108, 107, 106, 105 }; // Neumann
+
+Physical Line(10) = { 13 };        // Teeth in contact
+Physical Line(11) = { 105, 106 };
+Physical Line(12) = { 14, 15 };
+Physical Line(13) = { 107 };
+
+Physical Line(2) = { 117, 116, 18, 113, 114, 17, 16, 108 }; // Neumann
 Physical Line(3) = { 111, 118 };  // Dirichlet
 
