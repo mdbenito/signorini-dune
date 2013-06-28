@@ -183,6 +183,10 @@ Line(465) = {634, 208};
 Line Loop(107) = {460, 397, 398, 399, 400, 401, 402, 403, 465, 462, 463, 464, 459};
 Plane Surface(107) = {107};
 
+/****************************************************************************
+ * Extra points to refine the mesh around
+ ****************************************************************************/
+
 Point(700) = {-2, 34, 0.0, 2*ms};
 Point(701) = {2, 34, 0.0, 2*ms};
 Point(702) = {0, 25, 0.0, 8*ms};
@@ -195,9 +199,13 @@ Point{702} In Surface{107};
 Point{703} In Surface{107};
 Point{704} In Surface{107};
 
+// TODO: remove possible bogus points (see "cog slave.geo")
+
+/****************************************************************************
+ * Define physical entities
+ ****************************************************************************/
+
 Physical Surface(1) = {107};
-//Physical Line(1) = { 403, 402, 401, 400, 399, 398, 397, 460 };  // Teeth in contact
-//Physical Line(2) = { 465, 459, 464 }; // Neumann
 
 Physical Line(10) = { 400, 401 };  // Teeth in contact
 Physical Line(11) = { 460, 397 };
