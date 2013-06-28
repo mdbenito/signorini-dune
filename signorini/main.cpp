@@ -66,7 +66,7 @@ int main (int argc, char** argv)
   std::srand (clock ());   // Needed somewhere...
   
   #define         DIM   2                 // HACK because of VectorEval...
-  ProblemType problem = COGS;
+  ProblemType problem = INDENT;
   const bool    tests = false;
   const int       dim = DIM;
   const double   E[2] = { 1.0e9, 1.0e9 };
@@ -139,14 +139,14 @@ int main (int argc, char** argv)
     case INDENT:
       contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
-      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 1e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -1e8)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 1e2)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 1e2)));
       dEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -0.01)));
+      pEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -2e8)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       pEvals[MASTER][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      pEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      pEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[SLAVE][2]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[SLAVE][4] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       cEvals[MASTER][3] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif

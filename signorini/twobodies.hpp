@@ -115,7 +115,7 @@ public:
   
   void setupMatrices ();
   void assemble ();
-  void determineActive ();
+  void determineActive (bool hack=false);
   void step (int cnt);
   void solve ();
   
@@ -154,7 +154,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
   for (int i=0; i < dim; ++i)
     I[i][i] = 1.0;
   
-    //// Initialize the mapper setting all nodes in the gap to inactive:
+    //// Initialize the mapper setting all nodes in the gap to (in)active:
   /*
    Careful: vertices may be shared by faces in and out of the gap.
    We mustn't count them twice, and the gap has "priority", meaning that a
@@ -177,7 +177,13 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
         IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
         if (other[SLAVE].find (id) != other[SLAVE].end())
           other[SLAVE].erase (id);
-        inactive[SLAVE] << id;
+        if (is->geometry().corner (subi) == coord2 (0.5, 0.01)) {
+          active[SLAVE] << id;
+          inactive[SLAVE].erase (id);
+        } else {
+        if (active[SLAVE].find (id) == active[SLAVE].end())
+          inactive[SLAVE] << id;
+        }
       }
       const auto& oref = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
       const int ovnum = oref.size (is->indexInOutside (), 1, dim);
@@ -192,19 +198,20 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
   }
   
   DOBOTH (body) {
-//    cout << "inactive[" << body << "] = " << inactive[body].size() << LF;
-//    cout << "active[" << body << "] = " << active[body].size() << LF;
-//    cout << "other[" << body << "] = " << other[body].size() << LF;
+    cout << "inactive[" << body << "] = " << inactive[body].size() << LF;
+    cout << "active[" << body << "] = " << active[body].size() << LF;
+    cout << "other[" << body << "] = " << other[body].size() << LF;
     assert (inactive[body].size() + active[body].size() + other[body].size() == gv[body].size (dim));
   }
   
   twoMapper = new TwoMapper (gv, active, inactive, other);
 
     //// Other initializations
-  g.resize (inactive[SLAVE].size());
-  n_d.resize (inactive[SLAVE].size());
-  n_u.resize (inactive[SLAVE].size());
-  n_m.resize (inactive[SLAVE].size());
+  auto size = active[SLAVE].size() + inactive[SLAVE].size();
+  g.resize (size);
+  n_d.resize (size);
+  n_u.resize (size);
+  n_m.resize (size);
   n_d = 0.0;
   n_u = 0.0;
   n_m = 0.0;
@@ -325,29 +332,31 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
 /*!
  */
 template<class TGV, class TET, class TFT, class TDF, class TTF, class TGT, class TSS, class TLM>
-void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive ()
+void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive (bool hack)
 {
-   // all nodes inactive for default values == 0
-  ASFunctor contact (g, n_u, n_m);
-  
-  active[SLAVE].clear();
-  inactive[SLAVE].clear();
+  if (! hack) {
+      // all nodes inactive for default values == 0
+    ASFunctor contact (g, n_u, n_m);
 
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
-        if (contact.isSupported (twoMapper->mapInBoundary (SLAVE, id)))
-          active[SLAVE] << id;
-        else
-          inactive[SLAVE] << id;
+    active[SLAVE].clear();
+    inactive[SLAVE].clear();
+    
+    for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const int ivnum = ref.size (is->indexInInside (), 1, dim);
+        for (int i = 0; i < ivnum; ++i) {
+          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+          IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
+          if (contact.isSupported (twoMapper->mapInBoundary (SLAVE, id)))
+            active[SLAVE] << id;
+          else
+            inactive[SLAVE] << id;
+        }
       }
     }
   }
-
+  
   twoMapper->update (active, inactive, other);
 
   cout << "\nInactive: " << inactive[SLAVE].size() << ": ";
@@ -467,9 +476,18 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
             int ii = twoMapper->map (body, *it, subi , dim);
               //cout << "Dirichlet'ing node: " << ii << " at " << v << "\n";
             // Replace the associated line of A and b with a trivial one.
-            A[ii] = 0.0;
-            A[ii][ii] = I;
-            b[ii] = dir[body] (*is, global);
+            // hack for the plates:
+            if (body == SLAVE) {
+              auto tmp = A[ii][ii];
+              tmp[0][0] = 1.0; tmp[0][1] = 0.0;
+              A[ii] = 0.0;
+              A[ii][ii] = tmp;
+              b[ii][0] = dir[body] (*is, global)[0];
+            } else {
+              A[ii] = 0.0;
+              A[ii][ii] = I;
+              b[ii] = dir[body] (*is, global);
+            }
           }
         }
       }
@@ -478,10 +496,13 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   
   g = 0.0;
 
-    /// (DISABLED) HACK HACK HACK
-    // With the old lagrange multipliers (+2 and -1 at other vertices) this
-    // parameter seemed to fix things. With the NewLagrangeBasisFunction it is
-    // no longer needed.
+    /* (DISABLED) HACK HACK HACK
+     With the old lagrange multipliers (+2 and -1 at other vertices) in 3D this
+     parameter seemed to fix things. The problem was that the scalar product of
+     one basis function with itself was not 1 but 1/2. With the NewLagrangeBasisFunction,
+     the biorthogonality condition is properly enforced and the effect that this
+     scaling of the mass matrix had, explained.
+     */
   double MAGIC_PARAMETER = 1.0; if (dim==3) MAGIC_PARAMETER = 1.0;
   
     //// Compute submatrix D and the gap at the boundary for the computation of
@@ -952,7 +973,8 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::solve ()
   bench().start ("Solving");
   while (true && ++cnt <= maxiter) {
     bench().start ("Active set initialization", false);
-    determineActive();  // needs g, n_u, n_m computed from last iteration or =0
+      // HACK to preserve the initialization done in the constructor
+    determineActive (false);  // needs g, n_u, n_m computed from last iteration or =0
     bench().stop ("Active set initialization");
     bench().start ("Adjacency computation");
     setupMatrices();  // resets sparse matrix info according to new active/inactive sets
