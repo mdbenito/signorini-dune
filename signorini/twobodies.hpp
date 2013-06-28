@@ -87,7 +87,7 @@ private:
   TwoRefs<TFT> f;    //!< Volume forces
   TwoRefs<TDF> dir;  //!< Dirichlet conditions
   TwoRefs<TTF> p;    //!< Boundary forces
-  const TGT&   glue; //!< Glue Grid at the gap
+  const std::vector<const TGT*> gluedPieces; //!< Glue Grid at the gap
 
   block_t      I;    //!< Identity matrix block (Dune::DiagonalMatrix not working?)
   BlockMatrix  A;    //!< Stiffness matrix
@@ -110,7 +110,7 @@ private:
 public:
   TwoBodiesIASet (const TGV& _mgv, const TGV& _sgv, const TET& _ma, const TET& _sa,
                   const TFT& _mf, const TFT& _sf, const TDF& _md, const TDF& _sd,
-                  const TTF& _mp, const TTF& _sp, const TGT& _glue,
+                  const TTF& _mp, const TTF& _sp, const std::vector<const TGT*>& _gluedPieces,
                   int _quadratureOrder = 3);
   
   void setupMatrices ();
@@ -137,7 +137,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
                                                                         const TDF& _sd,
                                                                         const TTF& _mp,
                                                                         const TTF& _sp,
-                                                                        const TGT& _glue,
+                                                                        const std::vector<const TGT*>& _gluedPieces,
                                                                         int _quadratureOrder)
 :
   gv (TwoRefs<TGV> (_mgv, _sgv)),
@@ -146,7 +146,7 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
   f (TwoRefs<TFT> (_mf, _sf)),
   dir (TwoRefs<TDF> (_md, _sd)),
   p (TwoRefs<TTF> (_mp, _sp)),
-  glue (_glue),
+  gluedPieces (_gluedPieces),
   quadratureOrder (_quadratureOrder),
   inactive(), active(), other()
 {
@@ -168,25 +168,27 @@ TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::TwoBodiesIASet (const TG
   }
   
     // Then traverse the glued grid
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& iref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = iref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = iref.subEntity (is->indexInInside (), 1, i, dim);
-        IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
-        if (other[SLAVE].find (id) != other[SLAVE].end())
-          other[SLAVE].erase (id);
-        inactive[SLAVE] << id;
-      }
-      const auto& oref = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
-      const int ovnum = oref.size (is->indexInOutside (), 1, dim);
-      for (int i = 0; i < ovnum; ++i) {
-        int  subi = oref.subEntity (is->indexInOutside (), 1, i, dim);
-        IdType id = gids[MASTER].subId (*(is->outside()), subi, dim);
-        if (other[MASTER].find (id) != other[MASTER].end())
-          other[MASTER].erase (id);
-        inactive[MASTER] << id;
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& iref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const int ivnum = iref.size (is->indexInInside (), 1, dim);
+        for (int i = 0; i < ivnum; ++i) {
+          int  subi = iref.subEntity (is->indexInInside (), 1, i, dim);
+          IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
+          if (other[SLAVE].find (id) != other[SLAVE].end())
+            other[SLAVE].erase (id);
+          inactive[SLAVE] << id;
+        }
+        const auto& oref = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
+        const int ovnum = oref.size (is->indexInOutside (), 1, dim);
+        for (int i = 0; i < ovnum; ++i) {
+          int  subi = oref.subEntity (is->indexInOutside (), 1, i, dim);
+          IdType id = gids[MASTER].subId (*(is->outside()), subi, dim);
+          if (other[MASTER].find (id) != other[MASTER].end())
+            other[MASTER].erase (id);
+          inactive[MASTER] << id;
+        }
       }
     }
   }
@@ -253,22 +255,24 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::setupMatrices ()
   
   bench().start ("Adjacency for coupling matrix", false);
   std::vector<std::set<int> > couplingPattern (ingap_s);
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref_s = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const auto& ref_m = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
-      
-      const int ivnum_s = ref_s.size (is->indexInInside (), 1, dim);
-      const int ivnum_m = ref_m.size (is->indexInOutside (), 1, dim);
-      
-      for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
-        int subi_s = ref_s.subEntity (is->indexInInside (), 1, i_s, dim);
-        int   ii_s = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi_s, dim);
-        for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
-          int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
-          int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
-          
-          couplingPattern.at (ii_s).insert (ii_m);
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref_s = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const auto& ref_m = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
+        
+        const int ivnum_s = ref_s.size (is->indexInInside (), 1, dim);
+        const int ivnum_m = ref_m.size (is->indexInOutside (), 1, dim);
+        
+        for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
+          int subi_s = ref_s.subEntity (is->indexInInside (), 1, i_s, dim);
+          int   ii_s = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi_s, dim);
+          for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
+            int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
+            int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
+            
+            couplingPattern.at (ii_s).insert (ii_m);
+          }
         }
       }
     }
@@ -333,17 +337,19 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::determineActive ()
   active[SLAVE].clear();
   inactive[SLAVE].clear();
 
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
-        if (contact.isSupported (twoMapper->mapInBoundary (SLAVE, id)))
-          active[SLAVE] << id;
-        else
-          inactive[SLAVE] << id;
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const int ivnum = ref.size (is->indexInInside (), 1, dim);
+        for (int i = 0; i < ivnum; ++i) {
+          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+          IdType id = gids[SLAVE].subId (*(is->inside()), subi, dim);
+          if (contact.isSupported (twoMapper->mapInBoundary (SLAVE, id)))
+            active[SLAVE] << id;
+          else
+            inactive[SLAVE] << id;
+        }
       }
     }
   }
@@ -488,37 +494,39 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
     //// the active index set (slave nodes!)
   
   std::set<int> check;
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
-        const auto&  local_slave = is->geometryInInside().global (x.position ());
-//        const auto& local_master = is->geometryInOutside().global (x.position());
-
-        for (int i = 0; i < ivnum; ++i) {
-          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-          int    ib = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi, dim);
-          check << ib;
-            // NOTE: we evaluate basis[subi] at local_slave because we are using slave indices, i.e.
-            // the vertex where the basis function is one is based on numbering on the slave.
-            // If we used local_master, because the numbering is inverted (normals are opposed!)
-            // we'd get lots of zeroes, I guess, and this results in a singular matrix (at least
-            // for some 2D problems)
-          D[ib][ib] += I * basis[subi].evaluateFunction (local_slave) *
-//                       multBasis[subi].evaluateFunction (local_slave) *  // biorthogonality => this is not needed
-                       x.weight () *
-                       is->geometry().integrationElement (x.position()) *
-                       MAGIC_PARAMETER;
-          const auto&  global_slave = is->geometry().global (x.position());
-          const auto& global_master = is->geometryOutside().global (x.position());
-          double gap = (global_master - global_slave).two_norm();
-//          cout << "gap at " << domainGlobal << " is " << gap << LF;
-          g[ib] += gap *
-                   multBasis[subi].evaluateFunction (local_slave) *
-                   x.weight () *
-                   is->geometry().integrationElement (x.position());
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const int ivnum = ref.size (is->indexInInside (), 1, dim);
+        for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+          const auto&  local_slave = is->geometryInInside().global (x.position ());
+            //        const auto& local_master = is->geometryInOutside().global (x.position());
+          
+          for (int i = 0; i < ivnum; ++i) {
+            int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+            int    ib = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi, dim);
+            check << ib;
+              // NOTE: we evaluate basis[subi] at local_slave because we are using slave indices, i.e.
+              // the vertex where the basis function is one is based on numbering on the slave.
+              // If we used local_master, because the numbering is inverted (normals are opposed!)
+              // we'd get lots of zeroes, I guess, and this results in a singular matrix (at least
+              // for some 2D problems)
+            D[ib][ib] += I * basis[subi].evaluateFunction (local_slave) *
+              //                       multBasis[subi].evaluateFunction (local_slave) *  // biorthogonality => this is not needed
+            x.weight () *
+            is->geometry().integrationElement (x.position()) *
+            MAGIC_PARAMETER;
+            const auto&  global_slave = is->geometry().global (x.position());
+            const auto& global_master = is->geometryOutside().global (x.position());
+            double gap = (global_master - global_slave).two_norm();
+              //          cout << "gap at " << domainGlobal << " is " << gap << LF;
+            g[ib] += gap *
+            multBasis[subi].evaluateFunction (local_slave) *
+            x.weight () *
+            is->geometry().integrationElement (x.position());
           }
+        }
       }
     }
   }
@@ -526,31 +534,32 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::assemble ()
   assert (check.size() >= D.N()); // we should've gone through all vertices in the slave gap
   
     //// Compute mortar coupling matrix MM
-  
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref_s = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const auto& ref_m = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
-      
-      const int ivnum_s = ref_s.size (is->indexInInside (), 1, dim);
-      const int ivnum_m = ref_m.size (is->indexInOutside (), 1, dim);
-      
-      for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
-        const auto&  local_slave = is->geometryInInside().global (x.position());
-        const auto& local_master = is->geometryInOutside().global (x.position());
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref_s = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const auto& ref_m = GenericReferenceElements<ctype, dim>::general (is->outside()->type());
         
-        for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
-          int subi_s = ref_s.subEntity (is->indexInInside (), 1, i_s, dim);
-          int   ii_s = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi_s, dim);
-          for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
-            int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
-            int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
-
-            MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_master) *
-                              multBasis[subi_s].evaluateFunction (local_slave) *
-                              x.weight () *
-                              is->geometry().integrationElement (x.position()) *
-                              MAGIC_PARAMETER;
+        const int ivnum_s = ref_s.size (is->indexInInside (), 1, dim);
+        const int ivnum_m = ref_m.size (is->indexInOutside (), 1, dim);
+        
+        for (auto& x : QuadratureRules<ctype, dim-1>::rule (is->type(), quadratureOrder)) {
+          const auto&  local_slave = is->geometryInInside().global (x.position());
+          const auto& local_master = is->geometryInOutside().global (x.position());
+          
+          for (int i_s = 0 ; i_s < ivnum_s; ++i_s) {
+            int subi_s = ref_s.subEntity (is->indexInInside (), 1, i_s, dim);
+            int   ii_s = twoMapper->mapInBoundary (SLAVE, *(is->inside()), subi_s, dim);
+            for (int i_m = 0 ; i_m < ivnum_m; ++i_m) {
+              int subi_m = ref_m.subEntity (is->indexInOutside (), 1, i_m, dim);
+              int   ii_m = twoMapper->mapInBoundary (MASTER, *(is->outside()), subi_m, dim);
+              
+              MM[ii_s][ii_m] += I * basis[subi_m].evaluateFunction (local_master) *
+              multBasis[subi_s].evaluateFunction (local_slave) *
+              x.weight () *
+              is->geometry().integrationElement (x.position()) *
+              MAGIC_PARAMETER;
+            }
           }
         }
       }
@@ -797,68 +806,69 @@ void TwoBodiesIASet<TGV, TET, TFT, TDF, TTF, TGT, TSS, TLM>::step (int cnt)
     //             |    0      0      0      0   T_A |
     //             |    0      0    N_A      0     0 |
   std::vector<int> n_d_count (n_d.size(), 0);  // count of vertices contributing to the computation of each n_d[i]
-  for (auto is = glue.template ibegin<SLAVE>(); is != glue.template iend<SLAVE>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto&  in = is->inside();
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (in->type());
-      const int  vnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0 ; i < vnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        IdType id = gids[SLAVE].subId (*in, subi, dim);
-        int    ib = twoMapper->mapInBoundary (SLAVE, id);
-
-        /*
-          // Careful: unitOuterNormal is not what we need, instead we want the
-          // interpolated, continuous normal that psurface calculated and stored
-          // in the inside/outside geometries.
-//        auto slaveVertex = is->geometry().corner (subi);
-//        auto  localSlave = is->geometry().local (slaveVertex);
-//        coord_t nr = is->unitOuterNormal (localSlave);
-         */
-        auto   pos = is->geometryInInside().local (ref.position (i, dim));  // vertex position in intersection local coords
-        coord_t nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
-        nr /= nr.two_norm ();
-        
-        /*
-        cout << "pos= " << pos << "\t\tfrom= " << ref.position (i, dim) << LF;
-        cout << "is->geometryInOutside().global (pos)= " << is->geometryInOutside().global (pos) << LF;
-        cout << " is->geometryInInside().global (pos)= " << is->geometryInInside().global (pos) << LF;
-        cout << "         is->geometry().global (pos)= " << is->geometry().global (pos) << LF;
-        cout << "  is->geometryOutside().global (pos)= " << is->geometryOutside().global (pos) << LF;
-        cout << "                                  nr= " << nr << LF;
-         */
-        coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
-        n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
-        n_d_count.at(ib) += 1;
-        
-          //cout << "ib= " << ib << LF;
-        if (active[SLAVE].find (id) != active[SLAVE].end()) {
-          int ia = twoMapper->mapInActive (SLAVE, id);
-//          cout << "Found active: " << id << " -> " << ia << "\n";
-//          auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<SLAVE>(); is != glue->template iend<SLAVE>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto&  in = is->inside();
+        const auto& ref = GenericReferenceElements<ctype, dim>::general (in->type());
+        const int  vnum = ref.size (is->indexInInside (), 1, dim);
+        for (int i = 0 ; i < vnum; ++i) {
+          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+          IdType id = gids[SLAVE].subId (*in, subi, dim);
+          int    ib = twoMapper->mapInBoundary (SLAVE, id);
           
-            // first the tangential stuff for the multipliers.
-          std::vector<coord_t> tg = basisOfPlaneNormalTo (nr);  // dim-1 items
+          /*
+           // Careful: unitOuterNormal is not what we need, instead we want the
+           // interpolated, continuous normal that psurface calculated and stored
+           // in the inside/outside geometries.
+           //        auto slaveVertex = is->geometry().corner (subi);
+           //        auto  localSlave = is->geometry().local (slaveVertex);
+           //        coord_t nr = is->unitOuterNormal (localSlave);
+           */
+          auto   pos = is->geometryInInside().local (ref.position (i, dim));  // vertex position in intersection local coords
+          coord_t nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
+          nr /= nr.two_norm ();
+          
+          /*
+           cout << "pos= " << pos << "\t\tfrom= " << ref.position (i, dim) << LF;
+           cout << "is->geometryInOutside().global (pos)= " << is->geometryInOutside().global (pos) << LF;
+           cout << " is->geometryInInside().global (pos)= " << is->geometryInInside().global (pos) << LF;
+           cout << "         is->geometry().global (pos)= " << is->geometry().global (pos) << LF;
+           cout << "  is->geometryOutside().global (pos)= " << is->geometryOutside().global (pos) << LF;
+           cout << "                                  nr= " << nr << LF;
+           */
+          coord_t D_nr = FMatrixHelp::mult (D[ib][ib], nr);
+          n_d[ib] += D_nr; // FIXME: we shouldn't compute this here
+          n_d_count.at(ib) += 1;
+          
+            //cout << "ib= " << ib << LF;
+          if (active[SLAVE].find (id) != active[SLAVE].end()) {
+            int ia = twoMapper->mapInActive (SLAVE, id);
+              //          cout << "Found active: " << id << " -> " << ia << "\n";
+              //          auto ipos = is->inside()->template subEntity<dim>(subi)->geometry().center();
             
-          int ii = (n_T + n_I)*dim + ia*(dim-1);
-//          cout << "ii= " << ii << "\n";
-          for (int j = 0; j < dim-1; ++j)
-            for (int k = 0; k < dim; ++k)
-              B[ii+j][(n_T+ib)*dim+k] = tg.at(j)[k]; //FIXME: why a sum?
+              // first the tangential stuff for the multipliers.
+            std::vector<coord_t> tg = basisOfPlaneNormalTo (nr);  // dim-1 items
             
-          c[ii] = 0.0;
+            int ii = (n_T + n_I)*dim + ia*(dim-1);
+              //          cout << "ii= " << ii << "\n";
+            for (int j = 0; j < dim-1; ++j)
+              for (int k = 0; k < dim; ++k)
+                B[ii+j][(n_T+ib)*dim+k] = tg.at(j)[k]; //FIXME: why a sum?
             
-            // now the last rows
-          ii = (n_T + n_I)*dim + n_A*(dim-1) + ia;
-          int jj = twoMapper->map (SLAVE, id)*dim;
-//          cout << "ii= " << ii << ", jj= " << jj << "\n";
-          for (int j = 0; j < dim; ++j)
-            B[ii][jj+j] = D_nr[j]; //FIXME: why a sum?
+            c[ii] = 0.0;
+            
+              // now the last rows
+            ii = (n_T + n_I)*dim + n_A*(dim-1) + ia;
+            int jj = twoMapper->map (SLAVE, id)*dim;
+              //          cout << "ii= " << ii << ", jj= " << jj << "\n";
+            for (int j = 0; j < dim; ++j)
+              B[ii][jj+j] = D_nr[j]; //FIXME: why a sum?
+          }
         }
       }
     }
   }
-
 //  cout << "Scaling n_d.\n";
     // Fix the computation of n_d averaging through the number of vertices
     // contributing to each node.

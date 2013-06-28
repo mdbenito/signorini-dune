@@ -52,6 +52,20 @@ pdo.SetPoints(newPoints)
 #include "twobodies.hpp"
 #include "physicalgroupdescriptors.hpp"
 
+typedef struct {
+  typedef std::set<int>       IntSet;
+  IntSet master;
+  IntSet slave;
+  IntSet& operator[] (int i)
+  {
+    switch (i) {
+      case MASTER: return master;
+      case SLAVE: return slave;
+      default: throw (new Exception());
+    }
+  }
+} TwoIntSets;
+
   //// Ok, this sucks big time...
 
 typedef enum { PLATE=0, PRISM=1, CYLINDER=2, PEG=3, INDENT=4, COGS=5, TOOTH=6 } ProblemType;
@@ -121,13 +135,18 @@ int main (int argc, char** argv)
    //  typedef SignoriniIASet<GV, HookeT, VolumeF, Dirichlet, BoundaryF, Gap, ShapeSet, LSShapeSet> IASolver;
    */
 
+  typedef std::set<int>       IntSet;
+  typedef std::vector<int> IntVector;
+  
   factory_t        factories[2];
   grid_t*              grids[2];
   GmshReader<grid_t> readers[2];
-  std::vector<int>     bi2pe[2]; // Boundary ids to gmsh physical entities
-  std::vector<int>     ei2pe[2]; // Element indices to gmsh physical entities
+  IntVector            bi2pe[2]; // Boundary ids to gmsh physical entities
+  IntVector           ei2pe[2]; // Element indices to gmsh physical entities
 
-  std::set<int> volumeGroups[2], contactGroups[2], dirichletGroups[2], neumannGroups[2];
+  IntSet volumeGroups[2], dirichletGroups[2], neumannGroups[2];
+  std::vector<TwoIntSets> contactGroups(1);
+  
   HookeT* a[2]; VolumeF* f[2];  DirichletF* d[2];  NeumannF* p[2];  ContactF* g[2];
   VectorEvalsMap fEvals[2], dEvals[2], pEvals[2];
   ScalarEvalsMap cEvals[2];
@@ -137,7 +156,7 @@ int main (int argc, char** argv)
   switch (problem) {
     case PLATE:
     case INDENT:
-      contactGroups  [MASTER] << 3;       contactGroups  [SLAVE] << 1;
+      contactGroups.at(0)[MASTER] << 3;       contactGroups.at(0)[SLAVE] << 1;
 #if DIM == 2
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 1e8)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -1e8)));
@@ -152,20 +171,30 @@ int main (int argc, char** argv)
 #endif
       break;
     case COGS:
-      contactGroups  [MASTER] << 1;       contactGroups  [SLAVE] << 1;
+      contactGroups.resize(4);
+      contactGroups.at(0)[MASTER] << 10;       contactGroups.at(0)[SLAVE] << 10;
+      contactGroups.at(1)[MASTER] << 11;       contactGroups.at(1)[SLAVE] << 11;
+      contactGroups.at(2)[MASTER] << 12;       contactGroups.at(2)[SLAVE] << 12;
+      contactGroups.at(3)[MASTER] << 13;       contactGroups.at(3)[SLAVE] << 13;
 #if DIM == 2
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (-0.1, 0.0)));
-      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.1, 0.0)));
+      dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (-0.1, 0.1)));
+      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.1, -0.1)));
       pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       pEvals[SLAVE][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
-      cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[MASTER][10] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[SLAVE][10]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
+      cEvals[MASTER][11] = shared_ptr<ScalarEval> (new ScalarEval (2.0));
+      cEvals[SLAVE][11]  = shared_ptr<ScalarEval> (new ScalarEval (2.0));
+      cEvals[MASTER][12] = shared_ptr<ScalarEval> (new ScalarEval (3.0));
+      cEvals[SLAVE][12]  = shared_ptr<ScalarEval> (new ScalarEval (3.0));
+      cEvals[MASTER][13] = shared_ptr<ScalarEval> (new ScalarEval (4.0));
+      cEvals[SLAVE][13]  = shared_ptr<ScalarEval> (new ScalarEval (4.0));
 #endif
       break;
     case TOOTH:
-      contactGroups  [MASTER] << 1;       contactGroups  [SLAVE] << 1;
+      contactGroups.at(0)[MASTER] << 1;       contactGroups.at(0)[SLAVE] << 1;
 #if DIM == 2
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
@@ -178,7 +207,7 @@ int main (int argc, char** argv)
 #endif
       break;
     case PRISM:
-      contactGroups  [MASTER] << 1;      contactGroups  [SLAVE] << 1;
+      contactGroups.at(0)[MASTER] << 1;      contactGroups.at(0)[SLAVE] << 1;
 #if DIM == 3
       fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  0.0, 0.0)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, 0.0, 0.0)));
@@ -197,7 +226,7 @@ int main (int argc, char** argv)
 #endif
       break;
     case CYLINDER:
-      contactGroups  [MASTER] << 3 << 4;  contactGroups  [SLAVE] << 4;
+      contactGroups.at(0)[MASTER] << 3 << 4;  contactGroups.at(0)[SLAVE] << 4;
 #if DIM == 3
       fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0,  4e7, 0.0)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e7, 0.0)));
@@ -215,7 +244,7 @@ int main (int argc, char** argv)
 #endif
       break;
     case PEG:
-      contactGroups  [MASTER] << 1;  contactGroups  [SLAVE] << 1;
+      contactGroups.at(0)[MASTER] << 1;       contactGroups.at(0)[SLAVE] << 1;
 #if DIM == 3
       fEvals[MASTER][1] = shared_ptr<VectorEval>(new VectorEval (coord3 (0.0,  4e8, 0.0)));
       fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord3 (0.0, -4e7, 0.0)));
@@ -241,12 +270,6 @@ int main (int argc, char** argv)
   DOBOTH (body) {
     readers[body].read (factories[body], meshPath + meshNames[body][problem], bi2pe[body], ei2pe[body]);
     grids[body] = factories[body].createGrid();
-
-    descriptors[body] = new FaceDescriptor (factories[body], bi2pe[body], contactGroups[body]);
-    
-      ///FIXME!!! instantiating here the extractors[] results in both referring to the same GridView:
-      // the glue has then both views pointing to the master... WTF?!?!?
-//    extractors[body]  = new SurfaceExtractor (grids[body]->leafView(), *descriptors[body]);
     
     a[body] = new HookeT (E[body], nu[body]);
     f[body] = new VolumeF (factories[body], ei2pe[body], &fEvals[body]);
@@ -264,15 +287,22 @@ int main (int argc, char** argv)
     gg[body] = new Contact (*g[body], true, new EndDirichlet (*d[body], false));
      */
   }
-    // HACK: see above why we don't do this in the loop.
-  extractors[MASTER] = new SurfaceExtractor (grids[MASTER]->leafView(), *descriptors[MASTER]);
-  extractors[SLAVE]  = new SurfaceExtractor (grids[SLAVE]->leafView(), *descriptors[SLAVE]);
   
-  SurfaceMergeImpl merger;
-  GlueType glue (*extractors[MASTER], *extractors[SLAVE], &merger); // FIXME: I've switched the names/roles!!
-  glue.build ();
-  assert (glue.size() > 0);
-  
+  std::vector<const GlueType*> gluedPieces;
+    ///FIXME!!! instantiating in the loop the extractors[] results in both referring to the same GridView:
+    // the glue has then both views pointing to the master... WTF?!?!?
+    //    extractors[body]  = new SurfaceExtractor (grids[body]->leafView(), *descriptors[body]);
+  for (auto contactPair : contactGroups) {
+    descriptors[MASTER] = new FaceDescriptor (factories[MASTER], bi2pe[MASTER], contactPair[MASTER]);
+    descriptors[SLAVE] = new FaceDescriptor (factories[SLAVE], bi2pe[SLAVE], contactPair[SLAVE]);
+    extractors[MASTER] = new SurfaceExtractor (grids[MASTER]->leafView(), *descriptors[MASTER]);
+    extractors[SLAVE]  = new SurfaceExtractor (grids[SLAVE]->leafView(), *descriptors[SLAVE]);
+    SurfaceMergeImpl merger;
+    GlueType* glue = new GlueType (*extractors[MASTER], *extractors[SLAVE], &merger); // FIXME: I've switched the names/roles!!
+    glue->build ();
+    assert (glue->size() > 0);
+    gluedPieces.push_back (glue);
+  }
   TwoRefs<GV> gv (grids[MASTER]->leafView(), grids[SLAVE]->leafView());
 
   if (tests) {
@@ -285,14 +315,14 @@ int main (int argc, char** argv)
       testGmshBoundaryFunctor (gv[body], *d[body], string ("/tmp/test-dirichlet-") + body);
       testGmshBoundaryFunctor (gv[body], *g[body], string ("/tmp/test-gap-") + body);
     }
-    testContactSurfaces<GlueType, MASTER> (glue, "/tmp/test-glue");
-    testContactSurfaces<GlueType, SLAVE> (glue, "/tmp/test-glue");
+    testContactSurfaces<GlueType, MASTER> (gluedPieces, "/tmp/test-glue");
+    testContactSurfaces<GlueType, SLAVE> (gluedPieces, "/tmp/test-glue");
     exit (1);
   }
 
 //  PMSolver fem (gv[MASTER], a[MASTER], f[MASTER], p[MASTER], g[MASTER], d[MASTER], 1.0e-14 / E, 1e-6, 10);
 //  IASolver fem (gv[MASTER], a[MASTER], f[MASTER], d[MASTER], p[MASTER], g[MASTER]);
-  TwoSolver fem (gv[MASTER], gv[SLAVE], *a[MASTER], *a[SLAVE], *f[MASTER], *f[SLAVE], *d[MASTER], *d[SLAVE], *p[MASTER], *p[SLAVE], glue);
+  TwoSolver fem (gv[MASTER], gv[SLAVE], *a[MASTER], *a[SLAVE], *f[MASTER], *f[SLAVE], *d[MASTER], *d[SLAVE], *p[MASTER], *p[SLAVE], gluedPieces);
   
   try {   // Pokemon Exception Handling
     fem.solve();

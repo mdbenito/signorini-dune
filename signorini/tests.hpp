@@ -174,7 +174,7 @@ void testGmshBoundaryFunctor (const TGV& gv, const TFN& func, std::string base)
 
 
 template <class Glue, int body>
-void testContactSurfaces (const Glue& glue, std::string base)
+void testContactSurfaces (const std::vector<const Glue*>& gluedPieces, std::string base)
 {
   dune_static_assert((body==0 || body==1), "'body' can only be 0 or 1");
   
@@ -184,7 +184,7 @@ void testContactSurfaces (const Glue& glue, std::string base)
   
   const int         dim = GV::dimension;
   const int     domdimw = GV::dimensionworld;
-  const auto&        gv = glue.template gridView<body>();
+  const auto&        gv = gluedPieces.at(0)->template gridView<body>();
   const int numVertices = gv.size(dim);
   
   VertexMapper mapper (gv.grid());
@@ -192,26 +192,28 @@ void testContactSurfaces (const Glue& glue, std::string base)
   std::vector<ctype> support (numVertices, 0.0);
   std::vector<ctype> projection (numVertices * dim, 0.0);
   std::vector<ctype> normal (numVertices * dim, 0.0);
-  for (auto is = glue.template ibegin<body>(); is != glue.template iend<body>(); ++is) {
-    if (is->self() && is->neighbor()) {
-      const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
-      const int ivnum = ref.size (is->indexInInside (), 1, dim);
-      for (int i = 0; i < ivnum; ++i) {
-        int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
-        auto  idx = mapper.map (*(is->inside()), subi, dim);
-        support.at(idx) = 1.0;
-        auto pos = is->geometryInInside().local (ref.position (i, dim));
-        auto nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
-        nr /= nr.two_norm ();
-        for (int c = 0; c < dim; ++c)
-          projection.at (idx*dim + c) = nr[c];
-        
-        auto slaveVertex = is->geometry().corner (subi);
-        auto localSlave = is->geometry().local (slaveVertex);
-        nr = is->unitOuterNormal (localSlave);
-        nr *= (body == 0) ? 1.0 : -1.0;
-        for (int c = 0; c < dim; ++c)
-          normal.at (idx*dim + c) = nr[c];
+  for (auto glue : gluedPieces) {
+    for (auto is = glue->template ibegin<body>(); is != glue->template iend<body>(); ++is) {
+      if (is->self() && is->neighbor()) {
+        const auto& ref = GenericReferenceElements<ctype, dim>::general (is->inside()->type());
+        const int ivnum = ref.size (is->indexInInside (), 1, dim);
+        for (int i = 0; i < ivnum; ++i) {
+          int  subi = ref.subEntity (is->indexInInside (), 1, i, dim);
+          auto  idx = mapper.map (*(is->inside()), subi, dim);
+          support.at(idx) = 1.0;
+          auto pos = is->geometryInInside().local (ref.position (i, dim));
+          auto nr = is->geometryOutside().global (pos) - is->geometry().global (pos);
+          nr /= nr.two_norm ();
+          for (int c = 0; c < dim; ++c)
+            projection.at (idx*dim + c) = nr[c];
+          
+          auto slaveVertex = is->geometry().corner (subi);
+          auto localSlave = is->geometry().local (slaveVertex);
+          nr = is->unitOuterNormal (localSlave);
+          nr *= (body == 0) ? 1.0 : -1.0;
+          for (int c = 0; c < dim; ++c)
+            normal.at (idx*dim + c) = nr[c];
+        }
       }
     }
   }
