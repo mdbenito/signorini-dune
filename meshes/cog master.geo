@@ -196,7 +196,9 @@ Point{703} In Surface{107};
 Point{704} In Surface{107};
 
 Physical Surface(1) = {107};
-Physical Line(1) = { 403, 402, 401, 400, 399, 398, 397, 460 };  // Teeth in contact
-Physical Line(2) = { 465, 459, 464 }; // Neumann
+//Physical Line(1) = { 403, 402, 401, 400, 399, 398, 397, 460 };  // Teeth in contact
+//Physical Line(2) = { 465, 459, 464 }; // Neumann
+Physical Line(1) = { 400 };  // Teeth in contact
+Physical Line(2) = { 465, 459, 464, 403, 402, 401, 399, 398, 397, 460 }; // Neumann
 Physical Line(3) = { 462, 463 };  // Dirichlet
 

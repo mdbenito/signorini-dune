@@ -154,12 +154,12 @@ int main (int argc, char** argv)
     case COGS:
       contactGroups  [MASTER] << 1;       contactGroups  [SLAVE] << 1;
 #if DIM == 2
-      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 2e8)));
-      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, -2e8)));
-      dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
-      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (-3e6, 0.0)));
-      pEvals[SLAVE][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (3e6, 0.0)));
+      fEvals[MASTER][1] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      fEvals[SLAVE][1]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      dEvals[MASTER][3] = shared_ptr<VectorEval> (new VectorEval (coord2 (-0.1, 0.0)));
+      dEvals[SLAVE][3]  = shared_ptr<VectorEval> (new VectorEval (coord2 (0.1, 0.0)));
+      pEvals[MASTER][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
+      pEvals[SLAVE][2] = shared_ptr<VectorEval> (new VectorEval (coord2 (0.0, 0.0)));
       cEvals[MASTER][1] = shared_ptr<ScalarEval> (new ScalarEval (1.0));
       cEvals[SLAVE][1]  = shared_ptr<ScalarEval> (new ScalarEval (1.0));
 #endif
