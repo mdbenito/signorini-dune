@@ -1,7 +1,7 @@
 # Signorini-DUNE
 
 This is a finite element implementation of the problem of contact of two
-elastic bodies in the context of classical linear elasticity. We use a
+elastic bodies in the context of classical linear elasticity [6]. We use a
 mortar method [2] for the discretization and an active/inactive dual set
 strategy [1] for the resolution of the non-linearity stemming from the 
 non-penetration condition.
@@ -26,7 +26,7 @@ You will need / want:
 * [Paraview](www.paraview.org) for visualization and postprocessing.
 * [Gmsh](http://gmsh.info/) for generating meshes [5].
 
-## Implementation details
+## Comments on the examples chosen
 
 For simplicity we considered simple geometries, two two-dimensional
 rectangular plates, one resting over the other, and solved the equations
@@ -61,6 +61,11 @@ different choice for A\_0, as explained in [1, §6.2]).
     International Journal for Numerical Methods in Engineering 79(11),
     pp. 1309-1331, 2009.
 
+[6] M. de Benito Delgado, “On the contact between two linearly elastic bodies,”
+    Master’s thesis, Technische Universität München, Munich, 2013.
 
+## License
 
-
+This software falls under the GNU general public license version 3 or later.
+It comes without **any warranty whatsoever**.
+For details see http://www.gnu.org/licenses/gpl-3.0.html.
